@@ -132,8 +132,8 @@ export default function TopicConfigTabs({
       handleApiError({ message: '请输入讨论方式描述' }, '请输入讨论方式描述')
       return
     }
-    if (aiPrompt.trim().length < 10) {
-      handleApiError({ message: '模式描述至少需要 10 个字符' }, '模式描述至少需要 10 个字符')
+    if (!aiPrompt.trim()) {
+      handleApiError({ message: '请输入模式描述' }, '请输入模式描述')
       return
     }
     setGenerating(true)
@@ -192,7 +192,7 @@ export default function TopicConfigTabs({
                 type="number"
                 className="w-14 border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-serif focus:border-black focus:outline-none transition-colors"
                 min={1}
-                max={999}
+                max={20}
                 value={numRounds}
                 onChange={(e) => setNumRounds(parseInt(e.target.value) || 1)}
               />
@@ -341,7 +341,7 @@ export default function TopicConfigTabs({
               <button
                 onClick={handleGenerateMode}
                 className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                disabled={generating || !aiPrompt.trim() || aiPrompt.trim().length < 10}
+                disabled={generating || !aiPrompt.trim()}
               >
                 {generating ? 'AI 生成中...' : 'AI 生成提示词'}
               </button>

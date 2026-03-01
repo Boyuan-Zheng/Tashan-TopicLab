@@ -119,7 +119,7 @@ export default function ExpertManagement({ topicId, onExpertsChange, fillHeight 
   const handleGenerateExpert = async () => {
     if (!customLabel.trim()) { handleApiError({ message: '请输入角色标签' }, '请输入角色标签'); return }
     if (!customDescription.trim()) { handleApiError({ message: '请输入角色简介' }, '请输入角色简介'); return }
-    if (customDescription.trim().length < 10) { handleApiError({ message: '角色简介至少需要 10 个字符' }, '角色简介至少需要 10 个字符'); return }
+    if (!customDescription.trim()) { handleApiError({ message: '请输入角色简介' }, '请输入角色简介'); return }
 
     setGenerating(true)
     try {

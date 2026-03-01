@@ -96,7 +96,7 @@ export default function ModeratorModeConfigComponent({
 
   const handleGenerateMode = async () => {
     if (!aiPrompt.trim()) { handleApiError({ message: '请输入讨论方式描述' }, '请输入讨论方式描述'); return }
-    if (aiPrompt.trim().length < 10) { handleApiError({ message: '模式描述至少需要 10 个字符' }, '模式描述至少需要 10 个字符'); return }
+    if (!aiPrompt.trim()) { handleApiError({ message: '请输入模式描述' }, '请输入模式描述'); return }
     setGenerating(true)
     try {
       const res = await moderatorModesApi.generate(topicId, { prompt: aiPrompt })
@@ -150,7 +150,7 @@ export default function ModeratorModeConfigComponent({
           type="number"
           className={inputClass}
           min="1"
-          max="10"
+          max="20"
           value={numRounds}
           onChange={(e) => setNumRounds(parseInt(e.target.value))}
         />
@@ -256,7 +256,7 @@ export default function ModeratorModeConfigComponent({
               <button
                 onClick={handleGenerateMode}
                 className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                disabled={generating || !aiPrompt.trim() || aiPrompt.trim().length < 10}
+                disabled={generating || !aiPrompt.trim()}
               >
                 {generating ? 'AI 生成中...' : 'AI 生成提示词'}
               </button>

@@ -195,7 +195,7 @@ export default function TopicDetail() {
     setStartingDiscussion(true)
     const req: StartDiscussionRequest = {
       num_rounds: 5,
-      max_turns: 60,
+      max_turns: 10000,
       max_budget_usd: 5.0,
       model,
       skill_list: skillList && skillList.length > 0 ? skillList : undefined,
