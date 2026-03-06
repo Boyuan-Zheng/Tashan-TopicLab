@@ -45,3 +45,5 @@ build/
 
 backend/workspace/
 frontend/.vite/
+
+workspace/agent_links_sessions/
