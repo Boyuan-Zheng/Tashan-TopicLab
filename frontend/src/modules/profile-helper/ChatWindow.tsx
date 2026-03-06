@@ -209,7 +209,7 @@ export function ChatWindow() {
         <div className="messages">
           {messages.length === 0 && (
             <div className="welcome">
-              <p>你好，我是科研发展画像采集助手。</p>
+              <p>你好，我是科研数字分身采集助手。</p>
               <p>你可以说「帮我建立画像」开始，或直接描述你的需求。</p>
             </div>
           )}

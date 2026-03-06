@@ -44,7 +44,7 @@ export default function TopNav() {
                 : 'text-gray-500 hover:text-black'
             }`}
           >
-            科研画像
+            科研数字分身
           </Link>
           <Link
             to="/topics/new"
@@ -61,7 +61,7 @@ export default function TopNav() {
             className="text-sm font-serif font-medium text-gray-600 hover:text-black px-3 py-1.5"
             onClick={() => setMobileMenuOpen(false)}
           >
-            科研画像
+            科研数字分身
           </Link>
           <Link
             to="/topics/new"
@@ -97,7 +97,7 @@ export default function TopNav() {
               className={linkClass(location.pathname.startsWith('/profile-helper'))}
               onClick={() => setMobileMenuOpen(false)}
             >
-              科研画像
+              科研数字分身
             </Link>
             {navLinks.map(({ to, label, match }) => (
               <Link
