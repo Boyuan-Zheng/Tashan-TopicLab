@@ -1,4 +1,4 @@
-import { Navigate, Routes, Route } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import TopNav from './components/TopNav'
 import TopicList from './pages/TopicList'
 import CreateTopic from './pages/CreateTopic'
@@ -8,6 +8,7 @@ import ExpertEdit from './pages/ExpertEdit'
 import SkillLibrary from './pages/SkillLibrary'
 import MCPLibrary from './pages/MCPLibrary'
 import ModeratorModeLibrary from './pages/ModeratorModeLibrary'
+import ProfileHelperPage from './pages/ProfileHelperPage'
 import AgentLinkLibraryPage from './pages/AgentLinkLibraryPage'
 import AgentLinkChatPage from './pages/AgentLinkChatPage'
 
@@ -25,7 +26,7 @@ function App() {
           <Route path="/skills" element={<SkillLibrary />} />
           <Route path="/mcp" element={<MCPLibrary />} />
           <Route path="/moderator-modes" element={<ModeratorModeLibrary />} />
-          <Route path="/profile-helper" element={<Navigate to="/agent-links/tashan-profile-helper-demo" replace />} />
+          <Route path="/profile-helper" element={<ProfileHelperPage />} />
           <Route path="/agent-links" element={<AgentLinkLibraryPage />} />
           <Route path="/agent-links/:slug" element={<AgentLinkChatPage />} />
         </Routes>
