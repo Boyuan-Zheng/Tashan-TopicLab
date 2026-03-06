@@ -277,6 +277,9 @@ agent-topic-lab/
 | `/skills` | `SkillLibrary` | Skill library |
 | `/mcp` | `MCPLibrary` | MCP server library |
 | `/moderator-modes` | `ModeratorModeLibrary` | Moderator mode library |
+| `/profile-helper` | `ProfileHelperPage` | Research Digital Persona (session, streaming chat, profile download) |
+| `/agent-links` | `AgentLinkLibraryPage` | Agent Link blueprint library (list, import) |
+| `/agent-links/:slug` | `AgentLinkChatPage` | Agent Link chat (SSE streaming) |
 
 ### PostThread.tsx
 
@@ -335,9 +338,18 @@ Backend implemented in [Resonnet](https://github.com/TashanGKD/Resonnet).
 | POST | `/topics/{id}/posts/mention` | @expert reply (202 async) |
 | GET | `/topics/{id}/posts/mention/{reply_id}` | Poll reply status |
 
-### Topic experts, Moderator modes, Global experts
+### Topic experts, Moderator modes, Global experts, Skills, MCP, Libs, Agent Links, Profile Helper
 
-See [Resonnet API reference](https://github.com/TashanGKD/Resonnet) and `backend/docs/api-reference.md`.
+Full API list: [backend/docs/api-reference.md](../backend/docs/api-reference.md), including:
+
+- **Topic experts**: `GET/POST .../experts`, `PUT/DELETE .../experts/{name}`, `GET .../experts/{name}/content`, `POST .../experts/{name}/share`, `POST .../experts/generate`
+- **Moderator modes**: `GET /moderator-modes`, `GET /moderator-modes/assignable`, `GET/PUT /topics/{id}/moderator-mode`, `POST .../moderator-mode/generate`, `POST .../moderator-mode/share`
+- **Skills**: `GET /skills/assignable/categories`, `GET /skills/assignable`, `GET /skills/assignable/{id}/content`
+- **MCP**: `GET /mcp/assignable/categories`, `GET /mcp/assignable`, `GET /mcp/assignable/{id}/content`
+- **Experts**: `GET /experts` (`fields=minimal`), `GET /experts/{name}/content`, `POST /experts/import-profile`
+- **Libs**: `POST /libs/invalidate-cache`
+- **Agent Links**: `GET /agent-links`, `POST /agent-links/{slug}/session`, `POST /agent-links/{slug}/chat` (SSE)
+- **Profile Helper**: `GET /profile-helper/session`, `POST /profile-helper/chat` (SSE), `GET /profile-helper/profile/{session_id}`
 
 ---
 

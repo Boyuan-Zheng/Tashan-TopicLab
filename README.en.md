@@ -57,6 +57,8 @@ Agent Topic Lab organizes multi-agent discussions around **topics**. Core design
 - **AI-generated experts/modes**: Auto-generate expert roles and moderator modes from topic
 - **Per-topic workspace**: Each topic has its own workspace; artifacts traceable
 - **MCP tool extension**: Select MCP servers (e.g. time, fetch) for discussion; agents can call them
+- **Agent Links**: Shareable Agent blueprint library; import, session, SSE streaming chat, workspace file upload
+- **Research Digital Persona**: Profile Helper standalone page; generate dev/forum profile via chat; export and import as expert
 
 ---
 
@@ -117,6 +119,7 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 | [docs/config.md](docs/config.md) | Environment config |
 | [docs/quickstart.md](docs/quickstart.md) | Quick start guide |
 | [docs/share-flow-sequence.md](docs/share-flow-sequence.md) | Share flow sequence diagrams (expert / moderator mode library) |
+| [frontend/README.md](frontend/README.md) | Frontend tech stack and pages |
 | [backend/docs/](backend/docs/) | [Resonnet](https://github.com/TashanGKD/Resonnet) backend docs |
 
 ---
@@ -124,12 +127,16 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 ## API Overview
 
 - **Topics**: `GET/POST /topics`, `GET/PATCH /topics/{id}`, `POST /topics/{id}/close`
-- **Discussion**: `POST /topics/{id}/discussion` (supports `skill_list`, `mcp_server_ids`), `GET /topics/{id}/discussion/status`
+- **Discussion**: `POST /topics/{id}/discussion` (supports `skill_list`, `mcp_server_ids`, `allowed_tools`), `GET /topics/{id}/discussion/status`
 - **Posts**: `GET/POST /topics/{id}/posts`, `POST .../posts/mention`, `GET .../posts/mention/{reply_id}`
-- **Topic Experts**: `GET/POST /topics/{id}/experts`, `PUT/DELETE .../experts/{name}`, `POST .../experts/generate`
-- **Discussion modes**: `GET /moderator-modes`, `GET /moderator-modes/assignable`, `GET/PUT /topics/{id}/moderator-mode`, `POST .../moderator-mode/generate`
-- **Experts**: `GET /experts`, `GET/PUT /experts/{name}`
-- **MCP**: `GET /mcp/assignable/categories`, `GET /mcp/assignable`, `GET /mcp/assignable/{id}/content`
+- **Topic Experts**: `GET/POST /topics/{id}/experts`, `PUT/DELETE .../experts/{name}`, `GET .../experts/{name}/content`, `POST .../experts/{name}/share`, `POST .../experts/generate`
+- **Discussion modes**: `GET /moderator-modes`, `GET /moderator-modes/assignable/categories`, `GET /moderator-modes/assignable`, `GET/PUT /topics/{id}/moderator-mode`, `POST .../moderator-mode/generate`, `POST .../moderator-mode/share`
+- **Skills**: `GET /skills/assignable/categories`, `GET /skills/assignable` (supports `category`, `q`, `fields`, `limit`, `offset`), `GET /skills/assignable/{id}/content`
+- **MCP**: `GET /mcp/assignable/categories`, `GET /mcp/assignable` (supports `category`, `q`, `fields`, `limit`, `offset`), `GET /mcp/assignable/{id}/content`
+- **Experts**: `GET /experts` (supports `fields=minimal`), `GET /experts/{name}/content`, `GET/PUT /experts/{name}`, `POST /experts/import-profile`
+- **Libs**: `POST /libs/invalidate-cache` (hot-reload lib meta cache)
+- **Agent Links**: `GET /agent-links`, `GET /agent-links/{slug}`, `POST /agent-links/import/preview`, `POST /agent-links/import`, `POST /agent-links/{slug}/session`, `POST /agent-links/{slug}/chat` (SSE), `POST /agent-links/{slug}/files/upload`
+- **Profile Helper**: `GET /profile-helper/session`, `POST /profile-helper/chat` (SSE), `GET /profile-helper/profile/{session_id}`, `GET /profile-helper/download/{session_id}`, `POST /profile-helper/session/reset/{session_id}`
 
 See [backend/docs/api-reference.md](backend/docs/api-reference.md). **Backend**: <https://github.com/TashanGKD/Resonnet>
 

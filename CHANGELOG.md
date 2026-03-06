@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-07
+
+### Added
+
+**Backend (Resonnet)**
+
+- Agent Links: `GET /agent-links`, `GET /agent-links/{slug}`, `POST /agent-links/import/preview`, `POST /agent-links/import`, `POST /agent-links/{slug}/session`, `POST /agent-links/{slug}/chat` (SSE), `POST /agent-links/{slug}/files/upload`
+- Profile Helper: `GET /profile-helper/session`, `POST /profile-helper/chat` (SSE), `GET /profile-helper/profile/{session_id}`, `GET /profile-helper/download/{session_id}`, `POST /profile-helper/session/reset/{session_id}`
+- Experts import: `POST /experts/import-profile` — import forum profile into global expert library (topiclab_shared)
+
+**Frontend**
+
+- Agent Link library page `/agent-links`: blueprint list, import, session creation, SSE chat stream, workspace file upload
+- Agent Link chat page `/agent-links/:slug`: streaming chat, session binding
+- Research Digital Persona (Profile Helper) page `/profile-helper`: standalone route, session, streaming chat, profile download
+
+**Docs**
+
+- README, CHANGELOG, api-reference: sync API overview (Agent Links, Profile Helper, Skills, Libs, Experts import-profile)
+
 ## [1.2.0] - 2026-03-01
 
 ### Added
@@ -18,9 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Frontend**
 
-- Expert card portal menu: edit/share actions on expert cards; 「共享」shares to platform library
-- Moderator mode share: 「共享到讨论方式库」dialog in TopicConfigTabs/ModeratorModeConfig; `mode_id`, `name`, `description` input
-- AI discussion tab UX: rename to 「AI讨论」; shortcut button; expanded description; hide when started; nudge animation
+- Expert card portal menu: edit/share actions on expert cards; "Share" shares to platform library
+- Moderator mode share: "Share to moderator mode library" dialog in TopicConfigTabs/ModeratorModeConfig; `mode_id`, `name`, `description` input
+- AI discussion tab UX: rename to "AI Discussion"; shortcut button; expanded description; hide when started; nudge animation
 - `topicExpertsApi.share()`, `moderatorModesApi.share()`; refetch experts list after share
 
 **Docs**
@@ -53,12 +73,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Frontend**
 
 - Mobile responsiveness: TopNav hamburger menu on small screens; responsive padding (`px-4 sm:px-6`); `viewport-fit=cover` and `safe-area-inset-*` for notched devices; TopicDetail mobile TOC; TabPanel horizontal scroll; touch target optimization (44px for reply buttons)
-- `MobileSourceCategoryToc`: two-level mobile directory (source → category); source row selects, category row navigates; scroll fade hint; labels "来源" / "分类" for hierarchy
+- `MobileSourceCategoryToc`: two-level mobile directory (source → category); source row selects, category row navigates; scroll fade hint; labels "Source" / "Category" for hierarchy
 - Library grids (Expert, Skill, MCP, ModeratorMode): single-column layout on mobile; full-width cards; selected chips panel `max-h-28` with overflow scroll in embed mode; compact chip bubbles on mobile
 - TopicDetail/TopicList: title and status badge on same line on all breakpoints
 - TopicList: hide body paragraph when topic has no body content
 - TOC alignment fix: `self-start` and `items-start` to prevent sidebar stretch; `min-w-0 overflow-x-hidden` to avoid overlap
-- `libsApi.invalidateCache()`; 「刷新库」button on SkillLibrary
+- `libsApi.invalidateCache()`; "Refresh library" button on SkillLibrary
 - `expertsApi.list(params?)`, `expertsApi.getContent(name)`; `q` param on list APIs
 - ExpertList, ExpertSelector: fetch content on demand when opening detail
 
