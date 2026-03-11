@@ -289,7 +289,6 @@ export default function TopicConfigTabs({
       label: 'MCP',
       content: (
         <div className="h-full flex flex-col min-h-0 overflow-hidden">
-          <p className="text-xs text-gray-500 mb-2 flex-shrink-0">点击 + 选择要启用的 MCP 服务器，选中的会拷贝到话题工作区。</p>
           <div className="flex-1 min-h-0 overflow-hidden">
             <MCPServerSelector
               value={selectedMcpIds}

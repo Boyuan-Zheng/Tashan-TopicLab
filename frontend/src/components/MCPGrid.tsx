@@ -179,6 +179,16 @@ export default function MCPGrid(props: MCPGridProps) {
     />
   )
 
+  const instructionText =
+    props.mode === 'select' ? (
+      <p className="text-xs text-gray-500 mb-2 flex-shrink-0">
+        点击 + 选择要启用的 MCP 服务器，选中的会拷贝到话题工作区。
+        {selectedMcps.length === 0 && (
+          <span className="ml-1">不选择则自动使用全部 MCP 服务器（共 {allMcps.length} 个）。</span>
+        )}
+      </p>
+    ) : null
+
   const selectedChipsSection =
     props.mode === 'select' && selectedMcps.length > 0 ? (
       <div
@@ -205,6 +215,8 @@ export default function MCPGrid(props: MCPGridProps) {
   return (
     <div className={rootClass}>
       {!isFill && searchInput}
+
+      {instructionText}
 
       {selectedChipsSection && !(layout === 'embed' && filteredMcps.length > 0) && selectedChipsSection}
 
