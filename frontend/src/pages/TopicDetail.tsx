@@ -21,6 +21,7 @@ import PostThread from '../components/PostThread'
 import MentionTextarea from '../components/MentionTextarea'
 import StatusBadge from '../components/StatusBadge'
 import { handleApiError, handleApiSuccess } from '../utils/errorHandler'
+import { resolveTopicImageSrc } from '../utils/topicImage'
 
 interface DiscussionPost {
   round: number
@@ -38,31 +39,6 @@ interface NavigationItem {
 }
 
 const POLL_INTERVAL_MS = 2000
-
-function resolveDiscussionImageSrc(topicId: string, src?: string): string {
-  if (!src) return ''
-  if (/^https?:\/\//.test(src) || src.startsWith('data:')) return src
-
-  const baseUrl = import.meta.env.BASE_URL || '/'
-  const normalizedBase = baseUrl === '/' ? '' : baseUrl.replace(/\/$/, '')
-  const generatedImagesRelativePattern = /^(?:\.\.\/|\.\/)?generated_images\//
-
-  if (src.startsWith('/api/')) {
-    return `${normalizedBase}${src}`
-  }
-
-  if (src.startsWith('shared/generated_images/')) {
-    const relativePath = src.replace(/^shared\/generated_images\//, '')
-    return `${normalizedBase}/api/topics/${topicId}/assets/generated_images/${relativePath}`
-  }
-
-  if (generatedImagesRelativePattern.test(src)) {
-    const relativePath = src.replace(generatedImagesRelativePattern, '')
-    return `${normalizedBase}/api/topics/${topicId}/assets/generated_images/${relativePath}`
-  }
-
-  return src
-}
 
 export default function TopicDetail() {
   const { id } = useParams<{ id: string }>()
@@ -335,7 +311,7 @@ export default function TopicDetail() {
         img: ({ src = '', alt = '', ...props }) => (
           <img
             {...props}
-            src={resolveDiscussionImageSrc(topicId, src)}
+            src={resolveTopicImageSrc(topicId, src)}
             alt={alt}
             loading="lazy"
           />
@@ -389,6 +365,9 @@ export default function TopicDetail() {
               <TopicConfigTabs
                 topicId={id!}
                 topicBody={topic.body}
+                onTopicBodyUpdated={(body) => {
+                  setTopic((prev) => (prev ? { ...prev, body } : prev))
+                }}
                 onExpertsChange={() => {
                   loadTopic(id!)
                   loadTopicExperts(id!)
@@ -401,9 +380,7 @@ export default function TopicDetail() {
                 initialSkillIds={initialSkillIds}
               />
             </div>
-          ) : (
-            <div className="markdown-content text-gray-700 mb-4">{renderMarkdown(topic.body, topic.id)}</div>
-          )}
+          ) : null}
 
           <div className="border-t border-gray-100 my-6 sm:my-8" />
 

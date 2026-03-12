@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
-import { moderatorModesApi, ROUNDTABLE_MODELS, AssignableModeratorMode } from '../api/client'
+import { moderatorModesApi, ROUNDTABLE_MODELS, AssignableModeratorMode, topicsApi } from '../api/client'
 import { handleApiError, handleApiSuccess } from '../utils/errorHandler'
 import { inputClass } from './selectors/styles'
 import TabPanel from './TabPanel'
@@ -17,6 +17,7 @@ export type ConfigTabId = 'detail' | 'experts' | 'mode' | 'skills' | 'mcp' | 'mo
 interface TopicConfigTabsProps {
   topicId: string
   topicBody?: string
+  onTopicBodyUpdated?: (body: string) => void
   onExpertsChange?: () => void
   onModeChange?: () => void
   onStartDiscussion?: (model: string, skillList?: string[], mcpServerIds?: string[]) => Promise<void>
@@ -29,6 +30,7 @@ interface TopicConfigTabsProps {
 export default function TopicConfigTabs({
   topicId,
   topicBody = '',
+  onTopicBodyUpdated,
   onExpertsChange,
   onModeChange,
   onStartDiscussion,
@@ -38,6 +40,9 @@ export default function TopicConfigTabs({
   initialSkillIds,
 }: TopicConfigTabsProps) {
   const [activeTabId, setActiveTabId] = useState<ConfigTabId>('detail')
+  const [detailBody, setDetailBody] = useState(topicBody)
+  const [editingDetail, setEditingDetail] = useState(false)
+  const [savingDetail, setSavingDetail] = useState(false)
 
   // Moderator mode state
   const [modeLoading, setModeLoading] = useState(true)
@@ -63,6 +68,12 @@ export default function TopicConfigTabs({
     loadCurrentConfig()
     moderatorModesApi.listAssignable().then((r) => setAssignableModes(Array.isArray(r.data) ? r.data : [])).catch(() => {})
   }, [topicId])
+
+  useEffect(() => {
+    if (!editingDetail) {
+      setDetailBody(topicBody || '')
+    }
+  }, [topicBody, editingDetail])
 
 
   const skipNextSaveRef = useRef(false)
@@ -191,15 +202,75 @@ export default function TopicConfigTabs({
     )
   }
 
+  const handleSaveTopicBody = async () => {
+    setSavingDetail(true)
+    try {
+      const res = await topicsApi.update(topicId, { body: detailBody })
+      const updatedBody = res.data.body || ''
+      setDetailBody(updatedBody)
+      setEditingDetail(false)
+      onTopicBodyUpdated?.(updatedBody)
+      handleApiSuccess('话题描述已更新')
+    } catch (err) {
+      handleApiError(err, '更新话题描述失败')
+    } finally {
+      setSavingDetail(false)
+    }
+  }
+
   const tabs = [
     {
       id: 'detail' as ConfigTabId,
       label: '话题详情',
       content: (
-        <div className="markdown-content text-gray-700">
-          <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-            {topicBody || '暂无内容'}
-          </ReactMarkdown>
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            {!editingDetail ? (
+              <button
+                type="button"
+                onClick={() => setEditingDetail(true)}
+                className="text-xs border border-gray-200 rounded px-2.5 py-1 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                编辑描述
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDetailBody(topicBody || '')
+                    setEditingDetail(false)
+                  }}
+                  className="text-xs border border-gray-200 rounded px-2.5 py-1 text-gray-600 hover:bg-gray-50 transition-colors"
+                  disabled={savingDetail}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveTopicBody}
+                  className="text-xs bg-black text-white rounded px-2.5 py-1 hover:bg-gray-900 transition-colors disabled:opacity-50"
+                  disabled={savingDetail}
+                >
+                  {savingDetail ? '保存中...' : '保存'}
+                </button>
+              </div>
+            )}
+          </div>
+          {editingDetail ? (
+            <textarea
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none transition-colors min-h-[160px] resize-y"
+              value={detailBody}
+              onChange={(e) => setDetailBody(e.target.value)}
+              placeholder="输入话题描述（支持 Markdown）"
+            />
+          ) : (
+            <div className="markdown-content text-gray-700">
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                {detailBody || '暂无内容'}
+              </ReactMarkdown>
+            </div>
+          )}
         </div>
       ),
     },

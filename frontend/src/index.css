@@ -183,7 +183,11 @@
 }
 
 .markdown-content img {
-  @apply block max-w-full h-auto my-4 rounded-xl border border-gray-200 bg-gray-50 shadow-sm;
+  @apply block h-auto my-4 rounded-xl border border-gray-200 bg-gray-50 shadow-sm mx-auto;
+  max-height: min(72vh, 520px);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 .markdown-content p > img:only-child {

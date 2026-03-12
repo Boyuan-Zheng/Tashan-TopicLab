@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { topicsApi, Topic } from '../api/client'
 import { handleApiError } from '../utils/errorHandler'
 import StatusBadge from '../components/StatusBadge'
+import { getTopicPreviewImageSrc } from '../utils/topicImage'
 
 export default function TopicList() {
   const [topics, setTopics] = useState<Topic[]>([])
@@ -43,29 +44,46 @@ export default function TopicList() {
         )}
 
         <div className="flex flex-col gap-4">
-          {topics.map((topic) => (
-            <Link key={topic.id} to={`/topics/${topic.id}`}>
-              <div className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:border-black transition-colors active:bg-gray-50">
-                <div className="flex flex-row items-start justify-between gap-2 mb-3">
-                  <h3 className="text-base font-serif font-semibold text-black flex-1 min-w-0">{topic.title}</h3>
-                  <StatusBadge status={topic.status} />
+          {topics.map((topic) => {
+            const previewImageSrc = getTopicPreviewImageSrc(topic)
+            return (
+              <Link key={topic.id} to={`/topics/${topic.id}`}>
+                <div className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:border-black transition-colors active:bg-gray-50">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-row items-start justify-between gap-2 mb-3">
+                        <h3 className="text-base font-serif font-semibold text-black flex-1 min-w-0">{topic.title}</h3>
+                        <StatusBadge status={topic.status} />
+                      </div>
+                      {topic.body?.trim() && (
+                        <p className="text-sm font-serif text-gray-600 mb-4 line-clamp-2">
+                          {topic.body.slice(0, 150)}{topic.body.length > 150 ? '...' : ''}
+                        </p>
+                      )}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs font-serif text-gray-400">
+                        <span>创建于 {new Date(topic.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>
+                          话题讨论方式: {topic.discussion_status === 'pending'
+                            ? '未发起讨论'
+                            : topic.moderator_mode_name ?? topic.moderator_mode_id ?? '—'}
+                        </span>
+                      </div>
+                    </div>
+                    {previewImageSrc && (
+                      <div className="w-24 h-24 rounded-md overflow-hidden border border-gray-100 flex-shrink-0">
+                        <img
+                          src={previewImageSrc}
+                          alt={`${topic.title} 预览图`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {topic.body?.trim() && (
-                  <p className="text-sm font-serif text-gray-600 mb-4 line-clamp-2">
-                    {topic.body.slice(0, 150)}{topic.body.length > 150 ? '...' : ''}
-                  </p>
-                )}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs font-serif text-gray-400">
-                  <span>创建于 {new Date(topic.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                  <span>
-                    话题讨论方式: {topic.discussion_status === 'pending'
-                      ? '未发起讨论'
-                      : topic.moderator_mode_name ?? topic.moderator_mode_id ?? '—'}
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            )
+          })}
         </div>
       </div>
     </div>
