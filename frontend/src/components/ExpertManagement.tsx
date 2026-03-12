@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { TopicExpert, topicExpertsApi } from '../api/client'
+import { authApi, DigitalTwinRecord, tokenManager } from '../api/auth'
 import { handleApiError, handleApiSuccess } from '../utils/errorHandler'
 import ExpertSelector from './ExpertSelector'
 
@@ -17,9 +18,14 @@ export default function ExpertManagement({ topicId, onExpertsChange, fillHeight 
   const [loading, setLoading] = useState(true)
   const [expertListRefreshTrigger, setExpertListRefreshTrigger] = useState(0)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [selectedExpert, setSelectedExpert] = useState<TopicExpert | null>(null)
   const [editContent, setEditContent] = useState('')
+  const [digitalTwins, setDigitalTwins] = useState<DigitalTwinRecord[]>([])
+  const [loadingTwins, setLoadingTwins] = useState(false)
+  const [selectedTwinName, setSelectedTwinName] = useState('')
+  const [importingTwin, setImportingTwin] = useState(false)
 
   const [customName, setCustomName] = useState('')
   const [customLabel, setCustomLabel] = useState('')
@@ -118,6 +124,85 @@ export default function ExpertManagement({ topicId, onExpertsChange, fillHeight 
     }
   }
 
+  const sanitizeExpertName = (input: string): string => {
+    const normalized = input
+      .trim()
+      .toLowerCase()
+      .replace(/[^\w]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+    return normalized || `digital_twin_${Date.now().toString(36)}`
+  }
+
+  const buildMaskedRoleContent = (displayName: string, description: string) => {
+    return [
+      `# ${displayName}`,
+      '',
+      '> 此角色来源于私密数字分身，内容已脱敏。',
+      '',
+      '## 可公开信息',
+      '',
+      description ? `- 简介：${description}` : '- 简介：未提供',
+      '',
+      '## 使用说明',
+      '',
+      '- 可参与话题讨论，但不暴露原始私密分身全文。',
+    ].join('\n')
+  }
+
+  const openImportDialog = async () => {
+    const token = tokenManager.get()
+    if (!token) {
+      handleApiError(new Error('未登录'), '请先登录后再导入数字分身')
+      return
+    }
+    setShowImportDialog(true)
+    setLoadingTwins(true)
+    try {
+      const res = await authApi.getDigitalTwins(token)
+      setDigitalTwins(res.digital_twins || [])
+      setSelectedTwinName((res.digital_twins?.[0]?.agent_name ?? ''))
+    } catch (err) {
+      handleApiError(err, '加载数字分身失败')
+    } finally {
+      setLoadingTwins(false)
+    }
+  }
+
+  const handleImportTwin = async () => {
+    const token = tokenManager.get()
+    if (!token || !selectedTwinName) return
+    setImportingTwin(true)
+    try {
+      const detailRes = await authApi.getDigitalTwinDetail(token, selectedTwinName)
+      const twin = detailRes.digital_twin
+      const displayName = twin.display_name || twin.expert_name || twin.agent_name || '我的数字分身'
+      const expertName = sanitizeExpertName(twin.expert_name || twin.agent_name || displayName)
+      const isPrivate = twin.visibility === 'private'
+      const roleContent = isPrivate
+        ? buildMaskedRoleContent(displayName, `来自私密分身「${displayName}」`)
+        : (twin.role_content || buildMaskedRoleContent(displayName, '导入时未提供详情'))
+
+      await topicExpertsApi.add(topicId, {
+        source: 'custom',
+        name: expertName,
+        label: displayName,
+        description: isPrivate ? '来自私密数字分身（已脱敏）' : '来自数字分身导入',
+        role_content: roleContent,
+        origin_type: 'digital_twin',
+        origin_visibility: twin.visibility || 'private',
+        masked: isPrivate,
+      })
+      setShowImportDialog(false)
+      await loadExperts()
+      onExpertsChange?.()
+      handleApiSuccess(isPrivate ? '私密分身已脱敏导入' : '数字分身导入成功')
+    } catch (err) {
+      handleApiError(err, '导入数字分身失败')
+    } finally {
+      setImportingTwin(false)
+    }
+  }
+
   const handleGenerateExpert = async () => {
     if (!customLabel.trim()) { handleApiError({ message: '请输入角色标签' }, '请输入角色标签'); return }
     if (!customDescription.trim()) { handleApiError({ message: '请输入角色简介' }, '请输入角色简介'); return }
@@ -154,11 +239,23 @@ export default function ExpertManagement({ topicId, onExpertsChange, fillHeight 
         >
           创建新角色
         </button>
+        <button
+          onClick={openImportDialog}
+          className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+        >
+          导入我的数字分身
+        </button>
       </div>
       <div className={fillHeight ? 'flex-1 min-h-0 overflow-hidden' : ''}>
         <ExpertSelector
           value={experts.map((e) => e.name)}
-          selectedExperts={experts.map((e) => ({ name: e.name, label: e.label, source: e.source }))}
+          selectedExperts={experts.map((e) => ({
+            name: e.name,
+            label: e.label,
+            source: e.source,
+            masked: e.masked,
+            origin_visibility: e.origin_visibility,
+          }))}
           onChange={() => {}}
           onAdd={handleAddPreset}
           onRemove={handleRemove}
@@ -233,6 +330,57 @@ export default function ExpertManagement({ topicId, onExpertsChange, fillHeight 
         </div>
       )}
 
+      {showImportDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowImportDialog(false)}>
+          <div className="bg-white p-6 max-w-lg w-[90%] border border-gray-200 rounded-lg" onClick={e => e.stopPropagation()}>
+            <h3 className="font-serif font-semibold text-black mb-2">导入我的数字分身</h3>
+            <p className="text-xs text-gray-500 mb-4">私密分身会自动脱敏后导入，其他用户无法获取原始内容。</p>
+            {loadingTwins ? (
+              <p className="text-sm text-gray-500">加载中...</p>
+            ) : digitalTwins.length === 0 ? (
+              <p className="text-sm text-gray-500">暂无可导入分身</p>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-auto border border-gray-100 rounded-lg p-2 mb-4">
+                {digitalTwins.map((twin) => (
+                  <label key={twin.agent_name} className="flex items-start gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="selectedTwin"
+                      className="mt-1"
+                      checked={selectedTwinName === twin.agent_name}
+                      onChange={() => setSelectedTwinName(twin.agent_name)}
+                    />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-black truncate">
+                        {twin.display_name || twin.expert_name || twin.agent_name}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        可见性：{twin.visibility === 'private' ? '私密（将脱敏导入）' : '公开'}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={handleImportTwin}
+                disabled={importingTwin || loadingTwins || !selectedTwinName}
+                className="bg-black text-white px-4 py-2 text-sm font-serif hover:bg-gray-900 transition-colors disabled:opacity-50"
+              >
+                {importingTwin ? '导入中...' : '确认导入'}
+              </button>
+              <button
+                onClick={() => setShowImportDialog(false)}
+                className="border border-gray-200 rounded-lg px-4 py-2 text-sm font-serif text-black hover:border-black transition-colors"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showEditDialog && selectedExpert && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
@@ -243,6 +391,11 @@ export default function ExpertManagement({ topicId, onExpertsChange, fillHeight 
             onClick={e => e.stopPropagation()}
           >
             <h3 className="font-serif font-semibold text-black mb-4">编辑角色：{selectedExpert.label}</h3>
+            {selectedExpert.masked && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+                此角色来源于私密数字分身，当前展示内容已脱敏。
+              </p>
+            )}
 
             <label className={labelClass}>角色定义（Markdown）</label>
             <textarea

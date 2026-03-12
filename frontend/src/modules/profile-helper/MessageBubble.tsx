@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { UserAvatar, RobotAvatar } from './LoadingDots'
 
 function CodeBlockWithCopy({
@@ -55,6 +56,7 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
         ) : (
           <div className="message-markdown">
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 pre: CodeBlockWithCopy,
               }}

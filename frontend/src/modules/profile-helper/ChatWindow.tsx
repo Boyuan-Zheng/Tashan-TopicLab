@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MessageBubble } from './MessageBubble'
 import { LoadingDots, RobotAvatar } from './LoadingDots'
-import { ProfilePanel } from './ProfilePanel'
 import {
   getOrCreateSession,
   sendMessage,
@@ -9,7 +9,6 @@ import {
   getProfile,
 } from './profileHelperApi'
 import { PROFILE_HELPER_MODELS } from '../../api/client'
-import api from '../../api/client'
 
 const SESSION_KEYS = ['tashan_session_id', 'tashan_profile_session_id'] as const
 
@@ -30,17 +29,16 @@ function setStoredSessionId(id: string) {
 export function ChatWindow() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
-  const [profile, setProfile] = useState('')
-  const [forumProfile, setForumProfile] = useState('')
+  const [, setProfile] = useState('')
+  const [, setForumProfile] = useState('')
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [initialized, setInitialized] = useState(false)
-  const [view, setView] = useState<'chat' | 'profile'>('chat')
   const [selectedModel, setSelectedModel] = useState<string>(PROFILE_HELPER_MODELS[0]?.value ?? '')
-  const [importLoading, setImportLoading] = useState(false)
-  const [importResult, setImportResult] = useState<string | null>(null)
+  const [, setImportResult] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const navigate = useNavigate()
 
   const fetchProfile = useCallback(async (sid: string) => {
     try {
@@ -63,6 +61,30 @@ export function ChatWindow() {
     }
     init()
   }, [fetchProfile])
+
+  useEffect(() => {
+    if (!sessionId) return
+    try {
+      const raw = localStorage.getItem(`profile_helper_chat_${sessionId}`)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          setMessages(parsed)
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [sessionId])
+
+  useEffect(() => {
+    if (!sessionId) return
+    try {
+      localStorage.setItem(`profile_helper_chat_${sessionId}`, JSON.stringify(messages))
+    } catch {
+      // ignore
+    }
+  }, [sessionId, messages])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -125,26 +147,6 @@ export function ChatWindow() {
     }
   }
 
-  const handleImportToTopicLab = async () => {
-    if (!forumProfile || !sessionId) return
-    setImportLoading(true)
-    setImportResult(null)
-    try {
-      const res = await api.post<{ message: string; expert_name: string }>(
-        '/experts/import-profile',
-        {
-          forum_profile: forumProfile,
-          session_id: sessionId,
-        }
-      )
-      setImportResult(`已导入角色「${res.data.expert_name}」到 Topic-Lab 角色库`)
-    } catch (e) {
-      setImportResult(`导入失败: ${e instanceof Error ? e.message : String(e)}`)
-    } finally {
-      setImportLoading(false)
-    }
-  }
-
   const showLoadingDots =
     loading &&
     messages.length > 0 &&
@@ -153,27 +155,6 @@ export function ChatWindow() {
 
   if (!initialized) {
     return <div className="chat-loading">加载中...</div>
-  }
-
-  if (view === 'profile') {
-    return (
-      <div className="profile-page">
-        <header className="profile-page-header">
-          <h1>科研数字分身</h1>
-          <button type="button" className="back-btn" onClick={() => setView('chat')}>
-            返回对话
-          </button>
-        </header>
-        <ProfilePanel
-          sessionId={sessionId}
-          profile={profile}
-          forumProfile={forumProfile}
-          onImportToTopicLab={handleImportToTopicLab}
-          importLoading={importLoading}
-          importResult={importResult}
-        />
-      </div>
-    )
   }
 
   return (
@@ -197,9 +178,9 @@ export function ChatWindow() {
             <button
               type="button"
               className="view-profile-btn"
-              onClick={() => setView('profile')}
+              onClick={() => navigate('/profile-helper/profile')}
             >
-              查看数字分身
+              我的分身
             </button>
             <button
               type="button"

@@ -115,7 +115,7 @@ export function ExpertChip({
   onShare,
   onClick,
 }: {
-  expert: { name: string; label: string }
+  expert: { name: string; label: string; masked?: boolean; origin_visibility?: string }
   onRemove: () => void
   onEdit?: () => void
   onShare?: () => void
@@ -199,6 +199,14 @@ export function ExpertChip({
       <span className="flex-1 min-w-0 text-left truncate max-w-[100px] sm:max-w-none font-serif font-medium text-black">
         {expert.label}
       </span>
+      {expert.masked && (
+        <span
+          className="text-[10px] px-1.5 py-0.5 rounded-full border border-amber-300 text-amber-700 bg-amber-50"
+          title="私密分身来源，内容已脱敏"
+        >
+          脱敏
+        </span>
+      )}
       <div className="flex items-center gap-0.5 flex-shrink-0">
         {(onEdit || onShare) && (
           <div className="relative">

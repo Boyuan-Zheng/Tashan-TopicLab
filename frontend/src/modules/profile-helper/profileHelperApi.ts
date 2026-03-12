@@ -3,11 +3,19 @@ import { profileHelperApi } from '../../api/client'
 
 const API_BASE = `${import.meta.env.BASE_URL}api`
 
+function getAuthFetchHeaders(contentType: boolean = false): Record<string, string> {
+  const token = localStorage.getItem('auth_token')
+  const headers: Record<string, string> = {}
+  if (contentType) headers['Content-Type'] = 'application/json'
+  if (token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
+
 export async function getOrCreateSession(existingId?: string): Promise<string> {
   const url = existingId
     ? `${API_BASE}/profile-helper/session?session_id=${encodeURIComponent(existingId)}`
     : `${API_BASE}/profile-helper/session`
-  const res = await fetch(url)
+  const res = await fetch(url, { headers: getAuthFetchHeaders() })
   const data = await res.json()
   return data.session_id
 }
@@ -20,7 +28,7 @@ export async function sendMessage(
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/profile-helper/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthFetchHeaders(true),
     body: JSON.stringify({ session_id: sessionId, message, model: model || undefined }),
   })
   if (!res.ok) throw new Error(`请求失败: ${res.status}`)
@@ -64,7 +72,9 @@ export async function getProfile(sessionId: string): Promise<{
   profile: string
   forum_profile: string
 }> {
-  const res = await fetch(`${API_BASE}/profile-helper/profile/${sessionId}`)
+  const res = await fetch(`${API_BASE}/profile-helper/profile/${sessionId}`, {
+    headers: getAuthFetchHeaders(),
+  })
   if (!res.ok) throw new Error(`获取画像失败: ${res.status}`)
   return res.json()
 }
@@ -72,6 +82,62 @@ export async function getProfile(sessionId: string): Promise<{
 export async function resetSession(sessionId: string): Promise<void> {
   const res = await fetch(`${API_BASE}/profile-helper/session/reset/${sessionId}`, {
     method: 'POST',
+    headers: getAuthFetchHeaders(),
   })
   if (!res.ok) throw new Error(`重置失败: ${res.status}`)
+}
+
+export async function submitScale(
+  sessionId: string,
+  scaleName: string,
+  answers: Record<string, number>,
+  scores: Record<string, number>,
+  resultSummary?: Record<string, unknown>
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/profile-helper/scales/submit`, {
+    method: 'POST',
+    headers: getAuthFetchHeaders(true),
+    body: JSON.stringify({
+      session_id: sessionId,
+      scale_name: scaleName,
+      answers,
+      scores,
+      result_summary: resultSummary,
+    }),
+  })
+  if (!res.ok) throw new Error(`提交失败: ${res.status}`)
+}
+
+export interface PublishTwinPayload {
+  session_id: string
+  visibility: 'private' | 'public'
+  exposure: 'brief' | 'full'
+  display_name?: string
+}
+
+export interface PublishTwinResult {
+  ok: boolean
+  agent_name: string
+  display_name: string
+  visibility: string
+  exposure: string
+}
+
+export async function publishTwin(payload: PublishTwinPayload): Promise<PublishTwinResult> {
+  const res = await fetch(`${API_BASE}/profile-helper/publish-to-library`, {
+    method: 'POST',
+    headers: getAuthFetchHeaders(true),
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    let detail = `发布失败: ${res.status}`
+    try {
+      const data = await res.json()
+      detail = data.detail || detail
+    } catch {
+      // ignore
+    }
+    throw new Error(detail)
+  }
+  return res.json()
 }

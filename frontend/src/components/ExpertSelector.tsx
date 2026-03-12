@@ -7,7 +7,13 @@ import type { ExpertInfo } from '../api/client'
 
 export interface ExpertSelectorProps {
   value: string[]
-  selectedExperts: { name: string; label: string; source?: string }[]
+  selectedExperts: {
+    name: string
+    label: string
+    source?: string
+    masked?: boolean
+    origin_visibility?: string
+  }[]
   onChange: (names: string[]) => void
   onAdd: (name: string) => Promise<void>
   onRemove: (name: string) => Promise<void>

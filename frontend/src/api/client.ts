@@ -211,10 +211,13 @@ export interface TopicExpert {
   name: string
   label: string
   description: string
-  source: 'preset' | 'custom' | 'ai_generated'
+  source: 'preset' | 'custom' | 'ai_generated' | string
   role_file: string
   added_at: string
   is_from_topic_creation: boolean
+  origin_type?: 'digital_twin' | string
+  origin_visibility?: 'private' | 'public' | string
+  masked?: boolean
 }
 
 export interface AddExpertRequest {
@@ -225,6 +228,9 @@ export interface AddExpertRequest {
   description?: string
   role_content?: string
   user_prompt?: string
+  origin_type?: 'digital_twin' | string
+  origin_visibility?: 'private' | 'public' | string
+  masked?: boolean
 }
 
 export interface GenerateExpertRequest {

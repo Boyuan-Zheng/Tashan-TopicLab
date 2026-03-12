@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { createPortal } from 'react-dom'
+import { tokenManager, User } from '../api/auth'
 
 const navLinks = [
   { to: '/', label: '话题列表', match: (path: string) => path === '/' && !path.startsWith('/topics') && !path.startsWith('/experts') && !path.startsWith('/skills') && !path.startsWith('/mcp') && !path.startsWith('/moderator-modes') && !path.startsWith('/profile-helper') && !path.startsWith('/agent-links') },
@@ -12,12 +14,105 @@ const navLinks = [
 
 export default function TopNav() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [userMenuPosition, setUserMenuPosition] = useState({ top: 0, left: 0 })
+  const userMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const userMenuRef = useRef<HTMLDivElement | null>(null)
+
+  const loadUser = useCallback(() => {
+    const savedUser = tokenManager.getUser()
+    const token = tokenManager.get()
+    if (savedUser && token) {
+      setUser(savedUser)
+    } else {
+      setUser(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadUser()
+  }, [location.pathname, loadUser])
+
+  useEffect(() => {
+    const handleStorageChange = () => loadUser()
+    const handleAuthChange = () => loadUser()
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('auth-change', handleAuthChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('auth-change', handleAuthChange)
+    }
+  }, [loadUser])
+
+  const updateUserMenuPosition = useCallback(() => {
+    const trigger = userMenuTriggerRef.current
+    if (!trigger) return
+    const rect = trigger.getBoundingClientRect()
+    setUserMenuPosition({
+      top: rect.bottom + 8,
+      left: rect.right,
+    })
+  }, [])
+
+  useEffect(() => {
+    setUserMenuOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!userMenuOpen) return
+    updateUserMenuPosition()
+
+    const handleWindowChange = () => updateUserMenuPosition()
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (
+        userMenuRef.current?.contains(target) ||
+        userMenuTriggerRef.current?.contains(target)
+      ) {
+        return
+      }
+      setUserMenuOpen(false)
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setUserMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('resize', handleWindowChange)
+    window.addEventListener('scroll', handleWindowChange, true)
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      window.removeEventListener('resize', handleWindowChange)
+      window.removeEventListener('scroll', handleWindowChange, true)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [userMenuOpen, updateUserMenuPosition])
+
+  const handleLogout = () => {
+    tokenManager.remove()
+    tokenManager.clearUser()
+    setUser(null)
+    setUserMenuOpen(false)
+    window.dispatchEvent(new CustomEvent('auth-change'))
+    navigate('/')
+  }
 
   const linkClass = (isActive: boolean) =>
     `text-sm font-serif transition-all block py-2 ${
       isActive ? 'text-black font-medium' : 'text-gray-500 hover:text-black'
     }`
+
+  const hideNav = location.pathname === '/login' || location.pathname === '/register'
+
+  if (hideNav) {
+    return null
+  }
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 w-full bg-white border-b border-gray-200 safe-area-inset-top overflow-x-hidden">
@@ -54,9 +149,49 @@ export default function TopNav() {
           >
             + 创建话题
           </Link>
+
+          {/* User Menu */}
+          {user ? (
+            <div>
+              <button
+                ref={userMenuTriggerRef}
+                type="button"
+                onClick={() => {
+                  setUserMenuOpen(v => {
+                    const next = !v
+                    if (next) {
+                      requestAnimationFrame(updateUserMenuPosition)
+                    }
+                    return next
+                  })
+                }}
+                className="flex items-center gap-2 text-sm font-serif text-gray-600 hover:text-black"
+              >
+                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium">
+                  {(user.username || user.phone).charAt(0)}
+                </div>
+                <span className="max-w-[100px] truncate">{user.username || user.phone}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link
+                to="/login"
+                className="text-sm font-serif text-gray-600 hover:text-black"
+              >
+                登录
+              </Link>
+              <Link
+                to="/register"
+                className="bg-gray-100 text-black px-3 py-1.5 rounded-lg text-sm font-serif font-medium hover:bg-gray-200 whitespace-nowrap"
+              >
+                注册
+              </Link>
+            </div>
+          )}
         </div>
 
-        {/* Mobile: 科研画像 | 创建 | 汉堡 */}
+        {/* Mobile */}
         <div className="flex md:hidden items-center gap-2 shrink-0">
           <Link
             to="/profile-helper"
@@ -111,9 +246,70 @@ export default function TopNav() {
                 {label}
               </Link>
             ))}
+            {user ? (
+              <>
+                <div className="border-t border-gray-100 my-2"></div>
+                <div className="px-2 py-2 text-sm font-serif text-gray-600">
+                  {user.username || user.phone}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                  className="block w-full text-left px-2 py-2 text-sm font-serif text-gray-600 hover:text-black"
+                >
+                  退出登录
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="border-t border-gray-100 my-2"></div>
+                <Link
+                  to="/login"
+                  className={linkClass(location.pathname === '/login')}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  登录
+                </Link>
+                <Link
+                  to="/register"
+                  className={linkClass(location.pathname === '/register')}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  注册
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
+      {userMenuOpen &&
+        createPortal(
+          <div
+            ref={userMenuRef}
+            className="fixed bg-white border border-gray-200 rounded-lg shadow-xl ring-1 ring-black/5 py-1 min-w-[120px] z-[9999]"
+            style={{
+              top: `${userMenuPosition.top}px`,
+              left: `${userMenuPosition.left}px`,
+              transform: 'translateX(-100%)',
+            }}
+          >
+            <Link
+              to="/profile-helper"
+              className="block px-4 py-2 text-sm font-serif text-gray-600 hover:bg-gray-50 hover:text-black"
+              onClick={() => setUserMenuOpen(false)}
+            >
+              数字分身
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="block w-full text-left px-4 py-2 text-sm font-serif text-gray-600 hover:bg-gray-50 hover:text-black"
+            >
+              退出登录
+            </button>
+          </div>,
+          document.body,
+        )}
     </nav>
   )
 }

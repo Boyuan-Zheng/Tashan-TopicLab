@@ -11,6 +11,8 @@ import ModeratorModeLibrary from './pages/ModeratorModeLibrary'
 import ProfileHelperPage from './pages/ProfileHelperPage'
 import AgentLinkLibraryPage from './pages/AgentLinkLibraryPage'
 import AgentLinkChatPage from './pages/AgentLinkChatPage'
+import Login from './pages/Login'
+import Register from './pages/Register'
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
       <main className="pt-14 pb-[env(safe-area-inset-bottom)] min-h-screen">
         <Routes>
           <Route path="/" element={<TopicList />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/topics/new" element={<CreateTopic />} />
           <Route path="/topics/:id" element={<TopicDetail />} />
           <Route path="/experts" element={<ExpertList />} />
@@ -26,7 +30,7 @@ function App() {
           <Route path="/skills" element={<SkillLibrary />} />
           <Route path="/mcp" element={<MCPLibrary />} />
           <Route path="/moderator-modes" element={<ModeratorModeLibrary />} />
-          <Route path="/profile-helper" element={<ProfileHelperPage />} />
+          <Route path="/profile-helper/*" element={<ProfileHelperPage />} />
           <Route path="/agent-links" element={<AgentLinkLibraryPage />} />
           <Route path="/agent-links/:slug" element={<AgentLinkChatPage />} />
         </Routes>

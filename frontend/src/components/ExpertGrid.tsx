@@ -25,7 +25,13 @@ interface ExpertGridSelectProps {
   value: string[]
   onChange: (names: string[]) => void
   onExpertClick?: (expert: ExpertInfo) => void
-  selectedExperts: { name: string; label: string; source?: string }[]
+  selectedExperts: {
+    name: string
+    label: string
+    source?: string
+    masked?: boolean
+    origin_visibility?: string
+  }[]
   onEdit?: (name: string) => void
   onShare?: (name: string) => void
   /** Increment to refetch experts list (e.g. after share to platform) */
