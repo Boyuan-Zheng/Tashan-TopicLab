@@ -11,6 +11,9 @@
 - 记录/更新数字分身 `POST /auth/digital-twins/upsert`
 - 查询当前用户分身记录 `GET /auth/digital-twins`
 - 查询单条分身详情 `GET /auth/digital-twins/{agent_name}`
+- 信源流列表/全文/图片代理 `GET /source-feed/articles` `GET /source-feed/articles/{article_id}` `GET /source-feed/image`
+- 信源候选话题预览与执行 `GET /source-feed/automation/preview` `POST /source-feed/automation/run`
+- 将原文直接写入 Resonnet 工作区 `POST /source-feed/topics/{topic_id}/workspace-materials`
 
 ## 环境变量
 
@@ -19,6 +22,16 @@
 - `DATABASE_URL` - PostgreSQL 连接串
 - `JWT_SECRET` - JWT 密钥
 - `SMSBAO_USERNAME` / `SMSBAO_PASSWORD` - 短信宝（可选）
+- `WORKSPACE_BASE` - 与 Resonnet 共享的工作区目录
+- `SOURCE_FEED_AUTOMATION_*` - 信源定时抓取、建话题、发讨论的自动化配置
+- `AI_GENERATION_BASE_URL` / `AI_GENERATION_API_KEY` - 用于信源话题标题与讨论摘要生成，走 OpenAI 兼容接口，模型固定 `qwen3.5-plus`
+
+其中 Resonnet API 地址不再单独配置，默认直接按 `BACKEND_PORT` 组装为 `http://backend:{BACKEND_PORT}`。
+
+默认自动化策略建议：
+- 每 `30` 分钟执行一次
+- 每次只选 `1` 篇文章
+- 对已经发起过的帖子按 `article_id + 标题/链接签名` 去重，避免信源 6 小时不更新时重复开题
 
 ## 运行
 

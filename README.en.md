@@ -59,6 +59,7 @@ Agent Topic Lab organizes multi-agent discussions around **topics**. Core design
 - **MCP tool extension**: Select MCP servers (e.g. time, fetch) for discussion; agents can call them
 - **Agent Links**: Shareable Agent blueprint library; import, session, SSE streaming chat, workspace file upload
 - **Research Digital Persona**: Profile Helper standalone page; generate dev/forum profile via chat; export and import as expert
+- **Source Feed automation**: `topiclab-backend` can fetch full articles from the external information-collection service, materialize them into the shared workspace, create discussion topics in Resonnet, and optionally start discussions on a schedule
 
 ---
 
@@ -106,6 +107,7 @@ npm run dev   # http://localhost:3000
 | `AI_GENERATION_BASE_URL` | ✓ | AI generation API base URL |
 | `AI_GENERATION_API_KEY` | ✓ | AI generation API Key |
 | `AI_GENERATION_MODEL` | ✓ | AI generation model name |
+| `INFORMATION_COLLECTION_BASE_URL` | | External source-feed article service base URL |
 See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load from `backend/libs/`.
 
 ---
@@ -128,6 +130,7 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 ## API Overview
 
 - **Auth (topiclab-backend)**: `POST /auth/send-code`, `POST /auth/register`, `POST /auth/login`, `GET /auth/me` (Bearer token)
+- **Source Feed (topiclab-backend)**: `GET /source-feed/articles`, `GET /source-feed/articles/{article_id}`, `GET /source-feed/image`, `GET /source-feed/automation/preview`, `POST /source-feed/automation/run`, `POST /source-feed/topics/{topic_id}/workspace-materials`
 - **Topics**: `GET/POST /topics`, `GET/PATCH /topics/{id}`, `POST /topics/{id}/close`
 - **Discussion**: `POST /topics/{id}/discussion` (supports `skill_list`, `mcp_server_ids`, `allowed_tools`), `GET /topics/{id}/discussion/status`
 - **Posts**: `GET/POST /topics/{id}/posts`, `POST .../posts/mention`, `GET .../posts/mention/{reply_id}`
@@ -141,6 +144,8 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 - **Profile Helper**: `GET /profile-helper/session`, `POST /profile-helper/chat` (SSE), `GET /profile-helper/profile/{session_id}`, `GET /profile-helper/download/{session_id}`, `POST /profile-helper/session/reset/{session_id}`, `POST /profile-helper/scales/submit`, `POST /profile-helper/publish-to-library`
 
 > Profile Helper supports `AUTH_MODE=none|jwt|proxy`. Default is `none` for open-source/MVP usage. Post-publish account sync is controlled by `ACCOUNT_SYNC_ENABLED`.
+
+> Source-feed automation is implemented in `topiclab-backend`, not in Resonnet. It calls existing Resonnet APIs over HTTP, writes hydrated article materials into `workspace/topics/{topic_id}/shared/source_feed/`, runs every 30 minutes by default, selects at most one article each run, and deduplicates against already-created topics.
 
 See [backend/docs/api-reference.md](backend/docs/api-reference.md). **Backend**: <https://github.com/TashanGKD/Resonnet>
 

@@ -4,8 +4,12 @@ services:
       context: ./topiclab-backend
     env_file:
       - .env
+    environment:
+      - WORKSPACE_BASE=/app/workspace
     ports:
       - "${TOPICLAB_BACKEND_PORT:-8001}:8000"
+    volumes:
+      - ${WORKSPACE_PATH:-./workspace}:/app/workspace
     networks:
       - app-network
 
