@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { topicsApi, Topic } from '../api/client'
+import { topicsApi, TopicListItem } from '../api/client'
 import { handleApiError } from '../utils/errorHandler'
 import StatusBadge from '../components/StatusBadge'
 import { getTopicPreviewImageSrc } from '../utils/topicImage'
 
 export default function TopicList() {
-  const [topics, setTopics] = useState<Topic[]>([])
+  const [topics, setTopics] = useState<TopicListItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

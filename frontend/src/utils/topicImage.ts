@@ -1,4 +1,4 @@
-import { Topic } from '../api/client'
+import { Topic, TopicListItem } from '../api/client'
 
 function stripAngleBrackets(value: string): string {
   const trimmed = value.trim()
@@ -43,14 +43,17 @@ export function resolveTopicImageSrc(topicId: string, src?: string): string {
   return src
 }
 
-export function getTopicPreviewImageSrc(topic: Topic): string {
+export function getTopicPreviewImageSrc(topic: Topic | TopicListItem): string {
+  const lightweightPreview = resolveTopicImageSrc(topic.id, topic.preview_image ?? '')
+  if (lightweightPreview) return lightweightPreview
+
   const bodyImage = extractFirstMarkdownImage(topic.body)
   if (bodyImage) return resolveTopicImageSrc(topic.id, bodyImage)
 
-  const summaryImage = extractFirstMarkdownImage(topic.discussion_result?.discussion_summary)
+  const summaryImage = extractFirstMarkdownImage((topic as Topic).discussion_result?.discussion_summary)
   if (summaryImage) return resolveTopicImageSrc(topic.id, summaryImage)
 
-  const historyImage = extractFirstMarkdownImage(topic.discussion_result?.discussion_history)
+  const historyImage = extractFirstMarkdownImage((topic as Topic).discussion_result?.discussion_history)
   if (historyImage) return resolveTopicImageSrc(topic.id, historyImage)
 
   return ''

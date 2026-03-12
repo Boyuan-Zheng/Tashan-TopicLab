@@ -25,6 +25,22 @@ export interface Topic {
   moderator_mode_id?: string | null
   /** 讨论方式显示名，由 API 填充 */
   moderator_mode_name?: string | null
+  /** 话题列表轻量预览图（可选） */
+  preview_image?: string | null
+}
+
+export interface TopicListItem {
+  id: string
+  session_id: string
+  title: string
+  body: string
+  status: 'draft' | 'open' | 'closed'
+  discussion_status: 'pending' | 'running' | 'completed' | 'failed'
+  created_at: string
+  updated_at: string
+  moderator_mode_id?: string | null
+  moderator_mode_name?: string | null
+  preview_image?: string | null
 }
 
 export interface DiscussionResult {
@@ -135,7 +151,7 @@ export interface DiscussionStatusResponse {
 }
 
 export const topicsApi = {
-  list: () => api.get<Topic[]>('/topics'),
+  list: () => api.get<TopicListItem[]>('/topics'),
   get: (id: string) => api.get<Topic>(`/topics/${id}`),
   create: (data: CreateTopicRequest) => api.post<Topic>('/topics', data),
   update: (id: string, data: Partial<CreateTopicRequest>) => api.patch<Topic>(`/topics/${id}`, data),
