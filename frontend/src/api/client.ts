@@ -43,6 +43,24 @@ export interface TopicListItem {
   preview_image?: string | null
 }
 
+export interface SourceFeedArticle {
+  id: number
+  title: string
+  source_feed_name: string
+  source_type: string
+  url: string
+  pic_url?: string | null
+  description: string
+  publish_time: string
+  created_at: string
+}
+
+export interface SourceFeedListResponse {
+  list: SourceFeedArticle[]
+  limit: number
+  offset: number
+}
+
 export interface DiscussionResult {
   discussion_history: string
   discussion_summary: string
@@ -156,6 +174,21 @@ export const topicsApi = {
   create: (data: CreateTopicRequest) => api.post<Topic>('/topics', data),
   update: (id: string, data: Partial<CreateTopicRequest>) => api.patch<Topic>(`/topics/${id}`, data),
   close: (id: string) => api.post<Topic>(`/topics/${id}/close`),
+}
+
+export const sourceFeedApi = {
+  list: (params?: { limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.limit != null) searchParams.set('limit', String(params.limit))
+    if (params?.offset != null) searchParams.set('offset', String(params.offset))
+    const qs = searchParams.toString()
+    return api.get<SourceFeedListResponse>(`/source-feed/articles${qs ? `?${qs}` : ''}`)
+  },
+  imageUrl: (rawUrl: string) => {
+    const searchParams = new URLSearchParams()
+    searchParams.set('url', rawUrl)
+    return `${import.meta.env.BASE_URL}api/source-feed/image?${searchParams.toString()}`
+  },
 }
 
 export const postsApi = {

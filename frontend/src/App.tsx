@@ -7,6 +7,7 @@ import ExpertEdit from './pages/ExpertEdit'
 import ProfileHelperPage from './pages/ProfileHelperPage'
 import AgentLinkLibraryPage from './pages/AgentLinkLibraryPage'
 import AgentLinkChatPage from './pages/AgentLinkChatPage'
+import SourceFeedPage from './pages/SourceFeedPage'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import LibraryPage from './pages/LibraryPage'
@@ -18,6 +19,7 @@ function App() {
       <main className="pt-14 pb-[env(safe-area-inset-bottom)] min-h-screen">
         <Routes>
           <Route path="/" element={<TopicList />} />
+          <Route path="/source-feed" element={<SourceFeedPage />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/topics/new" element={<CreateTopic />} />

@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom'
 import { tokenManager, User } from '../api/auth'
 
 const navLinks = [
-  { to: '/', label: '话题列表', match: (path: string) => path === '/' && !path.startsWith('/topics') && !path.startsWith('/library') && !path.startsWith('/profile-helper') && !path.startsWith('/agent-links') },
+  { to: '/', label: '话题列表', match: (path: string) => path === '/' && !path.startsWith('/topics') && !path.startsWith('/source-feed') && !path.startsWith('/library') && !path.startsWith('/profile-helper') && !path.startsWith('/agent-links') },
+  { to: '/source-feed', label: '信源流', match: (path: string) => path.startsWith('/source-feed') },
   { to: '/library', label: '库', match: (path: string) => path.startsWith('/library') || path.startsWith('/experts') || path.startsWith('/skills') || path.startsWith('/mcp') || path.startsWith('/moderator-modes') },
   { to: '/agent-links', label: 'Agent Link', match: (path: string) => path.startsWith('/agent-links') },
 ] as const
