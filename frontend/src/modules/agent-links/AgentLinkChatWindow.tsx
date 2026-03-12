@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { tokenManager } from '../../api/auth'
 import {
   AGENT_LINK_MODELS,
   AgentLinkInfo,
@@ -79,6 +80,7 @@ function MarkdownBlock({ content }: { content: string }) {
 
 export function AgentLinkChatWindow({ slug }: AgentLinkChatWindowProps) {
   const [searchParams] = useSearchParams()
+  const isLoggedIn = Boolean(tokenManager.get())
   const [agentLink, setAgentLink] = useState<AgentLinkInfo | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [feed, setFeed] = useState<FeedItem[]>([])
@@ -116,6 +118,11 @@ export function AgentLinkChatWindow({ slug }: AgentLinkChatWindowProps) {
       const link = await getAgentLink(slug)
       setAgentLink(link)
 
+      if (!isLoggedIn) {
+        setSessionId(null)
+        return
+      }
+
       const sidFromUrl = searchParams.get('sid')
       const sidStored = localStorage.getItem(storageKey)
       const sidCandidate = sidFromUrl || sidStored || undefined
@@ -127,7 +134,7 @@ export function AgentLinkChatWindow({ slug }: AgentLinkChatWindowProps) {
     } finally {
       setInitializing(false)
     }
-  }, [persistSessionId, searchParams, slug, storageKey])
+  }, [isLoggedIn, persistSessionId, searchParams, slug, storageKey])
 
   useEffect(() => {
     initialize()
@@ -239,10 +246,10 @@ export function AgentLinkChatWindow({ slug }: AgentLinkChatWindowProps) {
   }
 
   useEffect(() => {
-    if (initializing || loading || !sessionId || autoHelloSentRef.current) return
+    if (!isLoggedIn || initializing || loading || !sessionId || autoHelloSentRef.current) return
     autoHelloSentRef.current = true
     void sendMessage('你好', { silentUser: true })
-  }, [initializing, loading, sendMessage, sessionId])
+  }, [initializing, isLoggedIn, loading, sendMessage, sessionId])
 
   const handleUploadFiles = async (files: FileList | null) => {
     if (!files || files.length === 0 || !sessionId || uploading) return
@@ -323,7 +330,11 @@ export function AgentLinkChatWindow({ slug }: AgentLinkChatWindowProps) {
 
       <section className="agent-link-main">
         <div className="agent-link-feed">
-          {feed.length === 0 ? (
+          {!isLoggedIn ? (
+            <div className="agent-link-welcome">
+              <p>请先登录后再开始对话。</p>
+            </div>
+          ) : feed.length === 0 ? (
             <div className="agent-link-welcome">
               <p>{agentLink?.welcome_message || 'Hello, I am your research digital twin assistant.'}</p>
             </div>
@@ -405,6 +416,7 @@ export function AgentLinkChatWindow({ slug }: AgentLinkChatWindowProps) {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            disabled={!isLoggedIn || loading}
             onKeyDown={(e) => {
               // IME composing Enter should confirm candidate, not send.
               const ne = e.nativeEvent as KeyboardEvent & { isComposing?: boolean }
@@ -424,7 +436,7 @@ export function AgentLinkChatWindow({ slug }: AgentLinkChatWindowProps) {
                 className="agent-icon-btn"
                 title="Upload files"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={loading || uploading}
+                disabled={!isLoggedIn || loading || uploading}
               >
                 +
               </button>
@@ -434,14 +446,14 @@ export function AgentLinkChatWindow({ slug }: AgentLinkChatWindowProps) {
                 multiple
                 hidden
                 onChange={(e) => handleUploadFiles(e.target.files)}
-                disabled={loading || uploading}
+                disabled={!isLoggedIn || loading || uploading}
               />
               <select
                 className="agent-input-model"
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
                 title="Model"
-                disabled={loading}
+                disabled={!isLoggedIn || loading}
               >
                 {AGENT_LINK_MODELS.map((m) => (
                   <option key={m.value} value={m.value}>
@@ -450,7 +462,7 @@ export function AgentLinkChatWindow({ slug }: AgentLinkChatWindowProps) {
                 ))}
               </select>
             </div>
-            <button type="submit" className="agent-send-btn" disabled={loading || !input.trim() || !sessionId}>
+            <button type="submit" className="agent-send-btn" disabled={!isLoggedIn || loading || !input.trim() || !sessionId}>
               ↑
             </button>
           </div>
