@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-03-12
+
+### Added
+
+**Frontend**
+
+- Auth entry pages and state-aware nav: `/login`, `/register`, and token-based user menu/logout
+- Profile Helper sub-routes and scale flows: `/profile-helper/*`, `/profile-helper/scales`, `/profile-helper/scales/:scaleId`
+- Digital twin import to topic experts, including masked import path for private twins
+
+**TopicLab Account Service**
+
+- New standalone `topiclab-backend` service with auth APIs: `POST /auth/send-code`, `POST /auth/register`, `POST /auth/login`, `GET /auth/me`
+- Digital twin persistence APIs: `POST /auth/digital-twins/upsert`, `GET /auth/digital-twins`, `GET /auth/digital-twins/{agent_name}`
+
+### Changed
+
+- Nginx split proxy path: `/topic-lab/api/auth/*` routes to `topiclab-backend`, other `/topic-lab/api/*` routes continue to Resonnet
+- Profile Helper API client now attaches auth headers for authenticated routes
+- Docs in `docs/` are aligned to English-only content, including lifecycle and deploy/config updates
+
 ## [1.3.0] - 2026-03-07
 
 ### Added

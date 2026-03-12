@@ -277,7 +277,7 @@ agent-topic-lab/
 | `/skills` | `SkillLibrary` | Skill library |
 | `/mcp` | `MCPLibrary` | MCP server library |
 | `/moderator-modes` | `ModeratorModeLibrary` | Moderator mode library |
-| `/profile-helper` | `ProfileHelperPage` | Research Digital Persona (session, streaming chat, profile download) |
+| `/profile-helper/*` | `ProfileHelperPage` | Research Digital Persona multi-page flow: chat collection, profile view, scales tests |
 | `/agent-links` | `AgentLinkLibraryPage` | Agent Link blueprint library (list, import) |
 | `/agent-links/:slug` | `AgentLinkChatPage` | Agent Link chat (SSE streaming) |
 
@@ -349,7 +349,7 @@ Full API list: [backend/docs/api-reference.md](../backend/docs/api-reference.md)
 - **Experts**: `GET /experts` (`fields=minimal`), `GET /experts/{name}/content`, `POST /experts/import-profile`
 - **Libs**: `POST /libs/invalidate-cache`
 - **Agent Links**: `GET /agent-links`, `POST /agent-links/{slug}/session`, `POST /agent-links/{slug}/chat` (SSE)
-- **Profile Helper**: `GET /profile-helper/session`, `POST /profile-helper/chat` (SSE), `GET /profile-helper/profile/{session_id}`
+- **Profile Helper**: `GET /profile-helper/session`, `POST /profile-helper/chat` (SSE), `GET /profile-helper/profile/{session_id}`, `GET /profile-helper/profile/{session_id}/structured`, `POST /profile-helper/scales/submit`, `GET /profile-helper/scales/{session_id}`, `POST /profile-helper/publish-to-library` (all require Bearer token, validated via topiclab-backend `/auth/me`)
 
 ---
 

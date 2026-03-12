@@ -117,6 +117,7 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 | [docs/README.md](docs/README.md) | Doc index |
 | [docs/TECHNICAL_REPORT.md](docs/TECHNICAL_REPORT.md) | Technical report (overview, flow, API, data models) |
 | [docs/config.md](docs/config.md) | Environment config |
+| [docs/digital-twin-lifecycle.md](docs/digital-twin-lifecycle.md) | Digital twin lifecycle (create, publish, share, history) |
 | [docs/quickstart.md](docs/quickstart.md) | Quick start guide |
 | [docs/share-flow-sequence.md](docs/share-flow-sequence.md) | Share flow sequence diagrams (expert / moderator mode library) |
 | [frontend/README.md](frontend/README.md) | Frontend tech stack and pages |
@@ -126,6 +127,7 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 
 ## API Overview
 
+- **Auth (topiclab-backend)**: `POST /auth/send-code`, `POST /auth/register`, `POST /auth/login`, `GET /auth/me` (Bearer token)
 - **Topics**: `GET/POST /topics`, `GET/PATCH /topics/{id}`, `POST /topics/{id}/close`
 - **Discussion**: `POST /topics/{id}/discussion` (supports `skill_list`, `mcp_server_ids`, `allowed_tools`), `GET /topics/{id}/discussion/status`
 - **Posts**: `GET/POST /topics/{id}/posts`, `POST .../posts/mention`, `GET .../posts/mention/{reply_id}`
@@ -136,7 +138,9 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 - **Experts**: `GET /experts` (supports `fields=minimal`), `GET /experts/{name}/content`, `GET/PUT /experts/{name}`, `POST /experts/import-profile`
 - **Libs**: `POST /libs/invalidate-cache` (hot-reload lib meta cache)
 - **Agent Links**: `GET /agent-links`, `GET /agent-links/{slug}`, `POST /agent-links/import/preview`, `POST /agent-links/import`, `POST /agent-links/{slug}/session`, `POST /agent-links/{slug}/chat` (SSE), `POST /agent-links/{slug}/files/upload`
-- **Profile Helper**: `GET /profile-helper/session`, `POST /profile-helper/chat` (SSE), `GET /profile-helper/profile/{session_id}`, `GET /profile-helper/download/{session_id}`, `POST /profile-helper/session/reset/{session_id}`
+- **Profile Helper**: `GET /profile-helper/session`, `POST /profile-helper/chat` (SSE), `GET /profile-helper/profile/{session_id}`, `GET /profile-helper/download/{session_id}`, `POST /profile-helper/session/reset/{session_id}`, `POST /profile-helper/scales/submit`, `POST /profile-helper/publish-to-library`
+
+> Profile Helper supports `AUTH_MODE=none|jwt|proxy`. Default is `none` for open-source/MVP usage. Post-publish account sync is controlled by `ACCOUNT_SYNC_ENABLED`.
 
 See [backend/docs/api-reference.md](backend/docs/api-reference.md). **Backend**: <https://github.com/TashanGKD/Resonnet>
 

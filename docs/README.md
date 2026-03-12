@@ -8,6 +8,7 @@
 | [quickstart.md](quickstart.md) | Quick start guide (Docker / local development) |
 | [config.md](config.md) | Environment variables and configuration |
 | [deploy.md](deploy.md) | Deploy via GitHub Actions; DEPLOY_ENV secret setup |
+| [digital-twin-lifecycle.md](digital-twin-lifecycle.md) | End-to-end lifecycle of digital twin creation, publish, share, and history |
 | [FUTURE_PLAN.md](FUTURE_PLAN.md) | **Unimplemented features**: Multiple AI sessions, simplified topic creation, ecosystem extensions |
 | [share-flow-sequence.md](share-flow-sequence.md) | Share flow sequence diagrams (expert / moderator mode library) |
 
@@ -15,5 +16,6 @@
 
 - **Getting started**: Read [quickstart.md](quickstart.md), then configure [config.md](config.md)
 - **Deep dive**: Read [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md)
+- **Digital twin lifecycle**: Read [digital-twin-lifecycle.md](digital-twin-lifecycle.md)
 - **Future roadmap**: Read [FUTURE_PLAN.md](FUTURE_PLAN.md)
 - **Backend API**: See [backend/docs/api-reference.md](backend/docs/api-reference.md). **Backend implementation**: [Resonnet](https://github.com/TashanGKD/Resonnet)

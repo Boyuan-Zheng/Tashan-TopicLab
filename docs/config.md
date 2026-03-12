@@ -44,38 +44,40 @@ WORKSPACE_BASE=./workspace
 
 Topic workspace root directory.
 
-### 5. 用户认证（topiclab-backend，可选）
+### 5. Account and Authentication Modes (Profile Helper)
 
 ```bash
-DATABASE_URL=postgresql://user:pass@host:5432/topiclab
-PGSSLMODE=disable
-JWT_SECRET=your-secret-key-change-in-production
-# 短信验证码（可选，不填则开发模式，验证码打印到日志）
-SMSBAO_USERNAME=
-SMSBAO_PASSWORD=
-# Resonnet backend 转发鉴权到账号服务
+# Resonnet auth mode: none | jwt | proxy
+AUTH_MODE=none
+# Enforce authentication (default: false)
+AUTH_REQUIRED=false
+# Account service base URL used in jwt mode
 AUTH_SERVICE_BASE_URL=http://topiclab-backend:8000
+# Sync published twins to account DB digital_twins
+ACCOUNT_SYNC_ENABLED=false
 ```
 
-- **DATABASE_URL**：PostgreSQL 连接串，用于 `users`、`verification_codes` 表。不填则使用内存存储（开发模式）。
-- **JWT_SECRET**：JWT 签发密钥，生产环境务必修改。
-- **SMSBAO_***：短信宝 API（https://www.smsbao.com/），用于发送验证码。`SMSBAO_PASSWORD` 填登录密码，程序会自动 MD5 后调用。不填则开发模式，验证码显示在页面/打印到日志。
-- **AUTH_SERVICE_BASE_URL**：Resonnet backend 校验 Bearer Token 时调用的账号服务地址（默认 `http://topiclab-backend:8000`）。
+- **AUTH_MODE=none**: default anonymous mode for OSS trial and MVP usage.
+- **AUTH_MODE=jwt**: validates `Authorization: Bearer` via the external account service.
+- **AUTH_MODE=proxy**: trusts upstream identity headers such as `X-User-Id` (optional `X-Tenant-Id`, `X-User-Scopes`).
+- **AUTH_REQUIRED**: in `jwt` mode, return 401 when token is missing.
+- **AUTH_SERVICE_BASE_URL**: account service URL for token introspection in `jwt` mode.
+- **ACCOUNT_SYNC_ENABLED**: after publish, call `/auth/digital-twins/upsert`; when disabled, the main flow does not depend on account storage.
 
-账号服务运行在独立的 `topiclab-backend` 容器，与 Resonnet（topics、discussion 等）分离。Nginx 将 `/topic-lab/api/auth/` 代理到 topiclab-backend。
+The account service can run independently. Resonnet core flows still work in `AUTH_MODE=none` without hard dependency on account storage.
 
-### 6. 科研数字分身采集助手（Profile Helper Agent）
+### 6. Research Digital Persona Helper (Profile Helper Agent)
 
 ```bash
-# 单次用户请求内部最多允许的工具/思考循环轮数（默认 40，下限 5）
+# Max internal tool/thinking iterations per request (default 40, minimum 5)
 PROFILE_HELPER_MAX_TOOL_ITERATIONS=40
 ```
 
-- **PROFILE_HELPER_MAX_TOOL_ITERATIONS**：控制 Profile Helper 内部 agent 循环的最大轮数。适当调大可以减少「达到最大工具调用次数」报错，但也会增加单次请求耗时与 token 消耗。推荐范围 20–60。
+- **PROFILE_HELPER_MAX_TOOL_ITERATIONS**: limits internal agent loop rounds in Profile Helper. Higher values reduce "maximum tool calls reached" failures, but increase latency and token usage. Recommended range: 20-60.
 
-### 7. MCP 库 (只读)
+### 7. MCP Library (read-only)
 
-MCP 服务器在 `backend/libs/mcps/` 中配置，与技能库结构一致。MCP 库页面 `/mcp` 只读展示，话题讨论时可选择启用的 MCP。仅接受 npm、uvx、remote。参见 [backend/docs/mcp-config.md](backend/docs/mcp-config.md)。
+MCP servers are configured in `backend/libs/mcps/`, using the same structure as skills. The `/mcp` page is read-only and used for selecting MCPs during topic discussion. Supported types: `npm`, `uvx`, `remote`. See [backend/docs/mcp-config.md](backend/docs/mcp-config.md).
 
 ## Rules
 

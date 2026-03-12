@@ -2,7 +2,7 @@
 
 ## GitHub Actions Deploy
 
-The deploy workflow (`.github/workflows/deploy.yml`) runs on push to `main`. It SSHs to the server, pulls the repo, builds Docker images, and starts services.
+The deploy workflow (`.github/workflows/deploy.yml`) runs on push to `main`. It SSHs to the server, pulls the repo, builds Docker images (topiclab-backend, backend, frontend), and starts services.
 
 ### Required Secrets
 
@@ -30,6 +30,11 @@ The deploy workflow (`.github/workflows/deploy.yml`) runs on push to `main`. It 
 3. Set name to `DEPLOY_ENV`, paste the full content of `.env.deploy` as value (including newlines)
 
 **Note:** `.env.deploy.example` is the production template; its structure matches local `.env.example`. Use real API keys in production; do not use the `test` placeholder.
+
+**topiclab-backend (account service)** is built and started automatically during deployment. Configure these in `DEPLOY_ENV`:
+- `DATABASE_URL`: PostgreSQL connection string (required in production, otherwise in-memory storage is used)
+- `JWT_SECRET`: JWT signing secret (required in production)
+- `SMSBAO_USERNAME` / `SMSBAO_PASSWORD`: SMSBao credentials (optional; if omitted, verification codes are shown in page/logs)
 
 ### Branch Deploy (Preview)
 

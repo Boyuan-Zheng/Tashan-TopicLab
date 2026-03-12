@@ -116,6 +116,7 @@ npm run dev   # http://localhost:3000
 | [docs/README.md](docs/README.md) | 文档索引 |
 | [docs/TECHNICAL_REPORT.md](docs/TECHNICAL_REPORT.md) | 技术报告（系统概览、交互逻辑、代码路径、API、数据模型） |
 | [docs/config.md](docs/config.md) | 环境变量与配置 |
+| [docs/digital-twin-lifecycle.md](docs/digital-twin-lifecycle.md) | 数字分身全链路（创建、发布、共享、历史） |
 | [docs/quickstart.md](docs/quickstart.md) | 快速启动指南 |
 | [docs/share-flow-sequence.md](docs/share-flow-sequence.md) | 共享流程时序图（角色库 / 讨论方式库） |
 | [frontend/README.md](frontend/README.md) | 前端技术栈与页面说明 |
@@ -125,7 +126,8 @@ npm run dev   # http://localhost:3000
 
 ## API 概览
 
-- **Topics**：`GET/POST /topics`，`GET/PATCH /topics/{id}`，`POST /topics/{id}/close`
+- **Auth**（topiclab-backend）：`POST /auth/send-code`，`POST /auth/register`，`POST /auth/login`，`GET /auth/me`（Bearer Token）
+- **Topics**（Resonnet）：`GET/POST /topics`，`GET/PATCH /topics/{id}`，`POST /topics/{id}/close`
 - **Discussion**：`POST /topics/{id}/discussion`（支持 `skill_list`、`mcp_server_ids`、`allowed_tools`），`GET /topics/{id}/discussion/status`
 - **Posts**：`GET/POST /topics/{id}/posts`，`POST .../posts/mention`，`GET .../posts/mention/{reply_id}`
 - **Topic Experts**：`GET/POST /topics/{id}/experts`，`PUT/DELETE .../experts/{name}`，`GET .../experts/{name}/content`，`POST .../experts/{name}/share`，`POST .../experts/generate`
@@ -135,7 +137,9 @@ npm run dev   # http://localhost:3000
 - **Experts**：`GET /experts`（支持 `fields=minimal`），`GET /experts/{name}/content`，`GET/PUT /experts/{name}`，`POST /experts/import-profile`
 - **Libs**：`POST /libs/invalidate-cache`（热更新库 meta 缓存）
 - **Agent Links**：`GET /agent-links`，`GET /agent-links/{slug}`，`POST /agent-links/import/preview`，`POST /agent-links/import`，`POST /agent-links/{slug}/session`，`POST /agent-links/{slug}/chat`（SSE），`POST /agent-links/{slug}/files/upload`
-- **Profile Helper**：`GET /profile-helper/session`，`POST /profile-helper/chat`（SSE），`GET /profile-helper/profile/{session_id}`，`GET /profile-helper/download/{session_id}`，`POST /profile-helper/session/reset/{session_id}`
+- **Profile Helper**：`GET /profile-helper/session`，`POST /profile-helper/chat`（SSE），`GET /profile-helper/profile/{session_id}`，`GET /profile-helper/download/{session_id}`，`POST /profile-helper/session/reset/{session_id}`，`POST /profile-helper/scales/submit`，`POST /profile-helper/publish-to-library`
+
+> Profile Helper 认证支持 `AUTH_MODE=none|jwt|proxy`，默认 `none`（开源/MVP 模式）；发布后账号同步由 `ACCOUNT_SYNC_ENABLED` 控制。
 
 详见 [backend/docs/api-reference.md](backend/docs/api-reference.md)。完整后端实现与 API：<https://github.com/TashanGKD/Resonnet>
 
