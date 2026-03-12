@@ -4,7 +4,7 @@ import ExpertGrid from '../components/ExpertGrid'
 import ExpertDetailModal from '../components/ExpertDetailModal'
 import LibraryPageLayout from '../components/LibraryPageLayout'
 
-export default function ExpertList() {
+export function ExpertLibraryContent() {
   const [detailExpert, setDetailExpert] = useState<ExpertInfo | null>(null)
   const [detailContent, setDetailContent] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -29,7 +29,7 @@ export default function ExpertList() {
   }
 
   return (
-    <LibraryPageLayout title="角色库">
+    <>
       <ExpertGrid mode="view" onExpertClick={openExpertDetail} />
       {detailExpert && (
         <ExpertDetailModal
@@ -39,6 +39,14 @@ export default function ExpertList() {
           onClose={closeExpertDetail}
         />
       )}
+    </>
+  )
+}
+
+export default function ExpertList() {
+  return (
+    <LibraryPageLayout title="角色库">
+      <ExpertLibraryContent />
     </LibraryPageLayout>
   )
 }

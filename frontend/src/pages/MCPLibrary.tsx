@@ -4,7 +4,7 @@ import MCPGrid from '../components/MCPGrid'
 import MCPDetailModal from '../components/MCPDetailModal'
 import LibraryPageLayout from '../components/LibraryPageLayout'
 
-export default function MCPLibrary() {
+export function MCPLibraryContent() {
   const [detailMcp, setDetailMcp] = useState<AssignableMCP | null>(null)
   const [detailContent, setDetailContent] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -29,7 +29,7 @@ export default function MCPLibrary() {
   }
 
   return (
-    <LibraryPageLayout title="MCP 库">
+    <>
       <MCPGrid
         mode="view"
         layout="page"
@@ -43,6 +43,14 @@ export default function MCPLibrary() {
           onClose={closeMcpDetail}
         />
       )}
+    </>
+  )
+}
+
+export default function MCPLibrary() {
+  return (
+    <LibraryPageLayout title="MCP 库">
+      <MCPLibraryContent />
     </LibraryPageLayout>
   )
 }

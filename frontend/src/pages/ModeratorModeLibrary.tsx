@@ -4,7 +4,7 @@ import ModeratorModeGrid from '../components/ModeratorModeGrid'
 import ModeratorModeDetailModal from '../components/ModeratorModeDetailModal'
 import LibraryPageLayout from '../components/LibraryPageLayout'
 
-export default function ModeratorModeLibrary() {
+export function ModeratorModeLibraryContent() {
   const [detailMode, setDetailMode] = useState<AssignableModeratorMode | null>(null)
   const [detailContent, setDetailContent] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -29,7 +29,7 @@ export default function ModeratorModeLibrary() {
   }
 
   return (
-    <LibraryPageLayout title="讨论方式库">
+    <>
       <ModeratorModeGrid
         mode="view"
         layout="page"
@@ -43,6 +43,14 @@ export default function ModeratorModeLibrary() {
           onClose={closeModeDetail}
         />
       )}
+    </>
+  )
+}
+
+export default function ModeratorModeLibrary() {
+  return (
+    <LibraryPageLayout title="讨论方式库">
+      <ModeratorModeLibraryContent />
     </LibraryPageLayout>
   )
 }

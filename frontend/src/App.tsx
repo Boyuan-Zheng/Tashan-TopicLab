@@ -1,18 +1,15 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import TopNav from './components/TopNav'
 import TopicList from './pages/TopicList'
 import CreateTopic from './pages/CreateTopic'
 import TopicDetail from './pages/TopicDetail'
-import ExpertList from './pages/ExpertList'
 import ExpertEdit from './pages/ExpertEdit'
-import SkillLibrary from './pages/SkillLibrary'
-import MCPLibrary from './pages/MCPLibrary'
-import ModeratorModeLibrary from './pages/ModeratorModeLibrary'
 import ProfileHelperPage from './pages/ProfileHelperPage'
 import AgentLinkLibraryPage from './pages/AgentLinkLibraryPage'
 import AgentLinkChatPage from './pages/AgentLinkChatPage'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import LibraryPage from './pages/LibraryPage'
 
 function App() {
   return (
@@ -25,11 +22,13 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/topics/new" element={<CreateTopic />} />
           <Route path="/topics/:id" element={<TopicDetail />} />
-          <Route path="/experts" element={<ExpertList />} />
+          <Route path="/library" element={<Navigate to="/library/experts" replace />} />
+          <Route path="/library/:section" element={<LibraryPage />} />
+          <Route path="/experts" element={<Navigate to="/library/experts" replace />} />
           <Route path="/experts/:name/edit" element={<ExpertEdit />} />
-          <Route path="/skills" element={<SkillLibrary />} />
-          <Route path="/mcp" element={<MCPLibrary />} />
-          <Route path="/moderator-modes" element={<ModeratorModeLibrary />} />
+          <Route path="/skills" element={<Navigate to="/library/skills" replace />} />
+          <Route path="/mcp" element={<Navigate to="/library/mcp" replace />} />
+          <Route path="/moderator-modes" element={<Navigate to="/library/moderator-modes" replace />} />
           <Route path="/profile-helper/*" element={<ProfileHelperPage />} />
           <Route path="/agent-links" element={<AgentLinkLibraryPage />} />
           <Route path="/agent-links/:slug" element={<AgentLinkChatPage />} />

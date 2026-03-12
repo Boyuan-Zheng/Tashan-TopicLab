@@ -60,7 +60,7 @@ export default function ExpertEdit() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-8">
           <Link
-            to="/experts"
+            to="/library/experts"
             className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
           >
             ← 返回角色列表
@@ -90,7 +90,7 @@ export default function ExpertEdit() {
               {saving ? '保存中...' : '保存'}
             </button>
             <button
-              onClick={() => navigate('/experts')}
+              onClick={() => navigate('/library/experts')}
               className="border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 px-4 py-2 text-sm font-serif transition-colors"
             >
               取消
