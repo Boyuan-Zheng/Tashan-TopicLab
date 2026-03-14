@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -18,17 +19,22 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from app.api.auth import security, verify_access_token
+from app.services.content_moderation import moderate_post_content
 from app.services.resonnet_client import request_json
 from app.storage.database.postgres_client import get_db_session
 from app.storage.database.topic_store import (
     DEFAULT_MODERATOR_MODE,
     close_topic,
     create_topic,
+    delete_post,
+    delete_topic,
     extract_preview_image,
+    generate_post_delete_token,
     get_post,
     get_generated_image,
     get_topic,
     get_topic_moderator_config,
+    hash_post_delete_token,
     list_discussion_turns,
     list_posts,
     list_topic_experts,
@@ -37,6 +43,7 @@ from app.storage.database.topic_store import (
     replace_discussion_turns,
     replace_generated_images,
     replace_topic_experts,
+    resolve_post_by_delete_token,
     set_discussion_status,
     set_topic_moderator_config,
     update_topic,
@@ -50,6 +57,9 @@ _PREVIEW_DEFAULT_QUALITY = 72
 _PREVIEW_DEFAULT_FORMAT = "webp"
 _PREVIEW_MAX_DIMENSION = 2048
 _DISCUSSION_SYNC_INTERVAL_SECONDS = 2.0
+_POST_ADMIN_TOKEN = os.getenv(
+    "POST_TOKEN_KEY"
+)
 
 TOPIC_CATEGORIES = [
     {"id": "plaza", "name": "广场", "description": "适合公开发起、泛讨论和社区互动的话题。", "profile_id": "community_dialogue"},
@@ -261,6 +271,34 @@ def get_workspace_base() -> Path:
 
 def _topic_workspace(topic_id: str) -> Path:
     return get_workspace_base() / "topics" / topic_id
+
+
+async def _moderate_or_raise(body: str, *, scenario: str) -> None:
+    try:
+        decision = await moderate_post_content(body, scenario=scenario)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "content_moderation_unavailable",
+                "message": "内容审核暂时不可用，请稍后重试",
+                "provider_message": str(exc),
+            },
+        ) from exc
+
+    if decision.approved:
+        return
+
+    raise HTTPException(
+        status_code=400,
+        detail={
+            "code": "content_moderation_rejected",
+            "message": "内容审核未通过，请调整后再发布",
+            "review_message": decision.reason,
+            "suggestion": decision.suggestion,
+            "category": decision.category,
+        },
+    )
 
 
 def _preview_cache_dir(topic_id: str) -> Path:
@@ -475,6 +513,15 @@ def _resonnet_headers(authorization: str | None) -> dict[str, str]:
     if not authorization:
         return {}
     return {"Authorization": authorization}
+
+
+def _resolve_owner_identity(user: dict | None) -> tuple[int | None, str | None]:
+    if not user:
+        return None, None
+    raw_user_id = user.get("sub")
+    if raw_user_id is None:
+        return None, user.get("auth_type")
+    return int(raw_user_id), user.get("auth_type", "jwt")
 
 
 def _normalize_topic_category(category: str | None) -> str | None:
@@ -730,6 +777,15 @@ def close_topic_endpoint(topic_id: str):
     return closed
 
 
+@router.delete("/topics/{topic_id}")
+def delete_topic_endpoint(topic_id: str, token: str | None = Query(default=None)):
+    if not token or token != _POST_ADMIN_TOKEN:
+        raise HTTPException(status_code=403, detail="Invalid admin token")
+    if not delete_topic(topic_id):
+        raise HTTPException(status_code=404, detail="Topic not found")
+    return {"ok": True, "topic_id": topic_id}
+
+
 @router.get("/topics/{topic_id}/posts")
 def list_posts_endpoint(topic_id: str):
     topic = get_topic(topic_id)
@@ -739,11 +795,14 @@ def list_posts_endpoint(topic_id: str):
 
 
 @router.post("/topics/{topic_id}/posts", status_code=201)
-def create_post_endpoint(topic_id: str, req: CreatePostRequest, user: dict | None = Depends(_get_optional_user)):
+async def create_post_endpoint(topic_id: str, req: CreatePostRequest, user: dict | None = Depends(_get_optional_user)):
     topic = get_topic(topic_id)
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
+    await _moderate_or_raise(req.body, scenario="topic_post")
     author_name = _resolve_author_name(req.author, user)
+    owner_user_id, owner_auth_type = _resolve_owner_identity(user)
+    raw_delete_token = generate_post_delete_token()
     post = make_post(
         topic_id=topic_id,
         author=author_name,
@@ -751,8 +810,13 @@ def create_post_endpoint(topic_id: str, req: CreatePostRequest, user: dict | Non
         body=req.body,
         in_reply_to_id=req.in_reply_to_id,
         status="completed",
+        owner_user_id=owner_user_id,
+        owner_auth_type=owner_auth_type,
+        delete_token_hash=hash_post_delete_token(raw_delete_token),
     )
-    return upsert_post(post)
+    saved = upsert_post(post)
+    saved["delete_token"] = raw_delete_token
+    return saved
 
 
 @router.post("/topics/{topic_id}/posts/mention", status_code=202, response_model=MentionExpertResponse)
@@ -764,6 +828,7 @@ async def mention_expert_endpoint(
     topic = get_topic(topic_id)
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
+    await _moderate_or_raise(req.body, scenario="topic_post_mention")
     if topic["discussion_status"] == "running":
         raise HTTPException(status_code=409, detail="Discussion is running; wait for it to finish before @mentioning experts")
 
@@ -773,6 +838,8 @@ async def mention_expert_endpoint(
         raise HTTPException(status_code=400, detail=f"Expert '{req.expert_name}' is not in this topic")
 
     author_name = _resolve_author_name(req.author, user)
+    owner_user_id, owner_auth_type = _resolve_owner_identity(user)
+    raw_delete_token = generate_post_delete_token()
     user_post = upsert_post(
         make_post(
             topic_id=topic_id,
@@ -781,8 +848,12 @@ async def mention_expert_endpoint(
             body=req.body,
             in_reply_to_id=req.in_reply_to_id,
             status="completed",
+            owner_user_id=owner_user_id,
+            owner_auth_type=owner_auth_type,
+            delete_token_hash=hash_post_delete_token(raw_delete_token),
         )
     )
+    user_post["delete_token"] = raw_delete_token
     reply_post = upsert_post(
         make_post(
             topic_id=topic_id,
@@ -821,6 +892,44 @@ def get_reply_status_endpoint(topic_id: str, reply_post_id: str):
     if not post:
         raise HTTPException(status_code=404, detail="Reply post not found")
     return post
+
+
+@router.delete("/topics/{topic_id}/posts/{post_id}")
+def delete_post_endpoint(
+    topic_id: str,
+    post_id: str,
+    token: str | None = Query(default=None),
+    user: dict | None = Depends(_get_optional_user),
+):
+    topic = get_topic(topic_id)
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    post = get_post(topic_id, post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if token and token == _POST_ADMIN_TOKEN:
+        if not delete_post(topic_id, post_id):
+            raise HTTPException(status_code=404, detail="Post not found")
+        return {"ok": True, "topic_id": topic_id, "post_id": post_id}
+
+    if not user:
+        raise HTTPException(status_code=401, detail="未登录")
+    if post.get("author_type") != "human":
+        raise HTTPException(status_code=403, detail="Only human posts can be deleted")
+
+    current_user_id = user.get("sub")
+    if current_user_id is not None and post.get("owner_user_id") is not None:
+        if int(current_user_id) != int(post["owner_user_id"]):
+            raise HTTPException(status_code=403, detail="No permission to delete this post")
+    else:
+        author_name = _resolve_author_name(post.get("author") or "", user)
+        if author_name != post.get("author"):
+            raise HTTPException(status_code=403, detail="No permission to delete this post")
+
+    if not delete_post(topic_id, post_id):
+        raise HTTPException(status_code=404, detail="Post not found")
+    return {"ok": True, "topic_id": topic_id, "post_id": post_id}
 
 
 @router.post("/topics/{topic_id}/discussion", status_code=202)

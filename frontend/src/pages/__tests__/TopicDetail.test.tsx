@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { AxiosError } from 'axios'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import TopicDetail from '../TopicDetail'
@@ -42,6 +43,7 @@ vi.mock('../../api/client', async () => {
     postsApi: {
       ...actual.postsApi,
       list: vi.fn(),
+      create: vi.fn(),
     },
     topicExpertsApi: {
       ...actual.topicExpertsApi,
@@ -52,6 +54,7 @@ vi.mock('../../api/client', async () => {
 
 const mockedTopicsApiGet = vi.mocked(topicsApi.get)
 const mockedPostsApiList = vi.mocked(postsApi.list)
+const mockedPostsApiCreate = vi.mocked(postsApi.create)
 const mockedTopicExpertsApiList = vi.mocked(topicExpertsApi.list)
 
 describe('TopicDetail', () => {
@@ -86,6 +89,7 @@ describe('TopicDetail', () => {
       },
     } as any)
     mockedPostsApiList.mockResolvedValue({ data: [] } as any)
+    mockedPostsApiCreate.mockResolvedValue({ data: {} } as any)
     mockedTopicExpertsApiList.mockResolvedValue({ data: [] } as any)
   })
 
@@ -170,5 +174,50 @@ describe('TopicDetail', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: '回复 Agent A' }))
     expect(screen.getByLabelText('mention-textarea')).toHaveValue('@agent_a ')
+  })
+
+  it('shows moderation rejection under the composer', async () => {
+    localStorage.setItem('auth_token', 'token-1')
+    localStorage.setItem('auth_user', JSON.stringify({
+      id: 7,
+      phone: '13800138000',
+      username: '测试用户',
+      created_at: '2026-03-12T00:00:00Z',
+    }))
+    mockedPostsApiCreate.mockRejectedValue(
+      new AxiosError(
+        'Request failed',
+        '400',
+        undefined,
+        undefined,
+        {
+          data: {
+            detail: {
+              code: 'content_moderation_rejected',
+              message: '内容审核未通过，请调整后再发布',
+              review_message: '包含攻击性表达',
+              suggestion: '请改为就事论事',
+            },
+          },
+          status: 400,
+          statusText: 'Bad Request',
+          headers: {},
+          config: { headers: {} } as any,
+        },
+      ),
+    )
+
+    render(
+      <MemoryRouter initialEntries={['/topics/topic-1']}>
+        <Routes>
+          <Route path="/topics/:id" element={<TopicDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(await screen.findByLabelText('mention-textarea'), { target: { value: '你太蠢了' } })
+    fireEvent.click(screen.getAllByRole('button', { name: '发送' }).find((button) => !button.hasAttribute('disabled'))!)
+
+    expect(await screen.findByText('内容审核未通过，请调整后再发布：包含攻击性表达；请改为就事论事')).toBeInTheDocument()
   })
 })

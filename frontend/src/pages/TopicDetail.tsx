@@ -20,7 +20,7 @@ import TopicConfigTabs from '../components/TopicConfigTabs'
 import ResizableToc from '../components/ResizableToc'
 import PostThread from '../components/PostThread'
 import MentionTextarea from '../components/MentionTextarea'
-import { tokenManager, User } from '../api/auth'
+import { postAdminTokenManager, tokenManager, User } from '../api/auth'
 import { handleApiError, handleApiSuccess } from '../utils/errorHandler'
 import { resolveTopicImageSrc } from '../utils/topicImage'
 
@@ -50,6 +50,7 @@ export default function TopicDetail() {
   const [topicExperts, setTopicExperts] = useState<TopicExpert[]>([])
   const [posts, setPosts] = useState<Post[]>([])
   const [postText, setPostText] = useState('')
+  const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [startingDiscussion, setStartingDiscussion] = useState(false)
   const [polling, setPolling] = useState(false)
@@ -59,6 +60,7 @@ export default function TopicDetail() {
   const [activeNavId, setActiveNavId] = useState<string>('')
   const [replyingTo, setReplyingTo] = useState<Post | null>(null)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [postAdminToken, setPostAdminToken] = useState<string | null>(postAdminTokenManager.get())
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const pendingRepliesRef = useRef<Set<string>>(new Set())
   const composerTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -126,6 +128,7 @@ export default function TopicDetail() {
       const token = tokenManager.get()
       const savedUser = tokenManager.getUser()
       setCurrentUser(token && savedUser ? savedUser : null)
+      setPostAdminToken(postAdminTokenManager.get())
     }
 
     syncUser()
@@ -163,12 +166,29 @@ export default function TopicDetail() {
   }
 
   const handleReplyToPost = (post: Post) => {
+    setSubmitError('')
     setReplyingTo(post)
     if (post.author_type === 'agent') {
       const mentionName = post.expert_name ?? post.author
       setPostText(prev => ensureExpertMention(prev, mentionName))
     }
     setTimeout(() => composerTextareaRef.current?.focus(), 0)
+  }
+
+  const handleDeletePost = async (post: Post) => {
+    if (!id) return
+    const confirmed = window.confirm('确认删除这条帖子？')
+    if (!confirmed) return
+    try {
+      await postsApi.delete(id, post.id, postAdminToken ?? undefined)
+      await loadPosts(id)
+      if (replyingTo?.id === post.id) {
+        setReplyingTo(null)
+      }
+      handleApiSuccess('帖子已删除')
+    } catch (err) {
+      handleApiError(err, '删除帖子失败')
+    }
   }
 
   const handleSubmitPost = async (e: React.FormEvent) => {
@@ -182,6 +202,7 @@ export default function TopicDetail() {
     const authorName = getUserDisplayName(currentUser)
 
     setSubmitting(true)
+    setSubmitError('')
     try {
       if (mentionedExpert) {
         const res = await postsApi.mention(id, {
@@ -201,10 +222,12 @@ export default function TopicDetail() {
         handleApiSuccess('发送成功')
       }
       setPostText('')
+      setSubmitError('')
       setReplyingTo(null)
       await loadPosts(id)
     } catch (err) {
-      handleApiError(err, '发送失败')
+      const message = handleApiError(err, '发送失败')
+      setSubmitError(message)
     } finally {
       setSubmitting(false)
     }
@@ -378,6 +401,18 @@ export default function TopicDetail() {
   const creatorMeta = topic.creator_name
     ? `发起人 ${topic.creator_name}${topic.creator_auth_type === 'openclaw_key' ? ' · OpenClaw' : ''}`
     : null
+  const canDeletePost = (post: Post) => {
+    if (postAdminToken) {
+      return true
+    }
+    if (!currentUser || post.author_type !== 'human') {
+      return false
+    }
+    if (post.owner_user_id != null) {
+      return post.owner_user_id === currentUser.id
+    }
+    return post.author === currentUserName
+  }
 
   return (
     <div className="bg-white min-h-screen">
@@ -562,7 +597,9 @@ export default function TopicDetail() {
             <PostThread
               posts={posts}
               onReply={handleReplyToPost}
+              onDelete={handleDeletePost}
               canReply={topic.status === 'open'}
+              canDelete={canDeletePost}
             />
 
             {topic.status === 'open' ? (
@@ -588,7 +625,10 @@ export default function TopicDetail() {
                         <div className="min-w-0 flex-1">
                           <MentionTextarea
                             value={postText}
-                            onChange={setPostText}
+                            onChange={(value) => {
+                              setPostText(value)
+                              if (submitError) setSubmitError('')
+                            }}
                             experts={topicExperts}
                             disabled={submitting}
                             textareaRef={composerTextareaRef}
@@ -607,6 +647,9 @@ export default function TopicDetail() {
                       <p className="mt-2 text-xs text-gray-400">
                         {topicExperts.length > 0 ? '输入 @ 可直接追问角色。' : '输入内容后即可发布跟贴。'}
                       </p>
+                      {submitError ? (
+                        <p className="mt-2 text-xs text-red-600">{submitError}</p>
+                      ) : null}
                     </div>
                   </form>
                 ) : (
@@ -713,7 +756,10 @@ export default function TopicDetail() {
                     <div className="min-w-0 flex-1">
                       <MentionTextarea
                         value={postText}
-                        onChange={setPostText}
+                        onChange={(value) => {
+                          setPostText(value)
+                          if (submitError) setSubmitError('')
+                        }}
                         experts={topicExperts}
                         disabled={submitting}
                         textareaRef={composerTextareaRef}
@@ -732,6 +778,9 @@ export default function TopicDetail() {
                   <p className="mt-2 text-xs text-gray-400">
                     {topicExperts.length > 0 ? '输入 @ 可直接追问角色，回复角色时会自动带上 @。' : '输入内容后即可发布跟贴。'}
                   </p>
+                  {submitError ? (
+                    <p className="mt-2 text-xs text-red-600">{submitError}</p>
+                  ) : null}
                 </div>
               </form>
             ) : (

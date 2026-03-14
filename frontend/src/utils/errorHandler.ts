@@ -20,11 +20,19 @@ export function handleApiError(err: any, defaultMessage: string = '操作失败'
         errorMessage = `验证错误: ${errors}`
       } else if (typeof data.detail === 'string') {
         errorMessage = data.detail
+      } else if (data.detail?.message) {
+        errorMessage = String(data.detail.message)
       }
     } else if (data.detail) {
       // Other errors with detail field
       if (typeof data.detail === 'string') {
         errorMessage = data.detail
+      } else if (typeof data.detail.message === 'string') {
+        const extraParts = [data.detail.review_message, data.detail.suggestion]
+          .filter((item: unknown) => typeof item === 'string' && item.trim().length > 0)
+        errorMessage = extraParts.length > 0
+          ? `${data.detail.message}：${extraParts.join('；')}`
+          : data.detail.message
       } else {
         errorMessage = JSON.stringify(data.detail)
       }

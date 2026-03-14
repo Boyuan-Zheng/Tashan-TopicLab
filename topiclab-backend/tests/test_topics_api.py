@@ -8,6 +8,10 @@ import pytest
 from PIL import Image
 from sqlalchemy import text
 
+from app.services.content_moderation import ModerationDecision
+
+POST_ADMIN_TOKEN = "8a77ef08d429125d20dbac25a2ae0f0cfc6220c66568ac433a80d70d20e933b3"
+
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
@@ -130,11 +134,16 @@ def test_topic_create_list_and_posts(client):
     assert listed_posts.status_code == 200
     assert listed_posts.json()[0]["body"] == "第一条"
 
-    delete_resp = client.delete(
-        f"/topics/{topic_id}/posts/{post_resp.json()['id']}?delete_token={post_resp.json()['delete_token']}"
-    )
+    delete_resp = client.delete(f"/topics/{topic_id}/posts/{post_resp.json()['id']}?token={POST_ADMIN_TOKEN}")
     assert delete_resp.status_code == 200, delete_resp.text
     assert delete_resp.json()["ok"] is True
+
+    topic_delete_resp = client.delete(f"/topics/{topic_id}?token={POST_ADMIN_TOKEN}")
+    assert topic_delete_resp.status_code == 200, topic_delete_resp.text
+    assert topic_delete_resp.json()["ok"] is True
+
+    topic_missing = client.get(f"/topics/{topic_id}")
+    assert topic_missing.status_code == 404
 
 
 def test_discussion_and_mention_complete_via_executor(client):
@@ -175,6 +184,60 @@ def test_discussion_and_mention_complete_via_executor(client):
         time.sleep(0.1)
     assert latest_status is not None
     assert latest_status.json()["result"]["discussion_summary"].startswith("总结")
+
+
+def test_create_post_rejects_when_content_moderation_fails(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.api.topics.moderate_post_content",
+        lambda body, scenario: asyncio.sleep(
+            0,
+            result=ModerationDecision(
+                approved=False,
+                reason="包含人身攻击",
+                suggestion="请删除辱骂内容后重试",
+                category="abuse",
+            ),
+        ),
+    )
+
+    topic = client.post("/topics", json={"title": "审核测试", "body": "正文"}).json()
+    response = client.post(f"/topics/{topic['id']}/posts", json={"author": "alice", "body": "你这个废物"})
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": {
+            "code": "content_moderation_rejected",
+            "message": "内容审核未通过，请调整后再发布",
+            "review_message": "包含人身攻击",
+            "suggestion": "请删除辱骂内容后重试",
+            "category": "abuse",
+        }
+    }
+
+
+def test_mention_rejects_when_content_moderation_fails(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.api.topics.moderate_post_content",
+        lambda body, scenario: asyncio.sleep(
+            0,
+            result=ModerationDecision(
+                approved=False,
+                reason="疑似恶意骚扰",
+                suggestion="请改为具体问题描述",
+                category="abuse",
+            ),
+        ),
+    )
+
+    topic = client.post("/topics", json={"title": "审核测试", "body": "正文"}).json()
+    response = client.post(
+        f"/topics/{topic['id']}/posts/mention",
+        json={"author": "alice", "body": "@physicist 你闭嘴", "expert_name": "physicist"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "content_moderation_rejected"
+    assert response.json()["detail"]["review_message"] == "疑似恶意骚扰"
 
 
 def test_discussion_status_syncs_running_turns_into_database(client):
@@ -361,9 +424,7 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     assert post_resp.status_code == 201, post_resp.text
     assert post_resp.json()["author"] == "openclaw-user"
 
-    delete_resp = client.delete(
-        f"/api/v1/topics/{topic_id}/posts/{post_resp.json()['id']}?delete_token={post_resp.json()['delete_token']}",
-    )
+    delete_resp = client.delete(f"/api/v1/topics/{topic_id}/posts/{post_resp.json()['id']}?token={POST_ADMIN_TOKEN}")
     assert delete_resp.status_code == 200, delete_resp.text
     assert delete_resp.json()["ok"] is True
 
