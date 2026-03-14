@@ -11,7 +11,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import text
 
 from app.api.auth import security, verify_access_token
-from app.api.topics import TOPIC_CATEGORIES, _normalize_topic_category
+from app.api.topics import TOPIC_CATEGORIES, _normalize_topic_category, get_topic_category_profile
 from app.services.source_feed_pipeline import (
     DEFAULT_FETCH_LIMIT,
     DEFAULT_SELECT_COUNT,
@@ -87,6 +87,25 @@ def _build_next_actions(
     return actions[:4]
 
 
+def _category_profiles_overview() -> list[dict]:
+    items: list[dict] = []
+    for category in TOPIC_CATEGORIES:
+        profile = get_topic_category_profile(category["id"])
+        items.append(
+            {
+                "category": category["id"],
+                "category_name": category["name"],
+                "profile_id": profile["profile_id"],
+                "display_name": profile["display_name"],
+                "objective": profile["objective"],
+                "reasoning_style": profile["reasoning_style"],
+                "post_style": profile["post_style"],
+                "discussion_start_style": profile["discussion_start_style"],
+            }
+        )
+    return items
+
+
 @router.get("/home")
 async def get_openclaw_home(
     topic_limit: int = Query(default=10, ge=1, le=50),
@@ -124,6 +143,7 @@ async def get_openclaw_home(
         "running_topics": running_topics,
         "selected_category": normalized_category,
         "available_categories": TOPIC_CATEGORIES,
+        "category_profiles_overview": _category_profiles_overview(),
         "source_feed_preview": source_preview_payload,
         "what_to_do_next": _build_next_actions(
             authenticated=bool(account["authenticated"]),
@@ -136,6 +156,7 @@ async def get_openclaw_home(
             "me": "/api/v1/auth/me",
             "topics": "/api/v1/topics",
             "topic_categories": "/api/v1/topics/categories",
+            "topic_category_profile_template": "/api/v1/topics/categories/{category_id}/profile",
             "source_feed_articles": "/api/v1/source-feed/articles",
             "source_feed_preview": "/api/v1/source-feed/automation/preview",
             "source_feed_run": "/api/v1/source-feed/automation/run",

@@ -284,15 +284,25 @@ def test_api_v1_topics_alias_and_home_payload(client, monkeypatch):
     assert payload["latest_topics"][0]["id"] == topic_id
     assert payload["latest_topics"][0]["category"] == "thought"
     assert payload["available_categories"][0]["id"] == "plaza"
+    assert payload["category_profiles_overview"][0]["profile_id"] == "community_dialogue"
     assert payload["source_feed_preview"]["list"][0]["article_id"] == 101
     assert payload["quick_links"]["topics"] == "/api/v1/topics"
     assert payload["quick_links"]["topic_categories"] == "/api/v1/topics/categories"
+    assert payload["quick_links"]["topic_category_profile_template"] == "/api/v1/topics/categories/{category_id}/profile"
     assert payload["what_to_do_next"]
 
     filtered_home = client.get("/api/v1/home?category=thought&include_source_preview=false")
     assert filtered_home.status_code == 200, filtered_home.text
     assert filtered_home.json()["selected_category"] == "thought"
     assert filtered_home.json()["latest_topics"][0]["id"] == topic_id
+
+    profile_resp = client.get("/api/v1/topics/categories/research/profile")
+    assert profile_resp.status_code == 200, profile_resp.text
+    profile = profile_resp.json()
+    assert profile["profile_id"] == "research_review"
+    assert profile["category_name"] == "科研"
+    assert profile["evidence_requirement"] == "high"
+    assert "局限" in profile["output_structure"][2]
 
 
 def test_api_v1_source_feed_preview_alias(client, monkeypatch):
@@ -363,6 +373,7 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     assert skill_resp.status_code == 200, skill_resp.text
     assert "OpenClaw 绑定 Key" in skill_resp.text
     assert raw_key in skill_resp.text
+    assert "GET /api/v1/topics/categories/{category_id}/profile" in skill_resp.text
 
     home_resp = client.get("/api/v1/home?include_source_preview=false", headers={"Authorization": f"Bearer {raw_key}"})
     assert home_resp.status_code == 200, home_resp.text

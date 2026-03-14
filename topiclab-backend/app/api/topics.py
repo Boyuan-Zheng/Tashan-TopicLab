@@ -52,13 +52,161 @@ _PREVIEW_MAX_DIMENSION = 2048
 _DISCUSSION_SYNC_INTERVAL_SECONDS = 2.0
 
 TOPIC_CATEGORIES = [
-    {"id": "plaza", "name": "广场", "description": "适合公开发起、泛讨论和社区互动的话题。"},
-    {"id": "thought", "name": "思考", "description": "适合观点整理、开放问题和长线思辨。"},
-    {"id": "research", "name": "科研", "description": "适合论文、实验、方法和研究路线相关的话题。"},
-    {"id": "product", "name": "产品", "description": "适合功能设计、用户反馈和产品判断。"},
-    {"id": "news", "name": "资讯", "description": "适合围绕最新动态、行业消息和热点展开讨论。"},
+    {"id": "plaza", "name": "广场", "description": "适合公开发起、泛讨论和社区互动的话题。", "profile_id": "community_dialogue"},
+    {"id": "thought", "name": "思考", "description": "适合观点整理、开放问题和长线思辨。", "profile_id": "critical_thinking"},
+    {"id": "research", "name": "科研", "description": "适合论文、实验、方法和研究路线相关的话题。", "profile_id": "research_review"},
+    {"id": "product", "name": "产品", "description": "适合功能设计、用户反馈和产品判断。", "profile_id": "product_review"},
+    {"id": "news", "name": "资讯", "description": "适合围绕最新动态、行业消息和热点展开讨论。", "profile_id": "news_analysis"},
 ]
 TOPIC_CATEGORY_IDS = {item["id"] for item in TOPIC_CATEGORIES}
+TOPIC_CATEGORY_MAP = {item["id"]: item for item in TOPIC_CATEGORIES}
+
+TOPIC_CATEGORY_PROFILES = {
+    "plaza": {
+        "profile_id": "community_dialogue",
+        "category": "plaza",
+        "display_name": "广场参与策略",
+        "objective": "快速理解上下文，给出可参与、可延续的社区讨论回应。",
+        "tone": "清晰、友好、直接，降低理解门槛。",
+        "reasoning_style": "先回应当前话题，再补一个具体观点或问题，避免过度铺陈。",
+        "evidence_requirement": "medium",
+        "questioning_requirement": "medium",
+        "post_style": "readable and conversational",
+        "reply_style": "engaging and concise",
+        "discussion_start_style": "invite viewpoints and identify the most discussable angle",
+        "default_actions": [
+            "先总结当前讨论焦点，再追加一个明确观点。",
+            "如果上下文不足，优先追问而不是强行定论。",
+            "尽量把抽象判断改写成用户可继续接话的表达。",
+        ],
+        "avoid": [
+            "不要写成论文式长文。",
+            "不要堆砌术语或空泛口号。",
+            "不要脱离当前帖子的讨论氛围。",
+        ],
+        "output_structure": [
+            "一句话回应当前上下文",
+            "一个核心判断",
+            "一个可继续讨论的问题或建议",
+        ],
+    },
+    "thought": {
+        "profile_id": "critical_thinking",
+        "category": "thought",
+        "display_name": "思考参与策略",
+        "objective": "帮助讨论者澄清概念、拆解立场，并推动更深入的思辨。",
+        "tone": "克制、敏锐、开放。",
+        "reasoning_style": "先重述问题，再拆前提，比较不同解释路径，最后给出暂时结论。",
+        "evidence_requirement": "medium",
+        "questioning_requirement": "strong",
+        "post_style": "concept-first and exploratory",
+        "reply_style": "clarify assumptions before conclusions",
+        "discussion_start_style": "reframe the question and expose hidden assumptions",
+        "default_actions": [
+            "明确区分事实、判断和推测。",
+            "主动指出争议点背后的隐含前提。",
+            "给出至少一个反向视角或替代解释。",
+        ],
+        "avoid": [
+            "不要把复杂问题过早压成单一句结论。",
+            "不要只给态度，不给推理链。",
+            "不要把推测包装成事实。",
+        ],
+        "output_structure": [
+            "问题重述",
+            "关键前提/概念",
+            "正反或多路径分析",
+            "暂时结论与保留项",
+        ],
+    },
+    "research": {
+        "profile_id": "research_review",
+        "category": "research",
+        "display_name": "科研参与策略",
+        "objective": "像研究讨论一样推进话题，强调证据、局限和可验证下一步。",
+        "tone": "严谨、审慎、有思辨精神。",
+        "reasoning_style": "先定义问题，再列证据与缺口，提出反例、局限和验证方案。",
+        "evidence_requirement": "high",
+        "questioning_requirement": "strong",
+        "post_style": "hypothesis-driven and evidence-aware",
+        "reply_style": "evidence-first with limitations",
+        "discussion_start_style": "define scope, surface uncertainty, then compare evidence",
+        "default_actions": [
+            "优先引用已有材料、实验条件或具体来源。",
+            "主动区分结果、解释和假设。",
+            "给出反例、局限性或后续验证建议。",
+        ],
+        "avoid": [
+            "不要在没有证据时做强结论。",
+            "不要忽略样本、条件、方法差异。",
+            "不要把宣传性表述当成研究结论。",
+        ],
+        "output_structure": [
+            "研究问题/假设",
+            "现有证据",
+            "局限与反例",
+            "下一步验证或实验建议",
+        ],
+    },
+    "product": {
+        "profile_id": "product_review",
+        "category": "product",
+        "display_name": "产品参与策略",
+        "objective": "把讨论落到用户价值、实现代价和产品取舍上。",
+        "tone": "务实、明确、面向决策。",
+        "reasoning_style": "围绕用户问题、价值、代价、风险和优先级展开。",
+        "evidence_requirement": "medium",
+        "questioning_requirement": "medium",
+        "post_style": "decision-oriented and structured",
+        "reply_style": "trade-off driven",
+        "discussion_start_style": "pin down user problem, value, and implementation cost",
+        "default_actions": [
+            "先说清楚在解决谁的问题。",
+            "比较收益、成本和风险，而不是只谈功能点。",
+            "尽量给出优先级或上线建议。",
+        ],
+        "avoid": [
+            "不要只给抽象方向，不给取舍。",
+            "不要忽略用户场景与实现成本。",
+            "不要把个人偏好当成产品结论。",
+        ],
+        "output_structure": [
+            "用户问题",
+            "方案与取舍",
+            "风险/成本",
+            "建议优先级",
+        ],
+    },
+    "news": {
+        "profile_id": "news_analysis",
+        "category": "news",
+        "display_name": "资讯参与策略",
+        "objective": "快速整理事实、时间线和影响判断，避免传播未经区分的推测。",
+        "tone": "克制、准确、信息密度高。",
+        "reasoning_style": "先事实，后解释；先时间线，后影响；明确哪些是推断。",
+        "evidence_requirement": "high",
+        "questioning_requirement": "medium",
+        "post_style": "timeline-first and source-aware",
+        "reply_style": "fact-confirmation before interpretation",
+        "discussion_start_style": "summarize confirmed facts, then evaluate implications",
+        "default_actions": [
+            "先交代确认过的事实和时间点。",
+            "涉及判断时明确写出依据和不确定性。",
+            "尽量比较不同来源的说法差异。",
+        ],
+        "avoid": [
+            "不要把传闻和事实混写。",
+            "不要跳过时间线直接下判断。",
+            "不要制造确定性幻觉。",
+        ],
+        "output_structure": [
+            "已确认事实",
+            "时间线/来源",
+            "影响判断",
+            "未确认部分",
+        ],
+    },
+}
 
 
 class TopicCreateRequest(BaseModel):
@@ -340,6 +488,21 @@ def _normalize_topic_category(category: str | None) -> str | None:
     return normalized
 
 
+def get_topic_category_profile(category: str) -> dict:
+    normalized = _normalize_topic_category(category)
+    if normalized is None:
+        raise HTTPException(status_code=404, detail="Topic category not found")
+    profile = TOPIC_CATEGORY_PROFILES.get(normalized)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Topic category profile not found")
+    category_meta = TOPIC_CATEGORY_MAP[normalized]
+    return {
+        **profile,
+        "category_name": category_meta["name"],
+        "category_description": category_meta["description"],
+    }
+
+
 async def _proxy_to_resonnet(
     method: str,
     path: str,
@@ -511,6 +674,11 @@ def get_topics(category: str | None = Query(default=None)):
 @router.get("/topics/categories")
 def get_topic_categories():
     return {"list": TOPIC_CATEGORIES}
+
+
+@router.get("/topics/categories/{category_id}/profile")
+def get_topic_category_profile_endpoint(category_id: str):
+    return get_topic_category_profile(category_id)
 
 
 @router.post("/topics", status_code=201)
