@@ -759,6 +759,17 @@ async def _sync_discussion_snapshot(topic_id: str) -> dict | None:
     discussion_summary = snapshot.get("discussion_summary") or ""
     generated_images = _collect_generated_images(topic_id, snapshot.get("generated_images") or [])
 
+    # 若本次 snapshot 为空（无 turns、无内容），且 DB 中已存有效数据，则跳过覆盖，
+    # 避免 executor 暂时返回空结果时将已有讨论内容清空。
+    snapshot_has_content = bool(turns or discussion_history or discussion_summary)
+    if not snapshot_has_content:
+        existing = get_topic(topic_id)
+        existing_result = existing.get("discussion_result") if existing else None
+        if existing_result and (
+            existing_result.get("discussion_history") or existing_result.get("discussion_summary")
+        ):
+            return snapshot
+
     replace_discussion_turns(topic_id, turns)
     replace_generated_images(topic_id, generated_images)
     set_discussion_status(

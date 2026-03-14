@@ -621,12 +621,31 @@ export default function TopicDetail() {
     pollIntervalRef.current = setInterval(async () => {
       try {
         const res = await discussionApi.getStatus(id)
-        setTopic(prev => prev ? {
-          ...prev,
-          discussion_status: res.data.status,
-          discussion_result: res.data.result,
-        } : prev)
-        if (res.data.progress) setProgress(res.data.progress)
+        setTopic(prev => {
+          if (!prev) return prev
+          const nextResult = res.data.result
+          // 讨论进行中时，若 API 返回空 result，保留已有 discussion_result，避免内容突然消失
+          const keepPrev =
+            res.data.status === 'running' &&
+            (nextResult == null ||
+              (typeof nextResult === 'object' && !(nextResult.discussion_history || nextResult.discussion_summary || (nextResult.turns_count ?? 0) > 0)))
+          return {
+            ...prev,
+            discussion_status: res.data.status,
+            discussion_result: keepPrev ? prev.discussion_result : nextResult,
+          }
+        })
+        // 讨论进行中时，若 API 返回全零的 progress，保留已有 progress，避免轮次在 0 与真实值间跳动
+        setProgress(prev => {
+          const next = res.data.progress
+          if (!next) return prev
+          if (res.data.status !== 'running') return next
+          const nextEmpty = (next.completed_turns ?? 0) === 0 && (next.current_round ?? 0) === 0
+          if (nextEmpty && prev && ((prev.completed_turns ?? 0) > 0 || (prev.current_round ?? 0) > 0)) {
+            return prev
+          }
+          return next
+        })
         if (res.data.status === 'completed' || res.data.status === 'failed') {
           clearInterval(pollIntervalRef.current!)
           pollIntervalRef.current = null
