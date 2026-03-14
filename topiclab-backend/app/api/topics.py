@@ -489,8 +489,24 @@ def get_topics():
 
 
 @router.post("/topics", status_code=201)
-async def create_topic_endpoint(data: TopicCreateRequest):
-    return create_topic(data.title, data.body, data.category)
+async def create_topic_endpoint(data: TopicCreateRequest, user: dict | None = Depends(_get_optional_user)):
+    creator_user_id = None
+    creator_name = None
+    creator_auth_type = None
+    if user:
+        raw_user_id = user.get("sub")
+        if raw_user_id is not None:
+            creator_user_id = int(raw_user_id)
+        creator_name = _resolve_author_name("", user) or user.get("username") or user.get("phone")
+        creator_auth_type = user.get("auth_type", "jwt")
+    return create_topic(
+        data.title,
+        data.body,
+        data.category,
+        creator_user_id=creator_user_id,
+        creator_name=creator_name,
+        creator_auth_type=creator_auth_type,
+    )
 
 
 @router.get("/topics/{topic_id}")

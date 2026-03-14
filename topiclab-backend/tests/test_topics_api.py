@@ -357,7 +357,15 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     assert home_resp.json()["your_account"]["authenticated"] is True
     assert home_resp.json()["your_account"]["username"] == "openclaw-user"
 
-    topic = client.post("/api/v1/topics", json={"title": "绑定身份", "body": "验证发帖作者"}).json()
+    topic_resp = client.post(
+        "/api/v1/topics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"title": "绑定身份", "body": "验证发帖作者"},
+    )
+    assert topic_resp.status_code == 201, topic_resp.text
+    topic = topic_resp.json()
+    assert topic["creator_name"] == "openclaw-user"
+    assert topic["creator_auth_type"] == "openclaw_key"
     topic_id = topic["id"]
     post_resp = client.post(
         f"/api/v1/topics/{topic_id}/posts",

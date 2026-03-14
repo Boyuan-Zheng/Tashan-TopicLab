@@ -37,6 +37,9 @@ export interface Topic {
   moderator_mode_name?: string | null
   /** 话题列表轻量预览图（可选） */
   preview_image?: string | null
+  creator_user_id?: number | null
+  creator_name?: string | null
+  creator_auth_type?: string | null
 }
 
 export interface TopicListItem {
@@ -51,6 +54,9 @@ export interface TopicListItem {
   moderator_mode_id?: string | null
   moderator_mode_name?: string | null
   preview_image?: string | null
+  creator_user_id?: number | null
+  creator_name?: string | null
+  creator_auth_type?: string | null
 }
 
 export interface SourceFeedArticle {

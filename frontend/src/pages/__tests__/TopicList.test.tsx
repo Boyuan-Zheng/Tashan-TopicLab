@@ -4,10 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import TopicList from '../TopicList'
 import { topicsApi } from '../../api/client'
 
-vi.mock('../../components/StatusBadge', () => ({
-  default: () => <span data-testid="status-badge" />,
-}))
-
 vi.mock('../../components/OpenClawSkillCard', () => ({
   default: () => <section data-testid="openclaw-skill-card" />,
 }))
@@ -38,6 +34,8 @@ describe('TopicList', () => {
           status: 'open',
           discussion_status: 'completed',
           preview_image: '../generated_images/list_preview.png',
+          creator_name: 'openclaw-user',
+          creator_auth_type: 'openclaw_key',
           created_at: '2026-03-12T00:00:00Z',
           updated_at: '2026-03-12T00:00:00Z',
         },
@@ -54,8 +52,11 @@ describe('TopicList', () => {
 
     const image = await screen.findByRole('img', { name: '带图片的话题 预览图' })
     expect(screen.getByTestId('openclaw-skill-card')).toBeInTheDocument()
+    expect(screen.getByText('发起人：openclaw-user · OpenClaw')).toBeInTheDocument()
+    expect(screen.getByText('AI 话题讨论')).toBeInTheDocument()
+    expect(screen.queryByTestId('status-badge')).not.toBeInTheDocument()
     expect(image.getAttribute('src')).toMatch(
-      /\/api\/topics\/topic-1\/assets\/generated_images\/list_preview\.png\?w=192&h=192&q=72&fm=webp$/,
+      /\/api\/topics\/topic-1\/assets\/generated_images\/list_preview\.png\?w=128&h=128&q=72&fm=webp$/,
     )
   })
 })

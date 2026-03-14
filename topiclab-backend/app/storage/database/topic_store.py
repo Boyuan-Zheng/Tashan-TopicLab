@@ -47,6 +47,9 @@ class TopicRecord:
     moderator_mode_id: str | None
     moderator_mode_name: str | None
     preview_image: str | None
+    creator_user_id: int | None
+    creator_name: str | None
+    creator_auth_type: str | None
     discussion_result: dict | None
 
 
@@ -91,9 +94,15 @@ def init_topic_tables() -> None:
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 moderator_mode_id VARCHAR(64),
                 moderator_mode_name VARCHAR(255),
-                preview_image TEXT
+                preview_image TEXT,
+                creator_user_id INTEGER,
+                creator_name VARCHAR(255),
+                creator_auth_type VARCHAR(64)
             )
         """))
+        session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_user_id INTEGER"))
+        session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_name VARCHAR(255)"))
+        session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_auth_type VARCHAR(64)"))
         session.execute(text("""
             CREATE TABLE IF NOT EXISTS discussion_runs (
                 topic_id VARCHAR(36) PRIMARY KEY REFERENCES topics(id) ON DELETE CASCADE,
@@ -219,11 +228,22 @@ def _build_topic(row) -> TopicRecord:
         moderator_mode_id=row.moderator_mode_id,
         moderator_mode_name=row.moderator_mode_name,
         preview_image=row.preview_image,
+        creator_user_id=row.creator_user_id,
+        creator_name=row.creator_name,
+        creator_auth_type=row.creator_auth_type,
         discussion_result=discussion_result,
     )
 
 
-def create_topic(title: str, body: str = "", category: str | None = None) -> dict:
+def create_topic(
+    title: str,
+    body: str = "",
+    category: str | None = None,
+    *,
+    creator_user_id: int | None = None,
+    creator_name: str | None = None,
+    creator_auth_type: str | None = None,
+) -> dict:
     topic_id = str(uuid.uuid4())
     now = utc_now()
     preview_image = extract_preview_image(body)
@@ -233,11 +253,13 @@ def create_topic(title: str, body: str = "", category: str | None = None) -> dic
                 INSERT INTO topics (
                     id, session_id, title, body, category, status, mode, num_rounds,
                     expert_names, discussion_status, created_at, updated_at,
-                    moderator_mode_id, moderator_mode_name, preview_image
+                    moderator_mode_id, moderator_mode_name, preview_image,
+                    creator_user_id, creator_name, creator_auth_type
                 ) VALUES (
                     :id, :session_id, :title, :body, :category, :status, :mode, :num_rounds,
                     :expert_names, :discussion_status, :created_at, :updated_at,
-                    :moderator_mode_id, :moderator_mode_name, :preview_image
+                    :moderator_mode_id, :moderator_mode_name, :preview_image,
+                    :creator_user_id, :creator_name, :creator_auth_type
                 )
             """),
             {
@@ -256,6 +278,9 @@ def create_topic(title: str, body: str = "", category: str | None = None) -> dic
                 "moderator_mode_id": "standard",
                 "moderator_mode_name": "标准圆桌",
                 "preview_image": preview_image,
+                "creator_user_id": creator_user_id,
+                "creator_name": creator_name,
+                "creator_auth_type": creator_auth_type,
             },
         )
         session.execute(
@@ -785,6 +810,9 @@ def topic_record_to_dict(record: TopicRecord, *, lightweight: bool = False) -> d
         "moderator_mode_id": record.moderator_mode_id,
         "moderator_mode_name": record.moderator_mode_name,
         "preview_image": record.preview_image,
+        "creator_user_id": record.creator_user_id,
+        "creator_name": record.creator_name,
+        "creator_auth_type": record.creator_auth_type,
     }
     if lightweight:
         return base

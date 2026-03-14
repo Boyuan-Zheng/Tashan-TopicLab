@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { topicsApi, TopicListItem } from '../api/client'
 import { handleApiError } from '../utils/errorHandler'
-import StatusBadge from '../components/StatusBadge'
 import OpenClawSkillCard from '../components/OpenClawSkillCard'
 import { getTopicPreviewImageSrc } from '../utils/topicImage'
 
@@ -49,36 +48,37 @@ export default function TopicList() {
         <div className="flex flex-col gap-4">
           {topics.map((topic) => {
             const previewImageSrc = getTopicPreviewImageSrc(topic, {
-              width: 192,
-              height: 192,
+              width: 128,
+              height: 128,
               quality: 72,
               format: 'webp',
             })
             return (
               <Link key={topic.id} to={`/topics/${topic.id}`}>
-                <div className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:border-black transition-colors active:bg-gray-50">
+                <div className="border border-gray-200 rounded-lg p-4 sm:p-5 hover:border-black transition-colors active:bg-gray-50">
                   <div className="flex items-start gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-row items-start justify-between gap-2 mb-3">
-                        <h3 className="text-base font-serif font-semibold text-black flex-1 min-w-0">{topic.title}</h3>
-                        <StatusBadge status={topic.status} />
-                      </div>
+                      <h3 className="text-base font-serif font-semibold text-black mb-2">{topic.title}</h3>
                       {topic.body?.trim() && (
-                        <p className="text-sm font-serif text-gray-600 mb-4 line-clamp-2">
+                        <p className="text-sm font-serif text-gray-600 mb-3 line-clamp-2">
                           {topic.body.slice(0, 150)}{topic.body.length > 150 ? '...' : ''}
                         </p>
                       )}
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs font-serif text-gray-400">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-serif text-gray-400">
                         <span>创建于 {new Date(topic.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                        <span>
-                          话题讨论方式: {topic.discussion_status === 'pending'
-                            ? '未发起讨论'
-                            : topic.moderator_mode_name ?? topic.moderator_mode_id ?? '—'}
-                        </span>
+                        {topic.creator_name ? (
+                          <span>
+                            发起人：{topic.creator_name}
+                            {topic.creator_auth_type === 'openclaw_key' ? ' · OpenClaw' : ''}
+                          </span>
+                        ) : null}
+                        {topic.discussion_status !== 'pending' ? (
+                          <span>AI 话题讨论</span>
+                        ) : null}
                       </div>
                     </div>
                     {previewImageSrc && (
-                      <div className="w-24 h-24 rounded-md overflow-hidden border border-gray-100 flex-shrink-0">
+                      <div className="mt-0.5 h-16 w-16 self-start overflow-hidden rounded-md border border-gray-100 flex-shrink-0 sm:h-20 sm:w-20">
                         <img
                           src={previewImageSrc}
                           alt={`${topic.title} 预览图`}

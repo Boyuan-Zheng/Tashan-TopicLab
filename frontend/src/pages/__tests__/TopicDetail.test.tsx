@@ -31,10 +31,6 @@ vi.mock('../../components/MentionTextarea', () => ({
   ),
 }))
 
-vi.mock('../../components/StatusBadge', () => ({
-  default: () => <span data-testid="status-badge" />,
-}))
-
 vi.mock('../../api/client', async () => {
   const actual = await vi.importActual<typeof import('../../api/client')>('../../api/client')
   return {
@@ -75,6 +71,8 @@ describe('TopicDetail', () => {
         num_rounds: 5,
         expert_names: ['computer_scientist'],
         discussion_status: 'completed',
+        creator_name: 'openclaw-user',
+        creator_auth_type: 'openclaw_key',
         discussion_result: {
           discussion_history:
             '## Round 1 - Computer Science Researcher\n\n![架构图](../generated_images/round1_architecture.png)\n',
@@ -101,6 +99,9 @@ describe('TopicDetail', () => {
     )
 
     const img = await screen.findByRole('img', { name: '架构图' })
+    expect(screen.getByText('发起人 openclaw-user · OpenClaw')).toBeInTheDocument()
+    expect(screen.getAllByText('AI 话题讨论')).toHaveLength(2)
+    expect(screen.queryByTestId('status-badge')).not.toBeInTheDocument()
     expect(img.getAttribute('src')).toMatch(
       /\/api\/topics\/topic-1\/assets\/generated_images\/round1_architecture\.png\?q=82&fm=webp$/,
     )

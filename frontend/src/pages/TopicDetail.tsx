@@ -19,7 +19,6 @@ import TopicConfigTabs from '../components/TopicConfigTabs'
 import ResizableToc from '../components/ResizableToc'
 import PostThread from '../components/PostThread'
 import MentionTextarea from '../components/MentionTextarea'
-import StatusBadge from '../components/StatusBadge'
 import { tokenManager, User } from '../api/auth'
 import { handleApiError, handleApiSuccess } from '../utils/errorHandler'
 import { resolveTopicImageSrc } from '../utils/topicImage'
@@ -374,24 +373,30 @@ export default function TopicDetail() {
   const isDiscussionMode = topic.mode === 'discussion' || topic.mode === 'both'
   const shouldShowReplyDock = topic.status === 'open' && replyingTo !== null
   const closeReplyDock = () => setReplyingTo(null)
+  const creatorMeta = topic.creator_name
+    ? `发起人 ${topic.creator_name}${topic.creator_auth_type === 'openclaw_key' ? ' · OpenClaw' : ''}`
+    : null
 
   return (
     <div className="bg-white min-h-screen">
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-4 sm:py-6 flex flex-col lg:flex-row gap-6 lg:gap-8">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-4 sm:py-5 flex flex-col lg:flex-row gap-5 lg:gap-7">
         {/* Main content */}
         <div className="flex-1 min-w-0">
 
           {/* Topic title & actions */}
-          <div className="flex flex-row items-start justify-between gap-2 mb-4 sm:mb-6">
-            <h1 className="text-xl sm:text-2xl font-serif font-bold text-black flex-1 min-w-0">{topic.title}</h1>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <StatusBadge status={topic.status} />
+          <div className="mb-4 sm:mb-5">
+            <h1 className="text-xl sm:text-2xl font-serif font-bold text-black">{topic.title}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-serif text-gray-400">
+              <span>创建于 {new Date(topic.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+              {creatorMeta ? <span>{creatorMeta}</span> : null}
+              {topic.discussion_status !== 'pending' ? <span>AI 话题讨论</span> : null}
+              {topic.status === 'closed' ? <span>已关闭</span> : null}
             </div>
           </div>
 
           {/* Topic config - always visible for discussion mode */}
           {isDiscussionMode ? (
-            <div className="border-l-2 border-gray-100 pl-4 sm:pl-5 py-2 mb-4 sm:mb-6">
+            <div className="border-l-2 border-gray-100 pl-4 sm:pl-5 py-2 mb-4 sm:mb-5">
               <TopicConfigTabs
                 topicId={id!}
                 topicBody={topic.body}
@@ -412,7 +417,7 @@ export default function TopicDetail() {
             </div>
           ) : null}
 
-          <div className="border-t border-gray-100 my-6 sm:my-8" />
+          <div className="border-t border-gray-100 my-5 sm:my-6" />
 
           {/* Mobile TOC - horizontal scroll, sticky */}
           {hasDiscussion && navItems.length > 0 && (
@@ -441,7 +446,7 @@ export default function TopicDetail() {
             <div
               id="summary-section"
               ref={el => { sectionRefs.current['summary-section'] = el }}
-              className="mb-8 scroll-mt-6"
+              className="mb-6 scroll-mt-6"
             >
               <div className="border-l-2 border-black pl-4 py-2">
                 <div className="flex items-center gap-3 mb-3">
@@ -461,7 +466,7 @@ export default function TopicDetail() {
 
           {/* In-page progress indicator */}
           {topic.discussion_status === 'running' && (
-            <div className="mb-6 sm:mb-8 border border-gray-200 rounded-lg p-4 sm:p-5">
+            <div className="mb-5 sm:mb-6 border border-gray-200 rounded-lg p-4 sm:p-5">
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
                 <span className="spinner" />
                 <span className="text-sm font-semibold text-gray-900">AI讨论进行中</span>
@@ -499,9 +504,9 @@ export default function TopicDetail() {
 
           {/* Roundtable discussion rounds - multi-column: 2+ on desktop, 1 on mobile */}
           {Object.keys(postsByRound).length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-base font-semibold text-gray-900 mb-1">AI讨论</h2>
-              <div className="grid grid-cols-1 gap-6 mt-4">
+            <div className="mb-6">
+              <h2 className="text-base font-semibold text-gray-900 mb-1">AI 话题讨论</h2>
+              <div className="grid grid-cols-1 gap-5 mt-3">
               {Object.keys(postsByRound).map(roundKey => {
                 const round = parseInt(roundKey)
                 const roundPosts = postsByRound[round]
