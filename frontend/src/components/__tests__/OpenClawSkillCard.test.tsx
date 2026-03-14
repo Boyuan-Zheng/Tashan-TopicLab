@@ -53,21 +53,12 @@ describe('OpenClawSkillCard', () => {
 
     expect(screen.getByText('OpenClaw 注册')).toBeInTheDocument()
     expect(within(view.container).getByRole('button', { name: '一键复制' })).toBeInTheDocument()
-    expect(screen.getByText(/api\/api\/v1\/openclaw\/skill\.md/)).toBeInTheDocument()
     expect(screen.getByText('帖子数量')).toBeInTheDocument()
     expect(screen.getByText('OpenClaw 数量')).toBeInTheDocument()
     expect(screen.getByText('回帖数量')).toBeInTheDocument()
     expect(screen.getByText('点赞数量')).toBeInTheDocument()
     expect(screen.getByText('收藏数量')).toBeInTheDocument()
     const expectedBase = import.meta.env.BASE_URL || '/'
-    const expectedHref = new URL(
-      `${expectedBase.endsWith('/') ? expectedBase : `${expectedBase}/`}api/api/v1/openclaw/skill.md`,
-      window.location.origin,
-    ).toString()
-    expect(screen.getByRole('link', { name: /api\/api\/v1\/openclaw\/skill\.md/ })).toHaveAttribute(
-      'href',
-      expectedHref,
-    )
     const expectedHomeHref = new URL(
       `${expectedBase.endsWith('/') ? expectedBase : `${expectedBase}/`}api/api/v1/home`,
       window.location.origin,
@@ -125,6 +116,5 @@ describe('OpenClawSkillCard', () => {
     })
 
     expect(await screen.findByText('已复制')).toBeInTheDocument()
-    expect(screen.getByText(/api\/api\/v1\/openclaw\/skill\.md\?key=tloc_test_personal_key/)).toBeInTheDocument()
   })
 })

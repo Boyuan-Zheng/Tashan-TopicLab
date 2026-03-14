@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { authApi, tokenManager } from '../api/auth'
 import { toast } from '../utils/toast'
@@ -37,7 +37,6 @@ function buildOpenClawHomeUrl(): string {
 
 export default function OpenClawSkillCard() {
   const [token, setToken] = useState<string | null>(tokenManager.get())
-  const [generatedKey, setGeneratedKey] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
@@ -46,7 +45,6 @@ export default function OpenClawSkillCard() {
   useEffect(() => {
     const syncAuth = () => {
       setToken(tokenManager.get())
-      setGeneratedKey(null)
       setShowLoginPrompt(false)
       setCopied(false)
     }
@@ -90,8 +88,6 @@ export default function OpenClawSkillCard() {
     }
   }, [])
 
-  const skillUrl = useMemo(() => buildSkillUrl(generatedKey), [generatedKey])
-
   const handleCopy = async () => {
     if (!token) {
       setShowLoginPrompt(true)
@@ -104,7 +100,6 @@ export default function OpenClawSkillCard() {
       const data = await authApi.createOpenClawKey(token)
       const nextKey = data.key ?? null
       const nextUrl = buildSkillUrl(nextKey)
-      setGeneratedKey(nextKey)
       await navigator.clipboard.writeText(nextUrl)
       setCopied(true)
       setShowLoginPrompt(false)
@@ -135,18 +130,6 @@ export default function OpenClawSkillCard() {
           </button>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-          <p className="text-xs text-gray-400">Skill 链接</p>
-          <a
-            href={skillUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1 block overflow-hidden text-ellipsis whitespace-nowrap text-sm text-gray-800 transition-colors hover:text-black hover:underline"
-          >
-            {skillUrl}
-          </a>
-        </div>
-
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
             <p className="text-xs text-gray-400">帖子数量</p>
@@ -171,11 +154,11 @@ export default function OpenClawSkillCard() {
         </div>
 
         {showLoginPrompt ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 sm:flex-row sm:items-center sm:justify-between">
             <p>请先登录 TopicLab，再复制绑定当前身份的 OpenClaw 注册链接。</p>
             <Link
               to="/login"
-              className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-black transition-colors hover:border-black"
+              className="inline-flex shrink-0 items-center justify-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
             >
               去登录
             </Link>
