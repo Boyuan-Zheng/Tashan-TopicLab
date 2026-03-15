@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { sourceFeedApi, SourceFeedArticle } from '../api/client'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import {
+  literatureApi,
+  LiteratureRecentItem,
+  sourceFeedApi,
+  SourceFeedArticle,
+} from '../api/client'
 import { tokenManager, User } from '../api/auth'
+import LiteratureCard from '../components/LiteratureCard'
 import SourceArticleCard from '../components/SourceArticleCard'
 import { handleApiError } from '../utils/errorHandler'
 import { toast } from '../utils/toast'
@@ -20,6 +26,11 @@ const QUICK_LINKS = [
   { label: '全球情报', href: 'https://42vf4xnfxh.coze.site/' },
   { label: '开源代码库', href: 'https://home.gqy20.top/TrendPluse/' },
   { label: 'AI 技术', href: 'https://info.gqy20.top/' },
+]
+
+const SOURCE_FEED_SECTIONS = [
+  { id: 'source' as const, label: '媒体' },
+  { id: 'academic' as const, label: '学术' },
 ]
 
 function dedupeArticles(items: SourceFeedArticle[]) {
@@ -51,20 +62,41 @@ function getColumnWidth(width: number, columnCount: number) {
   return Math.min(CARD_MAX_WIDTH, Math.max(0, Math.floor(widthPerColumn)))
 }
 
-function splitIntoColumns(items: SourceFeedArticle[], columnCount: number) {
-  const columns = Array.from({ length: columnCount }, () => [] as SourceFeedArticle[])
+function splitIntoColumns<T>(items: T[], columnCount: number): T[][] {
+  const columns = Array.from({ length: columnCount }, () => [] as T[])
   items.forEach((item, index) => {
     columns[index % columnCount].push(item)
   })
   return columns
 }
 
+function getArxivUrl(paperId: string): string {
+  const base = paperId.replace(/v\d+$/i, '')
+  return `https://arxiv.org/abs/${base}`
+}
+
+type SourceFeedSectionId = (typeof SOURCE_FEED_SECTIONS)[number]['id']
+
+function isSourceFeedSectionId(value: string | undefined): value is SourceFeedSectionId {
+  return SOURCE_FEED_SECTIONS.some((s) => s.id === value)
+}
+
 export default function SourceFeedPage() {
+  const { section } = useParams<{ section: string }>()
   const navigate = useNavigate()
+
+  if (!isSourceFeedSectionId(section)) {
+    return <Navigate to="/source-feed/source" replace />
+  }
+
   const [articles, setArticles] = useState<SourceFeedArticle[]>([])
+  const [literatureItems, setLiteratureItems] = useState<LiteratureRecentItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [literatureLoading, setLiteratureLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [literatureLoadingMore, setLiteratureLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
+  const [literatureHasMore, setLiteratureHasMore] = useState(true)
   const [query, setQuery] = useState('')
   const [searchValue, setSearchValue] = useState('')
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
@@ -75,16 +107,49 @@ export default function SourceFeedPage() {
   const loadingMoreRef = useRef(false)
   const hasMoreRef = useRef(true)
   const pageRef = useRef(0)
+  const literatureOffsetRef = useRef(0)
+  const literatureLoadingMoreRef = useRef(false)
+  const literatureHasMoreRef = useRef(true)
+
+  const activeSection = SOURCE_FEED_SECTIONS.find((s) => s.id === section) ?? SOURCE_FEED_SECTIONS[0]
 
   useEffect(() => {
+    if (section !== 'source') return
     void loadFirstPage()
-  }, [])
+  }, [section])
 
   useEffect(() => {
-    const onResize = () => {
-      setViewportWidth(window.innerWidth)
+    if (section !== 'academic') return
+    let cancelled = false
+    const load = async () => {
+      setLiteratureLoading(true)
+      literatureOffsetRef.current = 0
+      try {
+        const res = await literatureApi.recent({ limit: PAGE_SIZE, offset: 0 })
+        if (cancelled) return
+        setLiteratureItems(res.data.list)
+        const nextHasMore = res.data.list.length === PAGE_SIZE
+        setLiteratureHasMore(nextHasMore)
+        literatureHasMoreRef.current = nextHasMore
+        literatureOffsetRef.current = res.data.list.length
+      } catch {
+        if (!cancelled) {
+          setLiteratureItems([])
+          setLiteratureHasMore(false)
+          literatureHasMoreRef.current = false
+        }
+      } finally {
+        if (!cancelled) setLiteratureLoading(false)
+      }
     }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [section])
 
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth)
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -95,7 +160,6 @@ export default function SourceFeedPage() {
       const savedUser = tokenManager.getUser()
       setCurrentUser(token && savedUser ? savedUser : null)
     }
-
     syncUser()
     window.addEventListener('storage', syncUser)
     window.addEventListener('auth-change', syncUser)
@@ -108,23 +172,31 @@ export default function SourceFeedPage() {
   useEffect(() => {
     const onScroll = () => {
       const remaining = document.documentElement.scrollHeight - (window.innerHeight + window.scrollY)
-      if (remaining < 900 && !loadingMoreRef.current && hasMoreRef.current) {
+      if (remaining > 900) return
+      if (section === 'source' && !loadingMoreRef.current && hasMoreRef.current) {
         void loadMore()
       }
+      if (section === 'academic' && !literatureLoadingMoreRef.current && literatureHasMoreRef.current) {
+        void loadMoreLiterature()
+      }
     }
-
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [section])
 
   useEffect(() => {
-    if (loading || loadingMore || !hasMore || articles.length === 0) {
-      return
-    }
-    if (document.documentElement.scrollHeight <= window.innerHeight + 160) {
+    if (section === 'source' && (loading || loadingMore || !hasMore || articles.length === 0)) return
+    if (section === 'source' && document.documentElement.scrollHeight <= window.innerHeight + 160) {
       void loadMore()
     }
-  }, [articles.length, hasMore, loading, loadingMore])
+  }, [section, articles.length, hasMore, loading, loadingMore])
+
+  useEffect(() => {
+    if (section !== 'academic' || literatureLoading || literatureLoadingMore || !literatureHasMore || literatureItems.length === 0) return
+    if (document.documentElement.scrollHeight <= window.innerHeight + 160) {
+      void loadMoreLiterature()
+    }
+  }, [section, literatureItems.length, literatureHasMore, literatureLoading, literatureLoadingMore])
 
   const loadFirstPage = async () => {
     setLoading(true)
@@ -148,15 +220,12 @@ export default function SourceFeedPage() {
   const loadMore = async () => {
     loadingMoreRef.current = true
     setLoadingMore(true)
-
     try {
       const offset = pageRef.current * PAGE_SIZE
       const res = await sourceFeedApi.list({ limit: PAGE_SIZE, offset })
       const nextPage = res.data.list
-
       setArticles((prev) => dedupeArticles([...prev, ...nextPage]))
       pageRef.current += 1
-
       const nextHasMore = nextPage.length === PAGE_SIZE
       setHasMore(nextHasMore)
       hasMoreRef.current = nextHasMore
@@ -169,16 +238,42 @@ export default function SourceFeedPage() {
     }
   }
 
-  const filteredArticles = articles.filter((article) => {
-    if (!query.trim()) {
-      return true
+  const loadMoreLiterature = async () => {
+    literatureLoadingMoreRef.current = true
+    setLiteratureLoadingMore(true)
+    try {
+      const offset = literatureOffsetRef.current
+      const res = await literatureApi.recent({ limit: PAGE_SIZE, offset })
+      setLiteratureItems((prev) => [...prev, ...res.data.list])
+      literatureOffsetRef.current = offset + res.data.list.length
+      const nextHasMore = res.data.list.length === PAGE_SIZE
+      setLiteratureHasMore(nextHasMore)
+      literatureHasMoreRef.current = nextHasMore
+    } catch {
+      setLiteratureHasMore(false)
+      literatureHasMoreRef.current = false
+    } finally {
+      literatureLoadingMoreRef.current = false
+      setLiteratureLoadingMore(false)
     }
+  }
+
+  const filteredArticles = articles.filter((article) => {
+    if (!query.trim()) return true
     const haystack = `${article.title} ${article.source_feed_name} ${article.description}`.toLowerCase()
     return haystack.includes(query.trim().toLowerCase())
   })
+
+  const filteredLiteratureItems = literatureItems.filter((item) => {
+    if (!query.trim()) return true
+    const haystack = `${item.title} ${(item.authors ?? []).join(' ')} ${item.compact_category}`.toLowerCase()
+    return haystack.includes(query.trim().toLowerCase())
+  })
+
   const columnCount = getColumnCount(viewportWidth)
   const columnWidth = getColumnWidth(viewportWidth, columnCount)
   const articleColumns = splitIntoColumns(filteredArticles, columnCount)
+  const literatureColumns = splitIntoColumns(filteredLiteratureItems, columnCount)
 
   const requireCurrentUser = () => {
     if (currentUser) return true
@@ -199,20 +294,20 @@ export default function SourceFeedPage() {
   })
 
   const updateArticleInteraction = (articleId: number, interaction: SourceFeedArticle['interaction']) => {
-    setArticles(prev => prev.map(item => item.id === articleId ? { ...item, interaction } : item))
+    setArticles((prev) => prev.map((item) => (item.id === articleId ? { ...item, interaction } : item)))
   }
 
   const handleLike = async (article: SourceFeedArticle) => {
     if (!requireCurrentUser()) return
     const nextEnabled = !(article.interaction?.liked ?? false)
-    setPendingLikeIds(prev => new Set(prev).add(article.id))
+    setPendingLikeIds((prev) => new Set(prev).add(article.id))
     try {
       const res = await sourceFeedApi.like(article.id, buildSourceActionPayload(article, nextEnabled))
       updateArticleInteraction(article.id, res.data)
     } catch (err) {
       handleApiError(err, nextEnabled ? '信源点赞失败' : '取消信源点赞失败')
     } finally {
-      setPendingLikeIds(prev => {
+      setPendingLikeIds((prev) => {
         const next = new Set(prev)
         next.delete(article.id)
         return next
@@ -223,14 +318,14 @@ export default function SourceFeedPage() {
   const handleFavorite = async (article: SourceFeedArticle) => {
     if (!requireCurrentUser()) return
     const nextEnabled = !(article.interaction?.favorited ?? false)
-    setPendingFavoriteIds(prev => new Set(prev).add(article.id))
+    setPendingFavoriteIds((prev) => new Set(prev).add(article.id))
     try {
       const res = await sourceFeedApi.favorite(article.id, buildSourceActionPayload(article, nextEnabled))
       updateArticleInteraction(article.id, res.data)
     } catch (err) {
       handleApiError(err, nextEnabled ? '信源收藏失败' : '取消信源收藏失败')
     } finally {
-      setPendingFavoriteIds(prev => {
+      setPendingFavoriteIds((prev) => {
         const next = new Set(prev)
         next.delete(article.id)
         return next
@@ -254,7 +349,7 @@ export default function SourceFeedPage() {
   }
 
   const handleReply = async (article: SourceFeedArticle) => {
-    setPendingReplyIds(prev => new Set(prev).add(article.id))
+    setPendingReplyIds((prev) => new Set(prev).add(article.id))
     try {
       const res = await sourceFeedApi.ensureTopic(article.id)
       navigate(`/topics/${res.data.topic.id}`)
@@ -262,7 +357,7 @@ export default function SourceFeedPage() {
     } catch (err) {
       handleApiError(err, '打开信源对应话题失败')
     } finally {
-      setPendingReplyIds(prev => {
+      setPendingReplyIds((prev) => {
         const next = new Set(prev)
         next.delete(article.id)
         return next
@@ -270,11 +365,19 @@ export default function SourceFeedPage() {
     }
   }
 
+  const handleLiteratureShare = (item: LiteratureRecentItem) => {
+    const url = getArxivUrl(item.paper_id)
+    navigator.clipboard.writeText(url).then(
+      () => toast.success('论文链接已复制'),
+      () => toast.error('复制链接失败'),
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-xl font-serif font-bold text-black sm:text-2xl">信源流</h1>
+          <h1 className="text-xl font-serif font-bold text-black sm:text-2xl">信源</h1>
           <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="mr-1 flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-2">
@@ -292,19 +395,8 @@ export default function SourceFeedPage() {
                 >
                   <span>{link.label}</span>
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-500">
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      aria-hidden="true"
-                      className="h-3.5 w-3.5"
-                    >
-                      <path
-                        d="M7 13L13 7M8 7h5v5"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-3.5 w-3.5">
+                      <path d="M7 13L13 7M8 7h5v5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
                 </a>
@@ -313,23 +405,20 @@ export default function SourceFeedPage() {
 
             <form
               className="w-full lg:w-[320px]"
-              onSubmit={(event) => {
-                event.preventDefault()
+              onSubmit={(e) => {
+                e.preventDefault()
                 setQuery(searchValue)
               }}
             >
               <div className="relative">
                 <input
                   value={searchValue}
-                  onChange={(event) => setSearchValue(event.target.value)}
-                  placeholder="搜索标题或来源"
-                  aria-label="搜索信源"
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  placeholder={section === 'academic' ? '搜索标题或作者' : '搜索标题或来源'}
+                  aria-label="搜索"
                   className="w-full rounded-full border border-gray-200 py-2 pl-4 pr-16 text-sm font-serif text-gray-700 outline-none transition-colors focus:border-black"
                 />
-                <button
-                  type="submit"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-black px-3 py-1.5 text-xs font-serif text-white"
-                >
+                <button type="submit" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-black px-3 py-1.5 text-xs font-serif text-white">
                   搜索
                 </button>
               </div>
@@ -337,55 +426,107 @@ export default function SourceFeedPage() {
           </div>
         </div>
 
-        {loading && (
-          <p className="font-serif text-gray-500">加载中...</p>
-        )}
-
-        {!loading && articles.length === 0 && (
-          <p className="font-serif text-gray-500">暂无文章</p>
-        )}
-
-        {!loading && articles.length > 0 && filteredArticles.length === 0 && (
-          <p className="font-serif text-gray-500">没有匹配结果</p>
-        )}
-
-        {filteredArticles.length > 0 && (
-          <div
-            data-testid="source-feed-grid"
-            className="grid items-start gap-3"
-            style={{
-              gridTemplateColumns: `repeat(${columnCount}, ${columnWidth}px)`,
-              gap: `${viewportWidth < 640 ? MOBILE_GRID_GAP : GRID_GAP}px`,
-              justifyContent: 'center',
-            }}
-          >
-            {articleColumns.map((column, columnIndex) => (
-              <div key={columnIndex} className="flex flex-col gap-3">
-                {column.map((article) => (
-                  <SourceArticleCard
-                    key={article.id}
-                    article={article}
-                    onLike={handleLike}
-                    onFavorite={handleFavorite}
-                    onShare={handleShare}
-                    onReply={handleReply}
-                    likePending={pendingLikeIds.has(article.id)}
-                    favoritePending={pendingFavoriteIds.has(article.id)}
-                    replyPending={pendingReplyIds.has(article.id)}
-                  />
-                ))}
-              </div>
-            ))}
+        <div className="-mx-1 mb-4 px-1">
+          <div className="flex gap-1 border-b border-gray-200">
+            {SOURCE_FEED_SECTIONS.map((item) => {
+              const active = item.id === activeSection.id
+              return (
+                <Link
+                  key={item.id}
+                  to={`/source-feed/${item.id}`}
+                  className={`-mb-px flex-shrink-0 px-3 py-2.5 text-sm font-serif transition-colors border-b-2 ${
+                    active
+                      ? 'border-black text-black font-medium'
+                      : 'border-transparent text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
           </div>
-        )}
+        </div>
 
-        {loadingMore && (
-          <div className="py-6 text-center text-sm font-serif text-gray-500">加载更多中...</div>
-        )}
+        {section === 'source' && (
+              <>
+                {loading && <p className="font-serif text-gray-500">加载中...</p>}
+                {!loading && articles.length === 0 && <p className="font-serif text-gray-500">暂无文章</p>}
+                {!loading && articles.length > 0 && filteredArticles.length === 0 && <p className="font-serif text-gray-500">没有匹配结果</p>}
+                {filteredArticles.length > 0 && (
+                  <div
+                    data-testid="source-feed-grid"
+                    className="grid items-start gap-3"
+                    style={{
+                      gridTemplateColumns: `repeat(${columnCount}, ${columnWidth}px)`,
+                      gap: `${viewportWidth < 640 ? MOBILE_GRID_GAP : GRID_GAP}px`,
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {articleColumns.map((column, columnIndex) => (
+                      <div key={columnIndex} className="flex flex-col gap-3">
+                        {column.map((article) => (
+                          <SourceArticleCard
+                            key={article.id}
+                            article={article}
+                            onLike={handleLike}
+                            onFavorite={handleFavorite}
+                            onShare={handleShare}
+                            onReply={handleReply}
+                            likePending={pendingLikeIds.has(article.id)}
+                            favoritePending={pendingFavoriteIds.has(article.id)}
+                            replyPending={pendingReplyIds.has(article.id)}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {loadingMore && <div className="py-6 text-center text-sm font-serif text-gray-500">加载更多中...</div>}
+                {!hasMore && articles.length > 0 && <div className="py-6 text-center text-sm font-serif text-gray-400">已加载全部内容</div>}
+              </>
+            )}
 
-        {!hasMore && articles.length > 0 && (
-          <div className="py-6 text-center text-sm font-serif text-gray-400">已加载全部内容</div>
-        )}
+            {section === 'academic' && (
+              <>
+                <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50/80 px-4 py-4 sm:px-5 sm:py-5">
+                  <h2 className="font-serif text-base font-semibold text-gray-900 sm:text-lg">学术板块能做什么</h2>
+                  <ul className="mt-3 list-none space-y-2 font-serif text-sm text-gray-700 sm:text-base [&>li]:flex [&>li]:items-start [&>li]:gap-2 [&>li]:before:mt-1.5 [&>li]:before:shrink-0 [&>li]:before:content-['·'] [&>li]:before:font-bold [&>li]:before:text-gray-400">
+                    <li><strong>近期论文浏览</strong>：瀑布流展示最新论文，支持按分类、标签、日期筛选；本页内可搜索标题或作者；一键复制 arXiv 链接，分页加载更多。适合快速把握领域新趋势。</li>
+                    <li><strong>基于论文开题与讨论</strong>：选定某篇论文或研究方向后，在 TopicLab 创建话题、注入材料、启动多专家讨论，与从信源文章开题共用同一套讨论流程。</li>
+                    <li><strong>多维学术检索</strong>：除近期流外，平台支持论文关键词检索，以及学者、机构、期刊、专利等检索与批量论文详情；可通过智能体（OpenClaw）或后续产品化功能使用。</li>
+                  </ul>
+                  <div className="mt-4 rounded-xl bg-amber-50/80 px-3 py-2.5 sm:px-4">
+                    <p className="font-serif text-sm font-medium text-amber-900">
+                      <strong>特别说明</strong>：您接入本网站的 OpenClaw 已具备上述能力，可通过智能体直接使用；后续将推出可视化的文献趋势与定制化研报页面，敬请期待。
+                    </p>
+                  </div>
+                </div>
+                {literatureLoading && <p className="font-serif text-gray-500">加载中...</p>}
+                {!literatureLoading && literatureItems.length === 0 && <p className="font-serif text-gray-500">暂无论文</p>}
+                {!literatureLoading && literatureItems.length > 0 && filteredLiteratureItems.length === 0 && <p className="font-serif text-gray-500">没有匹配结果</p>}
+                {filteredLiteratureItems.length > 0 && (
+                  <div
+                    data-testid="literature-feed-grid"
+                    className="grid items-start gap-3"
+                    style={{
+                      gridTemplateColumns: `repeat(${columnCount}, ${columnWidth}px)`,
+                      gap: `${viewportWidth < 640 ? MOBILE_GRID_GAP : GRID_GAP}px`,
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {literatureColumns.map((column, columnIndex) => (
+                      <div key={columnIndex} className="flex flex-col gap-3">
+                        {column.map((item) => (
+                          <LiteratureCard key={item.paper_id} item={item} onShare={handleLiteratureShare} />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {literatureLoadingMore && <div className="py-6 text-center text-sm font-serif text-gray-500">加载更多中...</div>}
+                {!literatureHasMore && literatureItems.length > 0 && <div className="py-6 text-center text-sm font-serif text-gray-400">已加载全部内容</div>}
+              </>
+            )}
       </div>
     </div>
   )

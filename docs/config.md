@@ -27,7 +27,7 @@ AI_GENERATION_MODEL=qwen-flash
 Used for:
 - AI-generated expert role
 - AI-generated moderator mode
-- **Source-feed topic body generation** (async background task): when a topic is created from a source article, the system immediately returns with a fallback placeholder body and starts a background task that reads the full article text (`content_md`) via `AI_GENERATION_MODEL` to generate a structured discussion guide (「背景 / 核心议题 / 为什么值得讨论 / 建议讨论问题」) which is written back to the topic once complete
+- **Source-feed topic body generation** (async background task): when a topic is created from a source article, the system immediately returns with a fallback placeholder body and starts a background task that reads the full article text (`content_md`) via `AI_GENERATION_MODEL` to generate a structured discussion guide (context / core issue / why it matters / suggested discussion questions) which is written back to the topic once complete
 
 If `AI_GENERATION_API_KEY` / `AI_GENERATION_BASE_URL` / `AI_GENERATION_MODEL` are not set, the source-feed topic body silently falls back to the template-generated placeholder. All other features continue to work normally.
 
@@ -91,6 +91,28 @@ SOURCE_FEED_LIST_CACHE_TTL_SECONDS=30
 
 - `SOURCE_FEED_LIST_CACHE_TTL_SECONDS`: controls in-process short TTL cache for source-feed list pages (`limit + offset` key).  
 - Set to `0` to disable cache.
+
+### 9. Literature (Academic) Tab (Backend Proxy)
+
+The "Academic" sub-tab under the Source Feed page uses the same upstream as the "Media" sub-tab: **topiclab-backend** proxies to **IC (INFORMATION_COLLECTION_BASE_URL)** at `GET /api/v1/literature/recent`.
+
+- Use the same `INFORMATION_COLLECTION_BASE_URL` as the source feed (e.g. `http://ic.nexus.tashan.ac.cn`); no separate frontend direct connection is needed.
+- If the IC literature API requires the `x-ingest-token` header, configure it in the **topiclab-backend** environment:
+  ```bash
+  LITERATURE_SHARED_TOKEN=your_token
+  ```
+  If unset, the proxy sends no header; if IC enforces the token, the request may return 401.
+
+### 10. AMiner Open Platform Proxy (Free-Tier API)
+
+**topiclab-backend** proxies seven free-tier AMiner Open Platform endpoints. User requests are forwarded to `datacenter.aminer.cn` with the API key on the backend; the frontend does not call AMiner directly.
+
+- **Environment variable** (required; otherwise the proxy returns 503):
+  ```bash
+  AMINER_API_KEY=   # Obtain from open.aminer.cn console
+  ```
+- **Route prefix**: `/aminer`, `/api/v1/aminer`
+- **Endpoints**: Paper search (GET), Scholar search (POST), Patent search (POST), Organization search (POST), Venue search (POST), Paper info (POST), Patent info (GET). See [docs/aminer-open-api-limits.md](aminer-open-api-limits.md).
 
 ## Rules
 

@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 SITE_STATS_TTL_SECONDS = 60
 _site_stats_cache: dict[str, float | dict | None] = {"expires_at": 0.0, "value": None}
+OPENCLAW_SKILL_MODULES = {
+    "topic-community": "topic-community.md",
+    "source-and-research": "source-and-research.md",
+}
 
 
 async def _get_optional_user(
@@ -190,6 +194,21 @@ def _skill_template_path() -> Path:
     return Path(__file__).resolve().parents[2] / "skill.md"
 
 
+def _module_skill_directory() -> Path:
+    return Path(__file__).resolve().parents[2] / "openclaw_skills"
+
+
+def _module_skill_path(module_name: str) -> Path | None:
+    filename = OPENCLAW_SKILL_MODULES.get(module_name)
+    if not filename:
+        return None
+    return _module_skill_directory() / filename
+
+
+def _build_openclaw_module_skill_path(module_name: str) -> str:
+    return f"/api/v1/openclaw/skills/{module_name}.md"
+
+
 def _render_personalized_skill(user: dict | None, raw_key: str | None) -> str:
     base = _skill_template_path().read_text(encoding="utf-8")
     if not user or not raw_key:
@@ -207,6 +226,8 @@ def _render_personalized_skill(user: dict | None, raw_key: str | None) -> str:
         f"- TopicLab 用户：`{username}`",
         f"- OpenClaw 绑定 Key：`{raw_key}`",
         f"- Skill 入口：`{_build_openclaw_skill_path(raw_key)}`",
+        f"- 模块 Skill 模板：`/api/v1/openclaw/skills/{{module_name}}.md`",
+        f"- 模块 Skill 示例：`{_build_openclaw_module_skill_path('topic-community')}`",
         "- 之后所有 API 请求都使用 `Authorization: Bearer YOUR_OPENCLAW_KEY`。",
         "",
     ]
@@ -230,3 +251,15 @@ async def get_openclaw_skill_markdown(
             return PlainTextResponse("Invalid OpenClaw key\n", status_code=401, media_type="text/plain; charset=utf-8")
         raw_key = key
     return PlainTextResponse(_render_personalized_skill(resolved_user, raw_key), media_type="text/markdown; charset=utf-8")
+
+
+@router.get("/openclaw/skills/{module_name}.md", response_class=PlainTextResponse)
+async def get_openclaw_module_skill_markdown(module_name: str):
+    module_path = _module_skill_path(module_name)
+    if not module_path or not module_path.exists():
+        return PlainTextResponse(
+            f"Unknown OpenClaw skill module: {module_name}\n",
+            status_code=404,
+            media_type="text/plain; charset=utf-8",
+        )
+    return PlainTextResponse(module_path.read_text(encoding="utf-8"), media_type="text/markdown; charset=utf-8")

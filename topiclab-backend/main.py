@@ -23,7 +23,9 @@ logging.basicConfig(
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import aminer as aminer_router
 from app.api import auth as auth_router
+from app.api import literature as literature_router
 from app.api import openclaw as openclaw_router
 from app.api import source_feed as source_feed_router
 from app.api import topics as topics_router
@@ -60,6 +62,10 @@ app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
 app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["auth-v1"])
 app.include_router(source_feed_router.router, prefix="/source-feed", tags=["source-feed"])
 app.include_router(source_feed_router.router, prefix="/api/v1/source-feed", tags=["source-feed-v1"])
+app.include_router(literature_router.router, prefix="/literature", tags=["literature"])
+app.include_router(literature_router.router, prefix="/api/v1/literature", tags=["literature-v1"])
+app.include_router(aminer_router.router, prefix="/aminer", tags=["aminer"])
+app.include_router(aminer_router.router, prefix="/api/v1/aminer", tags=["aminer-v1"])
 app.include_router(topics_router.router, tags=["topics"])
 app.include_router(topics_router.router, prefix="/api/v1", tags=["topics-v1"])
 app.include_router(openclaw_router.router, prefix="/api/v1", tags=["openclaw"])

@@ -155,6 +155,48 @@ export interface SourceFeedListResponse {
   offset: number
 }
 
+/** Literature (学术) API - papers 列表项 */
+export interface LiteraturePaper {
+  paper_id: string
+  title: string
+  authors: string[]
+  primary_category: string
+  categories: string[]
+  published: string
+  updated: string
+  pdf_url: string | null
+  doi: string | null
+  journal_ref: string | null
+  comment: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Literature recent 视图列表项 (compact) */
+export interface LiteratureRecentItem {
+  paper_id: string
+  title: string
+  authors: string[]
+  compact_category: string
+  published_day: string
+  tags: string[]
+  similarity_scores?: number[]
+  created_at?: string
+  updated_at?: string
+}
+
+export interface LiteraturePapersListResponse {
+  list: LiteraturePaper[]
+  limit: number
+  offset: number
+}
+
+export interface LiteratureRecentListResponse {
+  list: LiteratureRecentItem[]
+  limit: number
+  offset: number
+}
+
 export interface EnsureSourceArticleTopicResponse {
   topic: Topic
   created: boolean
@@ -424,6 +466,28 @@ export const sourceFeedApi = {
     api.post<SourceArticleInteraction>(`/source-feed/articles/${articleId}/share`),
   ensureTopic: (articleId: number) =>
     api.post<EnsureSourceArticleTopicResponse>(`/source-feed/articles/${articleId}/topic`),
+}
+
+/** 学术板块：经 topiclab-backend 代理到 IC（与信源同源 INFORMATION_COLLECTION_BASE_URL） */
+export const literatureApi = {
+  recent: (params?: {
+    limit?: number
+    offset?: number
+    category?: string
+    tag?: string
+    published_day_from?: string
+    published_day_to?: string
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.limit != null) searchParams.set('limit', String(params.limit))
+    if (params?.offset != null) searchParams.set('offset', String(params.offset))
+    if (params?.category) searchParams.set('category', params.category)
+    if (params?.tag) searchParams.set('tag', params.tag)
+    if (params?.published_day_from) searchParams.set('published_day_from', params.published_day_from)
+    if (params?.published_day_to) searchParams.set('published_day_to', params.published_day_to)
+    const qs = searchParams.toString()
+    return api.get<LiteratureRecentListResponse>(`/literature/recent${qs ? `?${qs}` : ''}`)
+  },
 }
 
 export const postsApi = {

@@ -319,13 +319,12 @@ async def ensure_source_article_topic(article_id: int, user: dict | None = Depen
         preview_url = f"/api/source-feed/image?url={quote(article.pic_url, safe='')}"
         update_topic(linked_topic_id, {"preview_image": preview_url})
 
-    asyncio.create_task(_fill_topic_body_in_background(linked_topic_id, article.__dict__))
-
     await _ensure_executor_workspace_for_topic(linked_topic_id)
     await hydrate_topic_workspace(linked_topic_id, [article.id])
     resolved_topic = get_topic(linked_topic_id, user_id=user_id, auth_type=auth_type)
     if resolved_topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
+    asyncio.create_task(_fill_topic_body_in_background(linked_topic_id, article.__dict__))
     return {"topic": resolved_topic, "created": created}
 
 

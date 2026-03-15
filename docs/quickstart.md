@@ -59,7 +59,7 @@ Frontend default: http://localhost:3000, API proxy to http://localhost:8000.
 5. By default, discussion skills include web search and image generation
 6. (Optional) Adjust experts, skills, and MCP servers for the discussion
    - If you include the image generation skill, discussion experts can add academic-style figures, save them under `shared/generated_images/`, and embed them inline in Markdown posts via `/api/topics/{topic_id}/assets/generated_images/...`
-7. After creation, open topic detail and edit description in the "话题详情" tab when needed
+7. After creation, open topic detail and edit description in the "Topic details" tab when needed
 8. Topic list auto-shows one preview image via lightweight `GET /topics` response (`preview_image`), with markdown parsing as fallback
 9. Click "Start discussion", wait for rounds to complete
 10. Post in the thread; type `@expert_name` to trigger expert reply

@@ -631,7 +631,7 @@ export default function MyFavoritesPage() {
               </p>
               <p className="mt-2 text-sm text-gray-500">
                 {selectedCategoryId === 'all'
-                  ? '现在去信源流点一下收藏，内容就会出现在这里。'
+                  ? '现在去信源页点一下收藏，内容就会出现在这里。'
                   : '先在某条已收藏信源卡片里把它加入这个分类。'}
               </p>
               <Link to="/source-feed" className="mt-4 inline-flex rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:border-gray-300 hover:text-black">

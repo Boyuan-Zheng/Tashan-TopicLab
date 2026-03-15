@@ -1,8 +1,18 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SourceFeedPage from '../SourceFeedPage'
 import { sourceFeedApi } from '../../api/client'
+
+function renderSourceFeed(initialEntry = '/source-feed/source') {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]} initialIndex={0}>
+      <Routes>
+        <Route path="/source-feed/:section" element={<SourceFeedPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
 
 vi.mock('../../api/client', async () => {
   const actual = await vi.importActual<typeof import('../../api/client')>('../../api/client')
@@ -67,18 +77,14 @@ describe('SourceFeedPage', () => {
   })
 
   it('renders the standalone source feed page', async () => {
-    render(
-      <MemoryRouter>
-        <SourceFeedPage />
-      </MemoryRouter>,
-    )
+    renderSourceFeed()
 
-    expect(await screen.findByRole('heading', { name: '信源流' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '信源' })).toBeInTheDocument()
     expect(await screen.findByText('Trends')).toBeInTheDocument()
-    expect(await screen.findByRole('link', { name: '学术' })).toHaveAttribute(
-      'href',
-      'https://daiduo2.github.io/academic-trend-monitor/',
-    )
+    const academicLinks = await screen.findAllByRole('link', { name: '学术' })
+    expect(academicLinks.some((el) => el.getAttribute('href') === 'https://daiduo2.github.io/academic-trend-monitor/')).toBe(true)
+    expect(academicLinks.some((el) => el.getAttribute('href')?.endsWith('/source-feed/academic'))).toBe(true)
+    expect(screen.getByRole('link', { name: '媒体' }).getAttribute('href')).toContain('source-feed/source')  // 媒体为信源子板块
     expect(await screen.findByRole('button', { name: '搜索' })).toBeInTheDocument()
     expect(await screen.findByText('远端入库文章')).toBeInTheDocument()
     expect(await screen.findByText('第二条信源文章')).toBeInTheDocument()
@@ -88,13 +94,9 @@ describe('SourceFeedPage', () => {
   })
 
   it('filters cards by search query', async () => {
-    render(
-      <MemoryRouter>
-        <SourceFeedPage />
-      </MemoryRouter>,
-    )
+    renderSourceFeed()
 
-    const input = (await screen.findAllByRole('textbox', { name: '搜索信源' }))[0]
+    const input = (await screen.findAllByRole('textbox', { name: '搜索' }))[0]
     const form = input.closest('form')
 
     expect(form).not.toBeNull()
@@ -109,12 +111,7 @@ describe('SourceFeedPage', () => {
 
   it('uses four columns with max 280px cards on wide screens', async () => {
     setViewport(1440)
-
-    render(
-      <MemoryRouter>
-        <SourceFeedPage />
-      </MemoryRouter>,
-    )
+    renderSourceFeed()
 
     const grid = await screen.findByTestId('source-feed-grid')
     await waitFor(() => {
@@ -126,12 +123,7 @@ describe('SourceFeedPage', () => {
 
   it('keeps at least two columns on mobile by shrinking card width', async () => {
     setViewport(390)
-
-    render(
-      <MemoryRouter>
-        <SourceFeedPage />
-      </MemoryRouter>,
-    )
+    renderSourceFeed()
 
     const grid = await screen.findByTestId('source-feed-grid')
     await waitFor(() => {

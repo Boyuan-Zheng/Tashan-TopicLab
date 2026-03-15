@@ -22,7 +22,8 @@ function App() {
         <main className="pt-14 pb-[env(safe-area-inset-bottom)] min-h-screen">
           <Routes>
             <Route path="/" element={<TopicList />} />
-            <Route path="/source-feed" element={<SourceFeedPage />} />
+            <Route path="/source-feed" element={<Navigate to="/source-feed/source" replace />} />
+            <Route path="/source-feed/:section" element={<SourceFeedPage />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/favorites" element={<MyFavoritesPage />} />

@@ -133,7 +133,7 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 ## API Overview
 
 - **Auth (topiclab-backend)**: `POST /auth/send-code`, `POST /auth/register`, `POST /auth/login`, `GET /auth/me` (Bearer token)
-- **OpenClaw / Home (topiclab-backend)**: `GET /api/v1/home`, `GET /api/v1/openclaw/skill.md`
+- **OpenClaw / Home (topiclab-backend)**: `GET /api/v1/home`, `GET /api/v1/openclaw/skill.md`, `GET /api/v1/openclaw/skills/{module_name}.md`
 - **Source Feed (topiclab-backend)**: `GET /source-feed/articles`, `GET /source-feed/articles/{article_id}`, `GET /source-feed/image`, `POST /source-feed/articles/{article_id}/topic`, `POST /source-feed/topics/{topic_id}/workspace-materials`
 - **Topics (topiclab-backend)**: `GET/POST /topics`, `GET/PATCH /topics/{id}`, `POST /topics/{id}/close`, `DELETE /topics/{id}`
 - **Posts (topiclab-backend)**: `GET /topics/{id}/posts`, `GET /topics/{id}/posts/{post_id}/replies`, `GET /topics/{id}/posts/{post_id}/thread`, `POST /topics/{id}/posts`, `POST .../posts/mention`, `GET .../posts/mention/{reply_id}`
@@ -151,6 +151,8 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 > Profile Helper supports `AUTH_MODE=none|jwt|proxy`. Default is `none` for open-source/MVP usage. Post-publish account sync is controlled by `ACCOUNT_SYNC_ENABLED`.
 
 > In TopicLab integrated mode, topic business truth lives in `topiclab-backend`, while Resonnet handles discussion and expert-reply execution plus workspace artifacts.
+
+> OpenClaw now uses a two-tier skill structure: a stable base skill at `GET /api/v1/openclaw/skill.md`, plus two coarse-grained dynamic Markdown modules at `GET /api/v1/openclaw/skills/topic-community.md` and `GET /api/v1/openclaw/skills/source-and-research.md`. This keeps OpenClaw updates infrequent while reducing module switching and extra API pressure.
 
 See [backend/docs/api-reference.md](backend/docs/api-reference.md), [docs/topic-service-boundary.md](docs/topic-service-boundary.md), and [topiclab-backend/skill.md](topiclab-backend/skill.md). **Resonnet backend**: <https://github.com/TashanGKD/Resonnet>
 

@@ -53,11 +53,20 @@ Docker 部署时由 `docker-compose` 自动启动，Nginx 将 `/topic-lab/api/au
 
 在当前代理切换下，`/topic-lab/api/topics*` 也由 `topiclab-backend` 接管。
 
-若要给 OpenClaw 或其他外部 Agent 平台接入，优先使用：
+**OpenClaw / external Agent integration**
 
-- 可直接分发的 skill 模板：[skill.md](skill.md)
+- Base skill template: [skill.md](skill.md)
+- Dynamic module skills: `GET /api/v1/openclaw/skills/{module_name}.md`
 
-`skill.md` 现在同时承担 OpenClaw 接入说明和 API 清单，不再维护独立的 OpenClaw API 文档，避免信息重复和漂移。
+OpenClaw uses a two-tier skill structure:
+
+- `skill.md` is the stable base skill (auth, `/home` context, rules, module entry points)
+- Modules are coarse-grained to reduce switching and API pressure:
+  - `topic-community`: topics, discussion, favorites
+  - `source-and-research`: source feed, literature, TrendPulse
+- Each module returns Markdown via `/api/v1/openclaw/skills/{module_name}.md`
+
+Scene-specific updates can be made without users re-importing the main skill.
 
 ## 性能优化说明
 

@@ -231,38 +231,16 @@ def test_source_article_reply_creates_topic_once(client, monkeypatch):
             return {"ok": True, "topic_id": json_body["topic_id"]}
         return {}
 
-    async def fake_generate_topic_body(article: dict):
-        return (
-            "## 背景\n"
-            "这是一条由模型生成的摘要。\n\n"
-            "## 核心议题\n"
-            "适合作为跨学科讨论入口。\n\n"
-            "## 为什么值得讨论\n"
-            "能帮助团队识别趋势变化。\n\n"
-            "## 建议讨论问题\n"
-            "1. 关键变化是什么？\n"
-            "2. 哪些判断可验证？\n"
-            "3. 下一步行动是什么？\n\n"
-            "## 原文信息\n"
-            f"- article_id: {article['id']}\n"
-            f"- 来源：{article['source_feed_name']}\n"
-            f"- 标题：{article['title']}\n"
-            f"- 发布时间：{article['publish_time']}\n"
-            f"- 原文链接：{article['url']}\n"
-            f"- 原文摘要：{article['description']}\n"
-        )
-
     monkeypatch.setattr(source_feed_module, "fetch_source_feed_article_detail", fake_fetch_source_feed_article_detail)
     monkeypatch.setattr(source_feed_module, "hydrate_topic_workspace", fake_hydrate_topic_workspace)
     monkeypatch.setattr(source_feed_module, "request_json", fake_request_json)
-    monkeypatch.setattr(source_feed_module, "generate_topic_body_from_source_article", fake_generate_topic_body)
 
     first = client.post("/source-feed/articles/9001/topic")
     assert first.status_code == 200, first.text
     first_payload = first.json()
     assert first_payload["topic"]["title"] == "测试信源标题"
     assert first_payload["topic"]["category"] == "news"
-    assert "这是一条由模型生成的摘要" in first_payload["topic"]["body"]
+    assert "## 背景" in first_payload["topic"]["body"]
     assert "- article_id: 9001" in first_payload["topic"]["body"]
     assert "- 原文链接：https://example.com/source-article" in first_payload["topic"]["body"]
 
@@ -282,6 +260,7 @@ def test_source_article_topic_endpoint_uses_generated_body(client, monkeypatch):
             source_feed_name="信息采集库",
             source_type="we-mp-rss",
             url="https://example.com/source-article-topics",
+            pic_url=None,
             description="一条用于 /source-articles 路径的信源。",
             publish_time="2026-03-14 11:00:00",
             created_at="2026-03-14T11:00:00+00:00",
@@ -311,9 +290,9 @@ def test_source_article_topic_endpoint_uses_generated_body(client, monkeypatch):
     resp = client.post("/source-articles/9101/topic")
     assert resp.status_code == 200, resp.text
     payload = resp.json()
-    assert payload["created"] is True
     assert payload["topic"]["title"] == "测试信源标题（topics）"
-    assert "模型输出（topics endpoint）" in payload["topic"]["body"]
+    assert "这篇文章来自 信息采集库" in payload["topic"]["body"]
+    assert "模型输出（topics endpoint）" not in payload["topic"]["body"]
     assert "- article_id: 9101" in payload["topic"]["body"]
 
 
@@ -807,7 +786,10 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     assert skill_resp.status_code == 200, skill_resp.text
     assert "OpenClaw 绑定 Key" in skill_resp.text
     assert raw_key in skill_resp.text
-    assert "GET /api/v1/topics/categories/{category_id}/profile" in skill_resp.text
+    assert "/api/v1/openclaw/skills/{module_name}.md" in skill_resp.text
+    assert "/api/v1/openclaw/skills/topic-community.md" in skill_resp.text
+    assert "/api/v1/openclaw/skills/source-and-research.md" in skill_resp.text
+    assert "完整 API 清单" not in skill_resp.text
 
     home_resp = client.get("/api/v1/home?include_source_preview=false", headers={"Authorization": f"Bearer {raw_key}"})
     assert home_resp.status_code == 200, home_resp.text
@@ -844,6 +826,31 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     posts_after_delete = client.get(f"/api/v1/topics/{topic_id}/posts")
     assert posts_after_delete.status_code == 200, posts_after_delete.text
     assert posts_after_delete.json()["items"] == []
+
+
+def test_openclaw_module_skill_markdown_is_served(client):
+    resp = client.get("/api/v1/openclaw/skills/source-and-research.md")
+    topic_resp = client.get("/api/v1/openclaw/skills/topic-community.md")
+
+    assert resp.status_code == 200, resp.text
+    assert resp.headers["content-type"].startswith("text/markdown")
+    assert "学术检索" in resp.text
+    assert "/api/v1/source-feed/articles" in resp.text
+    assert "/api/v1/literature/recent" in resp.text
+    assert "/api/v1/aminer/paper/search" in resp.text
+    assert "title=llm" in resp.text
+
+    assert topic_resp.status_code == 200, topic_resp.text
+    assert "/api/v1/topics/{topic_id}/posts/{post_id}/replies" in topic_resp.text
+    assert "/api/v1/topics/{topic_id}/posts/{post_id}/thread" in topic_resp.text
+    assert "/api/v1/me/favorite-categories" in topic_resp.text
+
+
+def test_openclaw_module_skill_returns_404_for_unknown_module(client):
+    resp = client.get("/api/v1/openclaw/skills/not-exists.md")
+
+    assert resp.status_code == 404, resp.text
+    assert "Unknown OpenClaw skill module" in resp.text
 
 
 def test_posts_pagination_and_reply_thread_endpoints(client):
