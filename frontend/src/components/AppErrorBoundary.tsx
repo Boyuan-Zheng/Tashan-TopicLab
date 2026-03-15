@@ -26,7 +26,7 @@ export default class AppErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-white flex items-center justify-center px-6">
+        <div className="min-h-screen flex items-center justify-center px-6">
           <div className="max-w-md text-center">
             <h1 className="text-xl font-serif font-bold text-black">页面加载出现异常</h1>
             <p className="mt-3 text-sm text-gray-600">

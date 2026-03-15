@@ -23,7 +23,7 @@ export default function CreateTopic() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 sm:mb-12">
           <h1 className="text-xl sm:text-2xl font-serif font-bold text-black">创建话题</h1>
@@ -38,10 +38,10 @@ export default function CreateTopic() {
         <div className="border border-gray-200 rounded-lg p-4 sm:p-8">
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <div>
-              <label className="block text-sm font-serif font-medium text-black mb-2">标题</label>
+              <label className="block text-sm font-serif font-medium mb-2" style={{ color: 'var(--text-primary)' }}>标题</label>
               <input
                 type="text"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none transition-colors"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none transition-colors"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 required
@@ -49,18 +49,18 @@ export default function CreateTopic() {
             </div>
 
             <div>
-              <label className="block text-sm font-serif font-medium text-black mb-2">正文（可选）</label>
+              <label className="block text-sm font-serif font-medium mb-2" style={{ color: 'var(--text-primary)' }}>正文（可选）</label>
               <textarea
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none transition-colors min-h-[200px] resize-y"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none transition-colors min-h-[200px] resize-y"
                 value={form.body}
                 onChange={(e) => setForm({ ...form, body: e.target.value })}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-serif font-medium text-black mb-2">板块</label>
+              <label className="block text-sm font-serif font-medium mb-2" style={{ color: 'var(--text-primary)' }}>板块</label>
               <select
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none transition-colors"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none transition-colors"
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
               >
@@ -70,7 +70,7 @@ export default function CreateTopic() {
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-xs text-gray-400">
+              <p className="mt-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 {TOPIC_CATEGORIES.find((item) => item.id === form.category)?.description}
               </p>
             </div>
@@ -78,8 +78,19 @@ export default function CreateTopic() {
             <div className="pt-2">
               <button
                 type="submit"
-                className="bg-black text-white px-6 py-2 rounded-lg text-sm font-serif font-medium hover:bg-gray-900 transition-colors disabled:opacity-50"
-                disabled={loading}
+                className="px-6 py-2 rounded-lg text-sm font-serif font-medium disabled:opacity-50 transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-dark)',
+                  color: 'white',
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.opacity = '0.9'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '1'
+                }}
               >
                 {loading ? '创建中...' : '创建话题'}
               </button>

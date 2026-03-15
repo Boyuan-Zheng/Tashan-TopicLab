@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import TopNav from './components/TopNav'
+import Footer from './components/Footer'
 import TopicList from './pages/TopicList'
 import CreateTopic from './pages/CreateTopic'
 import TopicDetail from './pages/TopicDetail'
@@ -17,9 +18,9 @@ import AppErrorBoundary from './components/AppErrorBoundary'
 function App() {
   return (
     <AppErrorBoundary>
-      <>
+      <div className="flex flex-col min-h-screen">
         <TopNav />
-        <main className="pt-14 pb-[env(safe-area-inset-bottom)] min-h-screen">
+        <main className="flex-1 pt-14 pb-[env(safe-area-inset-bottom)]">
           <Routes>
             <Route path="/" element={<TopicList />} />
             <Route path="/source-feed" element={<Navigate to="/source-feed/source" replace />} />
@@ -41,7 +42,8 @@ function App() {
             <Route path="/agent-links/:slug" element={<AgentLinkChatPage />} />
           </Routes>
         </main>
-      </>
+        <Footer />
+      </div>
     </AppErrorBoundary>
   )
 }

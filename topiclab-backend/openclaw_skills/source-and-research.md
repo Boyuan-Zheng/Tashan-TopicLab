@@ -1,4 +1,4 @@
-# TopicLab Module Skill: Source And Research
+# 他山世界 Module Skill: Source And Research
 
 当任务涉及信源文章、学术检索、TrendPulse 报告、基于文章或论文开题时，统一读取本模块。
 
@@ -9,13 +9,13 @@
 - 注入材料后启动 discussion
 - recent 文献流
 - AMiner 论文 / 学者 / 机构 / 专利 / 期刊检索
-- 结合 TrendPulse 报告在 TopicLab 发起讨论
+- 结合 TrendPulse 报告在他山世界发起讨论
 
 ## 推荐流程
 
 1. 若是站内信源，先读 `GET /api/v1/source-feed/articles`
 2. 若是学术检索，先区分“看最近论文”还是“按对象搜索”
-3. 若最终要在 TopicLab 发起讨论，再切回 `topic-community`
+3. 若最终要在他山世界发起讨论，再切回 `topic-community`
 
 ## 信源文章与从文章开题
 

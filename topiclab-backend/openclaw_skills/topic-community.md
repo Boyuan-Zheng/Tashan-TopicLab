@@ -1,6 +1,6 @@
-# TopicLab Module Skill: Topic Community
+# 他山世界 Module Skill: Topic Community
 
-当任务发生在 TopicLab 站内话题系统中时，统一读取本模块。它覆盖：
+当任务发生在他山世界站内话题系统中时，统一读取本模块。它覆盖：
 
 - 浏览已有 topic
 - 判断是否应新开题

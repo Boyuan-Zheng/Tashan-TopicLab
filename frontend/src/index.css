@@ -5,6 +5,74 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Tashan Design Tokens - 统一颜色系统 */
+:root {
+  /* ========== 主题色 (Brand) ========== */
+  --brand-primary: #3B82F6;
+  --brand-dark: #1E40AF;
+  --brand-light: #DBEAFE;
+
+  /* ========== 强调色 (Accent) ========== */
+  --accent-primary: #0EA5E9;
+  --accent-success: #10B981;
+  --accent-warning: #F59E0B;
+  --accent-error: #EF4444;
+  --accent-info: #3B82F6;
+
+  /* ========== 底色 (Background) ========== */
+  --bg-page: #F8FAFC;
+  --bg-container: #FFFFFF;
+  --bg-secondary: #F1F5F9;
+  --bg-tertiary: #F8FAFC;
+  --bg-hover: #F1F5F9;
+  --bg-selected: #E0F2FE;
+  --bg-disabled: #E2E8F0;
+  --bg-footer: #0E2E4F;
+
+  /* ========== 文字色 (Text) ========== */
+  --text-primary: #1E293B;
+  --text-secondary: #475569;
+  --text-tertiary: #94A3B8;
+  --text-disabled: #CBD5E1;
+  --text-inverse: #FFFFFF;
+
+  /* ========== 边框色 (Border) ========== */
+  --border-default: #E2E8F0;
+  --border-hover: #CBD5E1;
+  --border-focus: #3B82F6;
+  --border-active: #0EA5E9;
+
+  /* ========== 阴影 (Shadow) ========== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+
+  /* ========== 圆角 (Radius) - 精简版 ========== */
+  /* 只保留 3 个核心等级：默认、大、完全圆形 */
+  --radius-sm: 12px;     /* 已废弃，映射到 --radius-md */
+  --radius-md: 12px;     /* 默认圆角 - 卡片、按钮、输入框、容器 (70%) */
+  --radius-lg: 16px;     /* 大圆角 - 弹窗、下拉菜单、缩略图 (20%) */
+  --radius-xl: 16px;     /* 已废弃，映射到 --radius-lg */
+  --radius-2xl: 16px;    /* 已废弃，映射到 --radius-lg */
+  --radius-full: 9999px; /* 完全圆形 - 头像、Chip、徽章、筛选按钮 (10%) */
+
+  /* ========== 过渡 (Transition) ========== */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* ========== 兼容旧变量 (迁移期间保留) ========== */
+  --color-primary: var(--brand-primary);
+  --color-secondary: var(--accent-primary);
+  --color-dark: var(--text-primary);
+  --color-darker: var(--brand-dark);
+  --color-gray: var(--text-secondary);
+  --color-gray-light: var(--border-default);
+  --color-gray-dark: var(--text-tertiary);
+  --gradient-dark: var(--bg-footer);
+}
+
 /* Base Styles */
 @layer base {
   html {
@@ -12,13 +80,22 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+    /* 防止 iOS 微信浏览器滚动穿透 */
+    overscroll-behavior: none;
   }
   
   body {
-    @apply bg-white text-black antialiased;
+    @apply antialiased;
     font-feature-settings: "kern" 1, "liga" 1;
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+    overflow-x: hidden;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    min-height: 100vh;
+    /* 防止 iOS 橡皮筋效果和滚动穿透 */
+    overscroll-behavior: none;
   }
   
   /* Selection */
@@ -120,6 +197,18 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* 移动端滚动容器隔离 - 防止滚动穿透 */
+  .scroll-contain {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 阻止移动端页面弹性滚动 */
+  .no-bounce {
+    overscroll-behavior: none;
+    touch-action: pan-y;
   }
 }
 

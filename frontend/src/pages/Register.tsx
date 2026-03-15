@@ -98,7 +98,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="border border-gray-200 rounded-lg p-6">
           <h1 className="text-xl font-serif font-bold text-center mb-2">创建账号</h1>
@@ -114,7 +114,7 @@ export default function Register() {
 
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
-              <label className="block text-sm font-serif text-black mb-2">用户名 *</label>
+              <label className="block text-sm font-serif mb-2" style={{ color: 'var(--text-primary)' }}>用户名 *</label>
               <input
                 type="text"
                 value={username}
@@ -122,12 +122,12 @@ export default function Register() {
                 placeholder="请输入用户名"
                 maxLength={50}
                 disabled={loading}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-serif text-black mb-2">手机号 *</label>
+              <label className="block text-sm font-serif mb-2" style={{ color: 'var(--text-primary)' }}>手机号 *</label>
               <input
                 type="tel"
                 value={phone}
@@ -135,12 +135,12 @@ export default function Register() {
                 placeholder="请输入手机号"
                 maxLength={11}
                 disabled={loading}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-serif text-black mb-2">验证码 *</label>
+              <label className="block text-sm font-serif mb-2" style={{ color: 'var(--text-primary)' }}>验证码 *</label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -149,13 +149,27 @@ export default function Register() {
                   placeholder="请输入验证码"
                   maxLength={6}
                   disabled={loading}
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none"
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleSendCode}
                   disabled={sendingCode || countdown > 0 || !phone}
-                  className="min-w-[120px] border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif hover:border-black disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="min-w-[120px] border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  style={{
+                    borderColor: 'var(--border-default)',
+                    color: 'var(--text-primary)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!sendingCode && countdown <= 0 && phone) {
+                      e.currentTarget.style.borderColor = 'var(--color-dark)'
+                      e.currentTarget.style.color = 'var(--color-dark)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-default)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }}
                 >
                   {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
                 </button>
@@ -170,26 +184,38 @@ export default function Register() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="请输入密码（至少6位）"
                 disabled={loading}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-serif text-black mb-2">确认密码 *</label>
+              <label className="block text-sm font-serif mb-2" style={{ color: 'var(--text-primary)' }}>确认密码 *</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="请再次输入密码"
                 disabled={loading}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-black text-white py-2 rounded-lg text-sm font-serif font-medium hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2 rounded-lg text-sm font-serif font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              style={{
+                backgroundColor: 'var(--color-dark)',
+                color: 'white',
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.opacity = '0.9'
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1'
+              }}
             >
               {loading ? '注册中...' : '注册'}
             </button>
@@ -197,7 +223,7 @@ export default function Register() {
 
           <div className="mt-4 text-center text-sm text-gray-500 font-serif">
             已有账号？{' '}
-            <Link to="/login" state={{ from }} className="text-black hover:underline">立即登录</Link>
+            <Link to="/login" state={{ from }} className="hover:underline" style={{ color: 'var(--text-primary)' }}>立即登录</Link>
           </div>
         </div>
       </div>

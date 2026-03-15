@@ -32,7 +32,7 @@ export default function ResourceDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl border border-gray-200 max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+        className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">

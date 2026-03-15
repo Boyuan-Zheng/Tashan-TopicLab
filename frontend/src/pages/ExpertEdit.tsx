@@ -41,14 +41,14 @@ export default function ExpertEdit() {
   }
 
   if (loading) return (
-    <div className="bg-white min-h-screen">
+    <div className="min-h-screen">
       <div className="max-w-3xl mx-auto px-4 py-8">
         <p className="text-gray-500">加载中...</p>
       </div>
     </div>
   )
   if (!expert) return (
-    <div className="bg-white min-h-screen">
+    <div className="min-h-screen">
       <div className="max-w-3xl mx-auto px-4 py-8">
         <p className="text-gray-500">角色不存在</p>
       </div>
@@ -56,7 +56,7 @@ export default function ExpertEdit() {
   )
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="min-h-screen">
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-8">
           <Link

@@ -31,15 +31,45 @@ export default function MCPCard(props: MCPCardProps) {
       <button
         type="button"
         onClick={() => props.onClick(mcp)}
-        className="flex flex-col gap-1 px-4 py-3 rounded-lg border border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-colors w-full min-w-0 sm:min-w-[200px] sm:max-w-[280px] sm:w-auto text-left cursor-pointer overflow-hidden"
+        className="flex flex-col gap-1 px-4 py-3 rounded-lg border w-full min-w-0 sm:min-w-[200px] sm:max-w-[280px] sm:w-auto text-left cursor-pointer overflow-hidden transition-all"
+        style={{
+          borderColor: 'var(--border-default)',
+          backgroundColor: 'var(--bg-container)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = 'var(--border-hover)'
+          e.currentTarget.style.backgroundColor = 'var(--bg-hover)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = 'var(--border-default)'
+          e.currentTarget.style.backgroundColor = 'var(--bg-container)'
+        }}
       >
-        <span className="text-sm font-serif font-medium text-black truncate min-w-0" title={mcp.name}>{mcp.name}</span>
+        <span
+          className="text-sm font-serif font-medium truncate min-w-0"
+          style={{ color: 'var(--text-primary)' }}
+          title={mcp.name}
+        >
+          {mcp.name}
+        </span>
         {mcp.description && (
-          <span className={`text-xs text-gray-500 min-w-0 ${descriptionLines === 2 ? 'line-clamp-2' : 'line-clamp-1'}`} title={mcp.description}>
+          <span
+            className={`text-xs min-w-0 ${descriptionLines === 2 ? 'line-clamp-2' : 'line-clamp-1'}`}
+            style={{ color: 'var(--text-secondary)' }}
+            title={mcp.description}
+          >
             {mcp.description}
           </span>
         )}
-        {showId && <span className="text-[10px] text-gray-400 font-mono truncate min-w-0" title={mcp.id}>{mcp.id}</span>}
+        {showId && (
+          <span
+            className="text-[10px] font-mono truncate min-w-0"
+            style={{ color: 'var(--text-tertiary)' }}
+            title={mcp.id}
+          >
+            {mcp.id}
+          </span>
+        )}
       </button>
     )
   }
@@ -47,11 +77,23 @@ export default function MCPCard(props: MCPCardProps) {
   const { isSelected, onToggle, onDetailClick } = props
   return (
     <div
-      className={`${CARD_CLASS} ${
-        isSelected
-          ? 'border-gray-400 bg-gray-100'
-          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-      }`}
+      className={`${CARD_CLASS} transition-all`}
+      style={{
+        borderColor: isSelected ? 'var(--text-tertiary)' : 'var(--border-default)',
+        backgroundColor: isSelected ? 'var(--bg-secondary)' : 'var(--bg-container)',
+      }}
+      onMouseEnter={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.borderColor = 'var(--border-hover)'
+          e.currentTarget.style.backgroundColor = 'var(--bg-hover)'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.borderColor = 'var(--border-default)'
+          e.currentTarget.style.backgroundColor = 'var(--bg-container)'
+        }
+      }}
     >
       <div
         className={`flex-1 min-w-0 overflow-hidden text-left ${onDetailClick ? 'cursor-pointer' : ''}`}
@@ -65,19 +107,36 @@ export default function MCPCard(props: MCPCardProps) {
         tabIndex={onDetailClick ? 0 : undefined}
         title={onDetailClick ? '点击查看详情' : undefined}
       >
-        <span className="text-sm font-serif font-medium text-black truncate block" title={mcp.name}>{mcp.name}</span>
+        <span
+          className="text-sm font-serif font-medium truncate block"
+          style={{ color: 'var(--text-primary)' }}
+          title={mcp.name}
+        >
+          {mcp.name}
+        </span>
         {mcp.description && (
-          <span className="text-xs text-gray-500 line-clamp-1 min-w-0 block" title={mcp.description}>{mcp.description}</span>
+          <span
+            className="text-xs line-clamp-1 min-w-0 block"
+            style={{ color: 'var(--text-secondary)' }}
+            title={mcp.description}
+          >
+            {mcp.description}
+          </span>
         )}
       </div>
       <button
         type="button"
         onClick={() => onToggle(mcp)}
-        className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-          isSelected
-            ? 'bg-gray-400 text-white hover:bg-gray-500'
-            : 'bg-black text-white hover:bg-gray-800'
-        }`}
+        className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium text-white transition-all"
+        style={{
+          backgroundColor: isSelected ? 'var(--text-tertiary)' : 'var(--text-primary)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.opacity = '0.8'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.opacity = '1'
+        }}
         aria-label={isSelected ? '移除' : '添加'}
         title={isSelected ? '从话题移除' : '添加到话题'}
       >
@@ -104,11 +163,29 @@ export function MCPChip({
       onClick={onClick}
       onKeyDown={(e) => e.key === 'Enter' && onClick()}
       title={meta ? `${mcp.name} · ${meta}` : mcp.name}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-gray-100 border border-gray-200 hover:bg-gray-200 cursor-pointer sm:flex sm:gap-2 sm:px-3 sm:py-2 sm:rounded-lg sm:min-w-[180px] sm:max-w-[280px] sm:w-auto sm:bg-white sm:hover:border-gray-400 sm:hover:bg-gray-50"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border cursor-pointer sm:flex sm:gap-2 sm:px-3 sm:py-2 sm:rounded-lg sm:min-w-[180px] sm:max-w-[280px] sm:w-auto transition-colors"
+      style={{
+        backgroundColor: 'var(--bg-secondary)',
+        borderColor: 'var(--border-default)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = 'var(--bg-hover)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'
+      }}
     >
       <div className="flex-1 min-w-0 text-left flex flex-col sm:block">
-        <span className="font-serif font-medium text-black truncate max-w-[100px] sm:max-w-none sm:block">{mcp.name}</span>
-        <span className="hidden sm:block text-[10px] text-gray-400">
+        <span
+          className="font-serif font-medium truncate max-w-[100px] sm:max-w-none sm:block"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          {mcp.name}
+        </span>
+        <span
+          className="hidden sm:block text-[10px]"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
           {meta}
         </span>
       </div>
@@ -118,7 +195,16 @@ export function MCPChip({
           e.stopPropagation()
           onRemove()
         }}
-        className="flex-shrink-0 w-5 h-5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium text-gray-400 hover:text-black hover:bg-gray-200 transition-colors touch-manipulation"
+        className="flex-shrink-0 w-5 h-5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-colors touch-manipulation"
+        style={{ color: 'var(--text-tertiary)' }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = 'var(--text-primary)'
+          e.currentTarget.style.backgroundColor = 'var(--bg-hover)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = 'var(--text-tertiary)'
+          e.currentTarget.style.backgroundColor = 'transparent'
+        }}
         aria-label="移除"
       >
         ×

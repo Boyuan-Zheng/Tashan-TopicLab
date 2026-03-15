@@ -23,7 +23,7 @@ export default function SourceArticlePreviewCard({ article, layout }: Props) {
   const hasImage = Boolean(article.pic_url)
   if (layout === 'horizontal') {
     return (
-      <article className="rounded-2xl border border-gray-200 bg-white p-3">
+      <article className="rounded-xl border border-gray-200 bg-white p-3">
         <div className="flex items-start gap-3">
           {hasImage ? (
             <a
@@ -57,7 +57,7 @@ export default function SourceArticlePreviewCard({ article, layout }: Props) {
   }
 
   return (
-    <article className="rounded-[22px] border border-gray-200 bg-white p-4">
+    <article className="rounded-xl border border-gray-200 bg-white p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="truncate text-sm font-semibold text-gray-700">{article.source_feed_name}</div>
         <span className="rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-500">信源原文</span>
@@ -67,7 +67,7 @@ export default function SourceArticlePreviewCard({ article, layout }: Props) {
           href={article.url}
           target="_blank"
           rel="noreferrer"
-          className="mb-3 block aspect-[16/10] overflow-hidden rounded-[16px] border border-gray-100 bg-gray-50"
+          className="mb-3 block aspect-[16/10] overflow-hidden rounded-xl border border-gray-100 bg-gray-50"
         >
           <img
             src={sourceFeedApi.imageUrl(article.pic_url!)}

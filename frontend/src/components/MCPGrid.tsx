@@ -101,17 +101,21 @@ export default function MCPGrid(props: MCPGridProps) {
           a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)
         )
         return (
-          <div key={source} className="border-b border-gray-100 last:border-b-0">
+          <div key={source} className="border-b last:border-b-0" style={{ borderColor: 'var(--border-default)' }}>
             <div
               id={`source-${source}`}
               ref={(el) => { sectionRefs.current[`source-${source}`] = el }}
-              className="bg-gray-50 px-4 py-2.5 border-b border-gray-100 sticky top-0 z-10 scroll-mt-6"
+              className="px-4 py-2.5 border-b sticky top-0 z-10 scroll-mt-6"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                borderColor: 'var(--border-default)',
+              }}
             >
-              <h3 className="text-xs font-serif font-semibold text-black uppercase tracking-wide">
+              <h3 className="text-xs font-serif font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
                 {sourceDisplayName(source)}
               </h3>
             </div>
-            <div className="divide-y divide-gray-50">
+            <div style={{ backgroundColor: 'var(--bg-tertiary)' }}>
               {catKeys.map((catId) => {
                 const items = cats[catId]
                 const catName = items[0]?.category_name || catId || '未分类'
@@ -123,7 +127,7 @@ export default function MCPGrid(props: MCPGridProps) {
                     ref={(el) => { sectionRefs.current[sectionId] = el }}
                     className="p-3 scroll-mt-6"
                   >
-                    <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
                       {catName}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
@@ -173,15 +177,26 @@ export default function MCPGrid(props: MCPGridProps) {
       onChange={(e) => setSearch(e.target.value)}
       className={
         isFill
-          ? 'w-full flex-shrink-0 bg-gray-50 border-0 border-b border-gray-100 rounded-none px-3 py-2 text-sm font-serif placeholder-gray-400 focus:outline-none focus:border-gray-300 transition-colors'
-          : 'w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-serif placeholder-gray-400 focus:border-black focus:outline-none transition-colors'
+          ? 'w-full flex-shrink-0 border-0 border-b rounded-none px-3 py-2 text-sm font-serif focus:outline-none transition-colors'
+          : 'w-full border rounded-lg px-4 py-2.5 text-sm font-serif focus:outline-none transition-colors'
       }
+      style={{
+        backgroundColor: isFill ? 'var(--bg-secondary)' : 'var(--bg-container)',
+        borderColor: isFill ? 'var(--border-default)' : 'var(--border-default)',
+        color: 'var(--text-primary)',
+      }}
+      onFocus={(e) => {
+        e.target.style.borderColor = 'var(--border-focus)'
+      }}
+      onBlur={(e) => {
+        e.target.style.borderColor = 'var(--border-default)'
+      }}
     />
   )
 
   const instructionText =
     props.mode === 'select' ? (
-      <p className="text-xs text-gray-500 mb-2 flex-shrink-0">
+      <p className="text-xs mb-2 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
         点击 + 选择要启用的 MCP 服务器，选中的会拷贝到话题工作区。
         {selectedMcps.length === 0 && (
           <span className="ml-1">不选择则自动使用全部 MCP 服务器（共 {allMcps.length} 个）。</span>
@@ -194,11 +209,15 @@ export default function MCPGrid(props: MCPGridProps) {
       <div
         className={
           layout === 'embed' && filteredMcps.length > 0
-            ? 'flex flex-wrap gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex-shrink-0 max-h-28 overflow-y-auto overflow-x-hidden'
-            : 'flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200'
+            ? 'flex flex-wrap gap-2 px-4 py-2.5 border-b flex-shrink-0 max-h-28 overflow-y-auto overflow-x-hidden'
+            : 'flex flex-wrap gap-2 p-3 rounded-lg border'
         }
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          borderColor: 'var(--border-default)',
+        }}
       >
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide w-full mb-1">
+        <span className="text-xs font-semibold uppercase tracking-wide w-full mb-1" style={{ color: 'var(--text-tertiary)' }}>
           已选 MCP 服务器（点击跳转）
         </span>
         {selectedMcps.map((m) => (
@@ -220,19 +239,22 @@ export default function MCPGrid(props: MCPGridProps) {
 
       {selectedChipsSection && !(layout === 'embed' && filteredMcps.length > 0) && selectedChipsSection}
 
-      {loading && <p className="text-gray-400 font-serif text-sm">加载中...</p>}
+      {loading && <p className="font-serif text-sm" style={{ color: 'var(--text-tertiary)' }}>加载中...</p>}
       {!loading && filteredMcps.length === 0 && (
-        <p className="text-gray-400 font-serif text-sm">{search ? '无匹配 MCP' : '暂无 MCP 配置'}</p>
+        <p className="font-serif text-sm" style={{ color: 'var(--text-tertiary)' }}>{search ? '无匹配 MCP' : '暂无 MCP 配置'}</p>
       )}
 
       {!loading && filteredMcps.length > 0 && (
         <div
           className={
             layout === 'embed' && selectedChipsSection
-              ? `flex flex-col border border-gray-200 rounded-lg overflow-hidden ${isFill ? 'flex-1 min-h-0' : ''}`
-              : `flex ${layout === 'embed' ? 'gap-0 border border-gray-200 rounded-lg overflow-hidden' : 'gap-8'} ${isFill ? 'flex-1 min-h-0' : ''}`
+              ? `flex flex-col border rounded-lg overflow-hidden ${isFill ? 'flex-1 min-h-0' : ''}`
+              : `flex ${layout === 'embed' ? 'gap-0 border rounded-lg overflow-hidden' : 'gap-8'} ${isFill ? 'flex-1 min-h-0' : ''}`
           }
-          style={gridHeightStyle}
+          style={{
+            borderColor: 'var(--border-default)',
+            ...gridHeightStyle
+          }}
         >
           {layout === 'embed' && selectedChipsSection && selectedChipsSection}
           <div
@@ -287,17 +309,21 @@ export default function MCPGrid(props: MCPGridProps) {
                     a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)
                   )
                   return (
-                    <div key={source} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div key={source} className="border rounded-lg overflow-hidden" style={{ borderColor: 'var(--border-default)' }}>
                       <div
                         id={`source-${source}`}
                         ref={(el) => { sectionRefs.current[`source-${source}`] = el }}
-                        className="bg-gray-50 px-4 py-3 border-b border-gray-200 scroll-mt-6"
+                        className="px-4 py-3 border-b scroll-mt-6"
+                        style={{
+                          backgroundColor: 'var(--bg-secondary)',
+                          borderColor: 'var(--border-default)',
+                        }}
                       >
-                        <h2 className="text-sm font-serif font-semibold text-black uppercase tracking-wide">
+                        <h2 className="text-sm font-serif font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
                           {sourceDisplayName(source)}
                         </h2>
                       </div>
-                      <div className="divide-y divide-gray-100">
+                      <div style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                         {catKeys.map((catId) => {
                           const items = cats[catId]
                           const catName = items[0]?.category_name || catId || '未分类'
@@ -309,7 +335,7 @@ export default function MCPGrid(props: MCPGridProps) {
                               ref={(el) => { sectionRefs.current[sectionId] = el }}
                               className="p-4 scroll-mt-6"
                             >
-                              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                              <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>
                                 {catName}
                               </div>
                               <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">

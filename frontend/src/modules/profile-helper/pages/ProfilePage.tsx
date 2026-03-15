@@ -159,6 +159,7 @@ export function ProfilePage() {
           尚未记录到账号系统数据库，完成发布后会自动写入。
         </div>
       )}
+      <ProfilePanel sessionId={sessionId} profile={profile} forumProfile={forumProfile} />
       <section className="twin-publish-card">
         <h3>发布与入库</h3>
         <div className="twin-publish-grid">
@@ -260,7 +261,6 @@ export function ProfilePage() {
           </div>
         )}
       </section>
-      <ProfilePanel sessionId={sessionId} profile={profile} forumProfile={forumProfile} />
     </div>
   )
 }

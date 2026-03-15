@@ -469,7 +469,7 @@ export default function TopicConfigTabs({
           onClick={() => setShowCustomDialog(false)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-[90%] max-h-[80vh] overflow-auto border border-gray-200"
+            className="bg-white rounded-xl shadow-xl p-6 max-w-2xl w-[90%] max-h-[80vh] overflow-auto border border-gray-200"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-semibold text-gray-900 mb-1">自定义主持人提示词</h3>
@@ -545,7 +545,7 @@ export default function TopicConfigTabs({
           onClick={() => setShowShareDialog(false)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl p-6 max-w-md w-[90%] border border-gray-200"
+            className="bg-white rounded-xl shadow-xl p-6 max-w-md w-[90%] border border-gray-200"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-semibold text-gray-900 mb-3">共享到讨论方式库</h3>

@@ -525,7 +525,7 @@ export default function MyFavoritesPage() {
                   key={item.id}
                   type="button"
                   onClick={() => setTab(item.id)}
-                  className={`block rounded-md px-3 py-2 text-left text-sm whitespace-nowrap transition-colors md:w-full ${
+                  className={`block rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap transition-colors md:w-full ${
                     active
                       ? 'bg-gray-100 text-gray-900 font-semibold'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -540,7 +540,7 @@ export default function MyFavoritesPage() {
             <button
               type="button"
               onClick={() => setSelectedCategoryId('all')}
-              className={`block rounded-md px-3 py-2 text-left text-sm whitespace-nowrap transition-colors md:w-full ${
+              className={`block rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap transition-colors md:w-full ${
                 selectedCategoryId === 'all'
                   ? 'bg-gray-100 text-gray-900 font-semibold'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -553,7 +553,7 @@ export default function MyFavoritesPage() {
                 key={category.id}
                 type="button"
                 onClick={() => setSelectedCategoryId(category.id)}
-                className={`hidden rounded-md px-3 py-2 text-left text-sm transition-colors md:block ${
+                className={`hidden rounded-lg px-3 py-2 text-left text-sm transition-colors md:block ${
                   selectedCategoryId === category.id
                     ? 'bg-gray-100 text-gray-900 font-semibold'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -611,7 +611,7 @@ export default function MyFavoritesPage() {
           {loading ? <p className="font-serif text-gray-500">加载中...</p> : null}
 
           {!loading && tab === 'topics' && visibleTopics.length === 0 ? (
-            <div className="rounded-[20px] border border-dashed border-gray-200 bg-gray-50 px-5 py-8">
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-5 py-8">
               <p className="font-serif text-gray-700">
                 {selectedCategoryId === 'all' ? '还没有收藏话题。' : '这个分类里还没有话题。'}
               </p>
@@ -627,7 +627,7 @@ export default function MyFavoritesPage() {
           ) : null}
 
           {!loading && tab === 'sources' && visibleSources.length === 0 ? (
-            <div className="rounded-[20px] border border-dashed border-gray-200 bg-gray-50 px-5 py-8">
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-5 py-8">
               <p className="font-serif text-gray-700">
                 {selectedCategoryId === 'all' ? '还没有收藏信源。' : '这个分类里还没有信源。'}
               </p>

@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  base: process.env.VITE_BASE_PATH || '/topic-lab/',
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
   test: {
     environment: 'jsdom',
@@ -11,15 +11,15 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/topic-lab/api/source-feed': {
+      '/api/source-feed': {
         target: 'http://localhost:8001',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/topic-lab\/api/, '')
+        rewrite: (path) => path.replace(/^\/api/, '')
       },
-      '/topic-lab/api': {
+      '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/topic-lab\/api/, '')
+        rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
   }

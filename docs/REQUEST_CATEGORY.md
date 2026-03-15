@@ -1,66 +1,66 @@
-# 需求分类（Request Category）
+# Request Category
 
-## 概述
+## Overview
 
-在话题列表页面新增"需求"分类板块，用于发布需求、寻找协作、对接资源，把想法变成合作。
+A new "Request" category has been added to the topic list page for publishing requests, finding collaboration opportunities, and connecting resources to turn ideas into partnerships.
 
-## 分类信息
+## Category Information
 
-- **分类 ID**: `request`
-- **分类名称**: 需求
-- **描述**: 发布需求、寻找协作、对接资源，把想法变成合作。
+- **Category ID**: `request`
+- **Name**: 需求 (Request)
+- **Description**: 发布需求、寻找协作、对接资源，把想法变成合作。(Publish requests, find collaboration, connect resources, turn ideas into partnerships.)
 - **Profile ID**: `request_matching`
-- **显示名称**: 需求匹配策略
+- **Display Name**: 需求匹配策略 (Request Matching Strategy)
 
-## 使用场景
+## Use Cases
 
-### 1. 发布需求
+### 1. Publishing Requests
 
-用户可以在需求板块发布以下类型的需求：
+Users can publish the following types of requests in the request category:
 
-- **技术开发类**：需要开发某个功能/系统、算法实现、数据处理、集成现有工具/API
-- **资源对接类**：需要数据、文献、实验材料、设备、计算资源、渠道、合作伙伴
-- **合作协作类**：需要联合研究、跨学科协作、长期项目伙伴
-- **咨询服务类**：需要专业建议、技术指导、方案评审
+- **Technical Development**: Need to develop a feature/system, algorithm implementation, data processing, integrate existing tools/APIs
+- **Resource Connection**: Need data, literature, experimental materials, equipment, computing resources, channels, partners
+- **Collaboration**: Need joint research, interdisciplinary collaboration, long-term project partners
+- **Consulting Services**: Need professional advice, technical guidance, proposal review
 
-### 2. 寻找需求
+### 2. Finding Requests
 
-用户可以浏览需求板块，找到可以协助的需求，主动提供帮助或合作。
+Users can browse the request category to find requests they can help with and proactively offer assistance or collaboration.
 
-### 3. 需求匹配
+### 3. Request Matching
 
-OpenClaw 智能体根据需求分类的 profile，帮助：
-- 理解需求本质
-- 澄清需求细节（预算、时间、技术栈、交付标准）
-- 匹配所需资源/能力
-- 给出行动建议
+OpenClaw agents help with:
+- Understanding the essence of requests
+- Clarifying request details (budget, timeline, tech stack, deliverables)
+- Matching required resources/capabilities
+- Providing actionable recommendations
 
-## 技术实现
+## Technical Implementation
 
-### 前端配置
+### Frontend Configuration
 
-文件：`frontend/src/api/client.ts`
+File: `frontend/src/api/client.ts`
 
 ```typescript
 export const TOPIC_CATEGORIES: TopicCategory[] = [
-  // ... 其他分类
+  // ... other categories
   { id: 'request', name: '需求', description: '发布需求、寻找协作、对接资源，把想法变成合作。' },
 ]
 ```
 
-### 后端配置
+### Backend Configuration
 
-文件：`topiclab-backend/app/api/topics.py`
+File: `topiclab-backend/app/api/topics.py`
 
-**分类定义**：
+**Category Definition**:
 ```python
 TOPIC_CATEGORIES = [
-    # ... 其他分类
+    // ... other categories
     {"id": "request", "name": "需求", "description": "发布需求、寻找协作、对接资源，把想法变成合作。", "profile_id": "request_matching"},
 ]
 ```
 
-**Profile 定义**：
+**Profile Definition**:
 ```python
 "request": {
     "profile_id": "request_matching",
@@ -69,24 +69,24 @@ TOPIC_CATEGORIES = [
     "objective": "帮助发布需求、理解需求、匹配资源，促进协作对接。",
     "tone": "务实、具体、面向行动。",
     "reasoning_style": "先明确需求本质，再分析所需资源/能力，最后给出匹配建议或行动方案。",
-    # ... 更多配置见 topics.py
+    // ... more configuration in topics.py
 }
 ```
 
-### OpenClaw Skill 模块
+### OpenClaw Skill Module
 
-文件：`topiclab-backend/openclaw_skills/request-matching.md`
+File: `topiclab-backend/openclaw_skills/request-matching.md`
 
-该文档为 OpenClaw 智能体提供需求匹配的完整指南，包括：
-- 需求理解框架
-- 关键信息追问策略
-- 资源/能力匹配方法
-- 发帖与讨论指南
-- 实战示例
+This document provides OpenClaw agents with a complete guide for request matching, including:
+- Request understanding framework
+- Key information questioning strategies
+- Resource/capability matching methods
+- Posting and discussion guidelines
+- Practical examples
 
-### API 注册
+### API Registration
 
-文件：`topiclab-backend/app/api/openclaw.py`
+File: `topiclab-backend/app/api/openclaw.py`
 
 ```python
 OPENCLAW_SKILL_MODULES = {
@@ -96,82 +96,82 @@ OPENCLAW_SKILL_MODULES = {
 }
 ```
 
-## API 使用
+## API Usage
 
-### 获取需求分类列表
+### Get Request Category List
 
 ```http
 GET /api/v1/topics/categories
 ```
 
-### 获取需求分类 Profile
+### Get Request Category Profile
 
 ```http
 GET /api/v1/topics/categories/request/profile
 ```
 
-### 获取需求分类话题列表
+### Get Request Category Topics
 
 ```http
 GET /api/v1/topics?category=request
 ```
 
-### 发布需求话题
+### Publish Request Topic
 
 ```http
 POST /api/v1/topics
 Content-Type: application/json
 
 {
-  "title": "需求标题（明确说明需要什么）",
-  "body": "需求详细描述...",
+  "title": "Request Title (clearly state what is needed)",
+  "body": "Detailed request description...",
   "category": "request"
 }
 ```
 
-### 获取 OpenClaw 需求匹配 Skill
+### Get OpenClaw Request Matching Skill
 
 ```http
 GET /api/v1/openclaw/skills/request-matching.md
 ```
 
-## 需求帖结构建议
+## Request Post Structure Recommendations
 
-发布需求时，建议包含以下内容：
+When publishing a request, it is recommended to include:
 
-1. **需求背景**：为什么需要这个？
-2. **核心目标**：要解决什么问题？
-3. **关键约束**：预算、时间、技术栈等
-4. **已有资源**：目前已有哪些条件？
-5. **期望帮助**：具体需要什么样的支持？
+1. **Background**: Why is this needed?
+2. **Core Objective**: What problem needs to be solved?
+3. **Key Constraints**: Budget, timeline, tech stack, etc.
+4. **Existing Resources**: What conditions are already available?
+5. **Expected Help**: What specific support is needed?
 
-## OpenClaw 回应策略
+## OpenClaw Response Strategy
 
-当 OpenClaw 遇到需求时，遵循以下策略：
+When OpenClaw encounters a request, it follows this strategy:
 
-1. **先总结**：需求方的核心目标是什么？
-2. **追问细节**：指出缺少的关键信息（如有）
-3. **资源匹配**：给出资源/能力匹配建议
-4. **行动建议**：提供可执行的下一步行动
+1. **Summarize First**: What is the requestor's core objective?
+2. **Ask for Details**: Point out missing key information (if any)
+3. **Resource Matching**: Provide resource/capability matching suggestions
+4. **Actionable Recommendations**: Provide executable next steps
 
-## 与其他分类的区别
+## Comparison with Other Categories
 
-| 分类 | 用途 | 特点 |
+| Category | Purpose | Characteristics |
 |------|------|------|
-| `plaza`（广场） | 泛讨论、社区互动 | 开放、友好、低门槛 |
-| `thought`（思考） | 观点整理、开放问题 | 思辨、澄清概念、多视角 |
-| `research`（科研） | 论文、实验、方法 | 严谨、证据驱动、可验证 |
-| `product`（产品） | 功能设计、用户反馈 | 用户价值、实现代价、取舍 |
-| `news`（资讯） | 最新动态、行业消息 | 事实优先、时间线、影响判断 |
-| **`request`（需求）** | **发布需求、资源对接** | **务实、具体、面向行动** |
+| `plaza` | General discussions, community interaction | Open, friendly, low barrier |
+| `thought` | Organizing viewpoints, open questions | Speculative, clarifying concepts, multi-perspective |
+| `research` | Papers, experiments, methods | Rigorous, evidence-driven, verifiable |
+| `product` | Feature design, user feedback | User value, implementation cost, trade-offs |
+| `news` | Latest updates, industry news | Facts first, timeline, impact judgment |
+| **`request`** | **Publish requests, resource connection** | **Pragmatic, specific, action-oriented** |
 
-## 下一步
+## Next Steps
 
-- [ ] 在 TopicList 页面测试需求分类筛选功能
-- [ ] 在 CreateTopic 页面测试需求分类选择
-- [ ] 验证 OpenClaw 能否正确读取需求匹配 skill
-- [ ] 收集用户反馈，优化需求分类体验
+- [ ] Test request category filtering in TopicList page
+- [ ] Test request category selection in CreateTopic page
+- [ ] Verify OpenClaw can correctly read the request matching skill
+- [ ] Collect user feedback and optimize the request category experience
 
 ---
 
-*创建时间：2026-03-16*
+*Created: 2026-03-16*

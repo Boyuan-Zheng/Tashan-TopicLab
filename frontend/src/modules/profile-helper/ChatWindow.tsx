@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { MessageBubble } from './MessageBubble'
 import { LoadingDots, RobotAvatar } from './LoadingDots'
 import {
@@ -9,6 +9,8 @@ import {
   getProfile,
 } from './profileHelperApi'
 import { PROFILE_HELPER_MODELS } from '../../api/client'
+import { refreshCurrentUserProfile, tokenManager, User } from '../../api/auth'
+import { toast } from '../../utils/toast'
 
 const SESSION_KEYS = ['tashan_session_id', 'tashan_profile_session_id'] as const
 
@@ -31,14 +33,22 @@ export function ChatWindow() {
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const [, setProfile] = useState('')
   const [, setForumProfile] = useState('')
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState('帮我建立分身')
   const [loading, setLoading] = useState(false)
   const [initialized, setInitialized] = useState(false)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [selectedModel, setSelectedModel] = useState<string>(PROFILE_HELPER_MODELS[0]?.value ?? '')
   const [, setImportResult] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [isComposing, setIsComposing] = useState(false)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const navigate = useNavigate()
+
+  const requireCurrentUser = useCallback(() => {
+    if (currentUser) return true
+    toast.error('请先登录后再与数字分身助手对话')
+    return false
+  }, [currentUser])
 
   const fetchProfile = useCallback(async (sid: string) => {
     try {
@@ -52,12 +62,29 @@ export function ChatWindow() {
 
   useEffect(() => {
     async function init() {
-      const stored = getStoredSessionId()
-      const id = await getOrCreateSession(stored ?? undefined)
-      setSessionId(id)
-      setStoredSessionId(id)
-      await fetchProfile(id)
-      setInitialized(true)
+      const token = tokenManager.get()
+      if (!token) {
+        setCurrentUser(null)
+        setInitialized(true)
+        return
+      }
+      try {
+        const user = await refreshCurrentUserProfile()
+        setCurrentUser(user ?? null)
+        if (!user) {
+          setInitialized(true)
+          return
+        }
+        const stored = getStoredSessionId()
+        const id = await getOrCreateSession(stored ?? undefined)
+        setSessionId(id)
+        setStoredSessionId(id)
+        await fetchProfile(id)
+      } catch {
+        setCurrentUser(null)
+      } finally {
+        setInitialized(true)
+      }
     }
     init()
   }, [fetchProfile])
@@ -87,10 +114,12 @@ export function ChatWindow() {
   }, [sessionId, messages])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = messagesContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }, [messages])
 
   const handleSubmit = async () => {
+    if (!requireCurrentUser()) return
     const text = input.trim()
     if (!text || !sessionId || loading) return
 
@@ -135,7 +164,7 @@ export function ChatWindow() {
   }
 
   const handleReset = async () => {
-    if (!sessionId) return
+    if (!requireCurrentUser() || !sessionId) return
     try {
       await resetSession(sessionId)
       setMessages([])
@@ -160,40 +189,7 @@ export function ChatWindow() {
   return (
     <div className="chat-layout">
       <div className="chat-window">
-        <header className="chat-header">
-          <h1>他山数字分身助手</h1>
-          <div className="header-actions">
-            <select
-              className="profile-model-select"
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              title="选择模型"
-            >
-              {PROFILE_HELPER_MODELS.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="view-profile-btn"
-              onClick={() => navigate('/profile-helper/profile')}
-            >
-              我的分身
-            </button>
-            <button
-              type="button"
-              className="reset-btn"
-              onClick={handleReset}
-              disabled={loading}
-            >
-              重置会话
-            </button>
-          </div>
-        </header>
-
-        <div className="messages">
+        <div ref={messagesContainerRef} className="messages">
           {messages.length === 0 && (
             <div className="welcome">
               <p>你好，我是科研数字分身采集助手。</p>
@@ -221,32 +217,105 @@ export function ChatWindow() {
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
         </div>
 
         <form
-          className="input-area"
+          className="chat-input-container"
           onSubmit={(e) => {
             e.preventDefault()
             handleSubmit()
           }}
         >
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSubmit()
-              }
-            }}
-            placeholder="输入消息，Enter 发送，Shift+Enter 换行"
-            rows={2}
-          />
-          <button type="submit" disabled={loading || !input.trim()}>
-            {loading ? '发送中...' : '发送'}
-          </button>
+          <div className="chat-input-inner">
+            {!currentUser ? (
+              <div className="chat-login-prompt">
+                <p>请先登录后再与数字分身助手对话</p>
+                <Link to="/login" state={{ from: '/profile-helper' }} className="chat-login-link">
+                  去登录
+                </Link>
+              </div>
+            ) : (
+              <>
+            {/* 输入区域 */}
+            <div className="chat-input-row">
+              <div className="chat-input-wrapper">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
+                      e.preventDefault()
+                      handleSubmit()
+                    }
+                  }}
+                  onCompositionStart={() => setIsComposing(true)}
+                  onCompositionEnd={() => setIsComposing(false)}
+                  placeholder="输入消息..."
+                  rows={3}
+                  className="chat-textarea"
+                />
+              </div>
+              <button
+                type="submit"
+                className="chat-send-btn"
+                disabled={loading || !input.trim()}
+              >
+                {loading ? (
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                )}
+              </button>
+            </div>
+
+            {/* 底部：提示 + 模型选择 + 操作按钮 */}
+            <div className="chat-hint-row">
+              <span className="input-hint">Enter 发送 · Shift+Enter 换行</span>
+              <div className="chat-hint-actions">
+                <select
+                  className="model-select-single"
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  title="选择模型"
+                >
+                  {PROFILE_HELPER_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="chat-action-btn"
+                  onClick={() => navigate('/profile-helper/profile')}
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  我的分身
+                </button>
+                <button
+                  type="button"
+                  className="chat-action-btn"
+                  onClick={handleReset}
+                  disabled={loading}
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  重置会话
+                </button>
+              </div>
+            </div>
+              </>
+            )}
+          </div>
         </form>
       </div>
     </div>

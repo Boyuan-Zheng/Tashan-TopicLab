@@ -103,17 +103,48 @@ export default function SourceArticleCard({
   const showReplyCount = Boolean(article.linked_topic_id) && linkedTopicPostsCount > 0
 
   return (
-    <article className="group relative rounded-[22px] border border-gray-200 bg-white p-4 transition-colors hover:border-black">
+    <article
+      className="group relative rounded-xl border p-4 transition-all cursor-pointer"
+      style={{
+        borderColor: 'var(--border-default)',
+        backgroundColor: 'var(--bg-container)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border-hover)'
+        e.currentTarget.style.transform = 'translateY(-2px)'
+        e.currentTarget.style.boxShadow = 'var(--shadow-md)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border-default)'
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = 'none'
+      }}
+    >
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--text-secondary)',
+            }}
+          >
             {getSourceMark(article)}
           </div>
-          <div className="min-w-0 truncate text-sm font-serif font-semibold text-gray-700">
+          <div
+            className="min-w-0 truncate text-sm font-serif font-semibold"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             {article.source_feed_name}
           </div>
         </div>
-        <div className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-serif text-gray-500">
+        <div
+          className="rounded-lg px-2.5 py-1 text-xs font-serif"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            color: 'var(--text-tertiary)',
+          }}
+        >
           {getArticleTag(article)}
         </div>
       </div>
@@ -123,7 +154,11 @@ export default function SourceArticleCard({
           href={article.url}
           target="_blank"
           rel="noreferrer"
-          className="mb-3 block aspect-[16/10] overflow-hidden rounded-[18px] border border-gray-100 bg-gray-50"
+          className="mb-3 block aspect-[16/10] overflow-hidden rounded-xl border"
+          style={{
+            borderColor: 'var(--border-default)',
+            backgroundColor: 'var(--bg-secondary)',
+          }}
         >
           <img
             src={sourceFeedApi.imageUrl(article.pic_url)}
@@ -135,18 +170,27 @@ export default function SourceArticleCard({
       )}
 
       <a href={article.url} target="_blank" rel="noreferrer" className="block">
-        <h2 className="text-[16px] leading-[1.55] font-serif font-semibold text-gray-800">
+        <h2
+          className="text-[16px] leading-[1.55] font-serif font-semibold"
+          style={{ color: 'var(--text-primary)' }}
+        >
           {article.title}
         </h2>
       </a>
 
       {article.description?.trim() && (
-        <p className="mt-3 line-clamp-5 text-[13px] leading-7 font-serif text-gray-600">
+        <p
+          className="mt-3 line-clamp-5 text-[13px] leading-7 font-serif"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           {article.description}
         </p>
       )}
 
-      <div className="mt-4 text-xs font-serif text-gray-400">
+      <div
+        className="mt-4 text-xs font-serif"
+        style={{ color: 'var(--text-tertiary)' }}
+      >
         {formatDateTime(article.publish_time)} | {article.created_at.slice(0, 10)}
       </div>
 
@@ -182,7 +226,19 @@ export default function SourceArticleCard({
             aria-label={replyPending ? '回复处理中' : '回复到话题'}
             onClick={() => onReply(article)}
             disabled={replyPending}
-            className="ml-auto inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-full border border-gray-300 px-2 text-gray-600 transition-colors duration-200 hover:border-black hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/15 disabled:cursor-not-allowed disabled:opacity-40"
+            className="ml-auto inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-full border px-2 transition-colors duration-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+            style={{
+              borderColor: 'var(--border-default)',
+              color: 'var(--text-secondary)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--text-primary)'
+              e.currentTarget.style.color = 'var(--text-primary)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-default)'
+              e.currentTarget.style.color = 'var(--text-secondary)'
+            }}
           >
             <ReplyIcon />
             {showReplyCount ? (

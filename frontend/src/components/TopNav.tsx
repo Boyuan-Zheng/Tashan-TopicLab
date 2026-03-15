@@ -7,7 +7,6 @@ const navLinks = [
   { to: '/', label: '话题列表', match: (path: string) => path === '/' && !path.startsWith('/topics') && !path.startsWith('/source-feed') && !path.startsWith('/library') && !path.startsWith('/profile-helper') && !path.startsWith('/agent-links') },
   { to: '/source-feed', label: '信源', match: (path: string) => path.startsWith('/source-feed') },
   { to: '/library', label: '库', match: (path: string) => path.startsWith('/library') || path.startsWith('/experts') || path.startsWith('/skills') || path.startsWith('/mcp') || path.startsWith('/moderator-modes') },
-  { to: '/agent-links', label: 'Agent Link', match: (path: string) => path.startsWith('/agent-links') },
 ] as const
 
 export default function TopNav() {
@@ -18,8 +17,18 @@ export default function TopNav() {
   const [adminMode, setAdminMode] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [userMenuPosition, setUserMenuPosition] = useState({ top: 0, left: 0 })
+  const [scrolled, setScrolled] = useState(false)
   const userMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
+
+  // 滚动监听 - 实现磨砂效果
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const loadUser = useCallback(async () => {
     const token = tokenManager.get()
@@ -112,11 +121,6 @@ export default function TopNav() {
     navigate('/')
   }
 
-  const linkClass = (isActive: boolean) =>
-    `text-sm font-serif transition-all block py-2 ${
-      isActive ? 'text-black font-medium' : 'text-gray-500 hover:text-black'
-    }`
-
   const hideNav = location.pathname === '/login' || location.pathname === '/register'
 
   if (hideNav) {
@@ -124,15 +128,31 @@ export default function TopNav() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 w-full bg-white border-b border-gray-200 safe-area-inset-top overflow-x-hidden">
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 w-full safe-area-inset-top overflow-x-hidden transition-all duration-300 ${
+        scrolled
+          ? 'bg-white/95 backdrop-blur-xl shadow-[0_2px_8px_rgba(15,46,79,0.08)] border-b border-[var(--color-gray-light)]'
+          : 'bg-white border-b border-[var(--color-gray-light)]'
+      }`}
+    >
       {adminMode && location.pathname === '/' ? (
         <div className="w-full bg-red-600 px-4 py-2 text-center text-xs font-medium tracking-[0.18em] text-white">
           ADMIN MODE
         </div>
       ) : null}
-      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between min-w-0">
-        <Link to="/" className="flex items-center gap-2 min-w-0 shrink" onClick={() => setMobileMenuOpen(false)}>
-          <span className="text-black font-serif font-bold text-base tracking-tight truncate">Topic Lab</span>
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3 min-w-0">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0 shrink overflow-hidden" onClick={() => setMobileMenuOpen(false)}>
+          <img
+            src="/media/logo_complete.svg"
+            alt="他山"
+            className="h-8 sm:h-9 w-auto shrink-0"
+          />
+          <span
+            className="font-sans font-semibold text-base sm:text-lg tracking-[0.2em] sm:tracking-[0.3em]"
+            style={{ color: 'var(--color-dark)' }}
+          >
+            · 世 界
+          </span>
         </Link>
 
         {/* Desktop nav */}
@@ -141,24 +161,47 @@ export default function TopNav() {
             <Link
               key={to}
               to={to}
-              className={linkClass(match(location.pathname)).replace(' block py-2', '')}
+              className="relative text-sm font-serif transition-all py-2 group"
+              style={{
+                color: match(location.pathname) ? 'var(--color-dark)' : 'var(--color-gray)',
+              }}
             >
-              {label}
+              <span className={match(location.pathname) ? 'font-medium' : ''}>{label}</span>
+              {/* 下划线 */}
+              <span
+                className={`absolute bottom-0 left-0 h-0.5 transition-all duration-300 ${
+                  match(location.pathname) ? 'w-full' : 'w-0 group-hover:w-full'
+                }`}
+                style={{
+                  background: 'var(--color-dark)',
+                }}
+              />
             </Link>
           ))}
           <Link
             to="/profile-helper"
-            className={`text-sm font-serif font-medium transition-all whitespace-nowrap ${
-              location.pathname.startsWith('/profile-helper')
-                ? 'text-black font-medium'
-                : 'text-gray-500 hover:text-black'
-            }`}
+            className="relative text-sm font-serif font-medium transition-all whitespace-nowrap py-2 group"
+            style={{
+              color: location.pathname.startsWith('/profile-helper') ? 'var(--color-dark)' : 'var(--color-gray)',
+            }}
           >
             科研数字分身
+            <span
+              className={`absolute bottom-0 left-0 h-0.5 transition-all duration-300 ${
+                location.pathname.startsWith('/profile-helper') ? 'w-full' : 'w-0 group-hover:w-full'
+              }`}
+              style={{
+                background: 'var(--color-dark)',
+              }}
+            />
           </Link>
           <Link
             to="/topics/new"
-            className="bg-black text-white px-4 py-1.5 rounded-lg text-sm font-serif font-medium transition-all hover:bg-gray-900 whitespace-nowrap shrink-0"
+            className="text-white px-4 py-1.5 rounded-[var(--radius-lg)] text-sm font-serif font-medium transition-all hover:-translate-y-0.5 whitespace-nowrap shrink-0"
+            style={{
+              background: 'var(--color-dark)',
+              boxShadow: 'var(--shadow-sm)',
+            }}
             onClick={() => setMobileMenuOpen(false)}
           >
             + 创建话题
@@ -179,9 +222,13 @@ export default function TopNav() {
                     return next
                   })
                 }}
-                className="flex items-center gap-2 text-sm font-serif text-gray-600 hover:text-black"
+                className="flex items-center gap-2 text-sm font-serif transition-all hover:opacity-80"
+                style={{ color: 'var(--color-gray)' }}
               >
-                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium">
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
+                  style={{ background: 'var(--color-dark)' }}
+                >
                   {(user.username || user.phone).charAt(0)}
                 </div>
                 <span className="max-w-[100px] truncate">{user.username || user.phone}</span>
@@ -191,13 +238,18 @@ export default function TopNav() {
             <div className="flex items-center gap-2">
               <Link
                 to="/login"
-                className="text-sm font-serif text-gray-600 hover:text-black"
+                className="text-sm font-serif transition-all hover:opacity-80"
+                style={{ color: 'var(--color-gray)' }}
               >
                 登录
               </Link>
               <Link
                 to="/register"
-                className="bg-gray-100 text-black px-3 py-1.5 rounded-lg text-sm font-serif font-medium hover:bg-gray-200 whitespace-nowrap"
+                className="px-3 py-1.5 rounded-[var(--radius-md)] text-sm font-serif font-medium transition-all hover:opacity-90 whitespace-nowrap"
+                style={{
+                  background: 'var(--color-gray-light)',
+                  color: 'var(--color-dark)',
+                }}
               >
                 注册
               </Link>
@@ -205,18 +257,12 @@ export default function TopNav() {
           )}
         </div>
 
-        {/* Mobile */}
-        <div className="flex md:hidden items-center gap-2 shrink-0">
-          <Link
-            to="/profile-helper"
-            className="text-sm font-serif font-medium text-gray-600 hover:text-black px-3 py-1.5"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            科研数字分身
-          </Link>
+        {/* Mobile - 仅保留创建话题和汉堡菜单，科研数字分身已在下拉菜单中 */}
+        <div className="flex md:hidden items-center gap-2 sm:gap-3 shrink-0">
           <Link
             to="/topics/new"
-            className="bg-black text-white px-3 py-1.5 rounded-lg text-sm font-serif font-medium transition-all hover:bg-gray-900 shrink-0"
+            className="text-white px-3 py-2 rounded-[var(--radius-md)] text-sm font-serif font-medium transition-all shrink-0 min-h-[36px] flex items-center touch-manipulation"
+            style={{ background: 'var(--color-dark)' }}
             onClick={() => setMobileMenuOpen(false)}
           >
             + 创建话题
@@ -224,7 +270,8 @@ export default function TopNav() {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(v => !v)}
-            className="p-2 -mr-2 rounded-lg text-gray-600 hover:text-black hover:bg-gray-100 touch-manipulation"
+            className="p-2.5 -mr-2 rounded-lg transition-all touch-manipulation min-h-[36px] min-w-[36px] flex items-center justify-center"
+            style={{ color: 'var(--color-gray)' }}
             aria-label={mobileMenuOpen ? '关闭菜单' : '打开菜单'}
             aria-expanded={mobileMenuOpen}
           >
@@ -241,11 +288,12 @@ export default function TopNav() {
 
       {/* Mobile dropdown menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white">
+        <div className="md:hidden border-t bg-white/95 backdrop-blur-xl" style={{ borderColor: 'var(--color-gray-light)' }}>
           <div className="px-4 py-3 space-y-0">
             <Link
               to="/profile-helper"
-              className={linkClass(location.pathname.startsWith('/profile-helper'))}
+              className="block py-2 text-sm font-serif transition-all"
+              style={{ color: location.pathname.startsWith('/profile-helper') ? 'var(--color-dark)' : 'var(--color-gray)' }}
               onClick={() => setMobileMenuOpen(false)}
             >
               科研数字分身
@@ -254,7 +302,8 @@ export default function TopNav() {
               <Link
                 key={to}
                 to={to}
-                className={linkClass(match(location.pathname))}
+                className="block py-2 text-sm font-serif transition-all"
+                style={{ color: match(location.pathname) ? 'var(--color-dark)' : 'var(--color-gray)' }}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 {label}
@@ -262,13 +311,14 @@ export default function TopNav() {
             ))}
             {user ? (
               <>
-                <div className="border-t border-gray-100 my-2"></div>
-                <div className="px-2 py-2 text-sm font-serif text-gray-600">
+                <div className="border-t my-2" style={{ borderColor: 'var(--color-gray-light)' }}></div>
+                <div className="px-2 py-2 text-sm font-serif" style={{ color: 'var(--color-gray)' }}>
                   {user.username || user.phone}
                 </div>
                 <Link
                   to="/favorites"
-                  className={linkClass(location.pathname.startsWith('/favorites'))}
+                  className="block px-2 py-2 text-sm font-serif transition-all"
+                  style={{ color: location.pathname.startsWith('/favorites') ? 'var(--color-dark)' : 'var(--color-gray)' }}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   我的收藏
@@ -276,24 +326,27 @@ export default function TopNav() {
                 <button
                   type="button"
                   onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
-                  className="block w-full text-left px-2 py-2 text-sm font-serif text-gray-600 hover:text-black"
+                  className="block w-full text-left px-2 py-2 text-sm font-serif transition-all"
+                  style={{ color: 'var(--color-gray)' }}
                 >
                   退出登录
                 </button>
               </>
             ) : (
               <>
-                <div className="border-t border-gray-100 my-2"></div>
+                <div className="border-t my-2" style={{ borderColor: 'var(--color-gray-light)' }}></div>
                 <Link
                   to="/login"
-                  className={linkClass(location.pathname === '/login')}
+                  className="block py-2 text-sm font-serif transition-all"
+                  style={{ color: location.pathname === '/login' ? 'var(--color-dark)' : 'var(--color-gray)' }}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   登录
                 </Link>
                 <Link
                   to="/register"
-                  className={linkClass(location.pathname === '/register')}
+                  className="block py-2 text-sm font-serif transition-all"
+                  style={{ color: location.pathname === '/register' ? 'var(--color-dark)' : 'var(--color-gray)' }}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   注册
@@ -307,23 +360,27 @@ export default function TopNav() {
         createPortal(
           <div
             ref={userMenuRef}
-            className="fixed bg-white border border-gray-200 rounded-lg shadow-xl ring-1 ring-black/5 py-1 min-w-[120px] z-[9999]"
+            className="fixed bg-white rounded-[var(--radius-md)] py-1 min-w-[120px] z-[9999]"
             style={{
               top: `${userMenuPosition.top}px`,
               left: `${userMenuPosition.left}px`,
               transform: 'translateX(-100%)',
+              boxShadow: 'var(--shadow-lg)',
+              border: '1px solid var(--color-gray-light)',
             }}
           >
             <Link
               to="/favorites"
-              className="block px-4 py-2 text-sm font-serif text-gray-600 hover:bg-gray-50 hover:text-black"
+              className="block px-4 py-2 text-sm font-serif transition-all hover:bg-gray-50"
+              style={{ color: 'var(--color-gray-dark)' }}
               onClick={() => setUserMenuOpen(false)}
             >
               我的收藏
             </Link>
             <Link
               to="/profile-helper"
-              className="block px-4 py-2 text-sm font-serif text-gray-600 hover:bg-gray-50 hover:text-black"
+              className="block px-4 py-2 text-sm font-serif transition-all hover:bg-gray-50"
+              style={{ color: 'var(--color-gray-dark)' }}
               onClick={() => setUserMenuOpen(false)}
             >
               数字分身
@@ -331,7 +388,8 @@ export default function TopNav() {
             <button
               type="button"
               onClick={handleLogout}
-              className="block w-full text-left px-4 py-2 text-sm font-serif text-gray-600 hover:bg-gray-50 hover:text-black"
+              className="block w-full text-left px-4 py-2 text-sm font-serif transition-all hover:bg-gray-50"
+              style={{ color: 'var(--color-gray-dark)' }}
             >
               退出登录
             </button>

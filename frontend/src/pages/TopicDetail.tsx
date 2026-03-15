@@ -797,10 +797,10 @@ export default function TopicDetail() {
   const topicLiked = topic.interaction?.liked ?? false
   const topicFavorited = topic.interaction?.favorited ?? false
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white min-h-screen overflow-x-hidden">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-4 sm:py-5 flex flex-col lg:flex-row gap-5 lg:gap-7">
         {/* Main content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 min-w-0 w-full">
 
           {/* Topic title & actions */}
           <div className="mb-4 sm:mb-5">
@@ -864,14 +864,14 @@ export default function TopicDetail() {
 
           {/* Mobile TOC - horizontal scroll, sticky */}
           {hasDiscussion && navItems.length > 0 && (
-            <div className="lg:hidden sticky top-14 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2 -mt-2 mb-4 bg-white/95 backdrop-blur border-b border-gray-100 overflow-x-auto scrollbar-hide">
+            <div className="lg:hidden sticky top-14 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2 -mt-2 mb-4 bg-white/95 backdrop-blur border-b border-gray-100 overflow-x-auto scrollbar-hide overscroll-x-contain">
               <div className="flex gap-2 min-w-max">
                 {navItems.map(item => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => scrollToSection(item.id)}
-                    className={`text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition-colors touch-manipulation ${
+                    className={`text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition-colors touch-manipulation min-h-[36px] ${
                       activeNavId === item.id
                         ? 'bg-black text-white font-medium'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -947,7 +947,7 @@ export default function TopicDetail() {
 
           {/* Roundtable discussion rounds - multi-column: 2+ on desktop, 1 on mobile */}
           {Object.keys(postsByRound).length > 0 && (
-            <div className="mb-6">
+            <div className="mb-6 overflow-x-hidden">
               <h2 className="text-base font-semibold text-gray-900 mb-1">AI 话题讨论</h2>
               <div className="grid grid-cols-1 gap-5 mt-3">
               {Object.keys(postsByRound).map(roundKey => {
@@ -968,12 +968,12 @@ export default function TopicDetail() {
                         <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-serif flex-shrink-0">
                           {post.expertName.charAt(0)}
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 overflow-x-hidden">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="text-sm font-semibold text-gray-900">{post.expertName}</span>
                             <span className="text-[10px] border border-gray-200 rounded text-gray-400 px-1">角色</span>
                           </div>
-                          <div className="markdown-content text-sm text-gray-700">
+                          <div className="markdown-content text-sm text-gray-700 overflow-x-auto">
                             {renderMarkdown(post.content, topic.id)}
                           </div>
                         </div>
@@ -1001,8 +1001,8 @@ export default function TopicDetail() {
 
             {postsLoading ? (
               <div className="space-y-3 py-2">
-                <div className="h-20 animate-pulse rounded-2xl border border-gray-100 bg-gray-50" />
-                <div className="h-20 animate-pulse rounded-2xl border border-gray-100 bg-gray-50" />
+                <div className="h-20 animate-pulse rounded-xl border border-gray-100 bg-gray-50" />
+                <div className="h-20 animate-pulse rounded-xl border border-gray-100 bg-gray-50" />
               </div>
             ) : null}
 
@@ -1039,7 +1039,7 @@ export default function TopicDetail() {
             {topic.status === 'open' ? (
               <div className="mt-6 pt-4 border-t border-gray-100">
                 {replyingTo ? (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
                     <div className="min-w-0">
                       <span className="font-medium text-gray-900">正在回复 {composerReplyName}</span>
                       <span className="ml-1 text-gray-500">输入框已从底部弹出</span>
@@ -1048,7 +1048,7 @@ export default function TopicDetail() {
                 ) : currentUser ? (
                   <form
                     onSubmit={handleSubmitPost}
-                    className="ml-auto w-full max-w-[42rem] rounded-[28px] border border-gray-200 bg-white px-4 py-4 shadow-sm"
+                    className="ml-auto w-full max-w-[42rem] rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm"
                   >
                     <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                       <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">当前账号：{currentUserName}</span>
@@ -1057,7 +1057,7 @@ export default function TopicDetail() {
                         <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">AI 讨论进行中，@专家回复需等待讨论完成</span>
                       )}
                     </div>
-                    <div className="rounded-[22px] border border-gray-200 bg-gray-50 px-3 py-3">
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                       <div className="flex items-end gap-3">
                         <div className="min-w-0 flex-1">
                           <MentionTextarea
@@ -1075,7 +1075,7 @@ export default function TopicDetail() {
                         </div>
                         <button
                           type="submit"
-                          className="mb-1 shrink-0 rounded-2xl bg-black px-4 py-2 text-sm font-serif text-white transition-colors hover:bg-gray-900 disabled:opacity-50"
+                          className="mb-1 shrink-0 rounded-xl bg-black px-4 py-2 text-sm font-serif text-white transition-colors hover:bg-gray-900 disabled:opacity-50"
                           disabled={submitting || !postText.trim()}
                         >
                           {submitting ? '发送中...' : '发送'}
@@ -1092,7 +1092,7 @@ export default function TopicDetail() {
                     </div>
                   </form>
                 ) : (
-                  <div className="ml-auto w-full max-w-[42rem] rounded-[28px] border border-gray-200 bg-white px-4 py-4 shadow-sm">
+                  <div className="ml-auto w-full max-w-[42rem] rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm font-medium text-black">登录后即可发帖和回帖</p>
@@ -1160,7 +1160,7 @@ export default function TopicDetail() {
               <form
                 onSubmit={handleSubmitPost}
                 onClick={(event) => event.stopPropagation()}
-                className="pointer-events-auto ml-auto w-full max-w-[34rem] animate-fade-in rounded-[26px] border border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-16px_40px_rgba(0,0,0,0.08)] backdrop-blur"
+                className="pointer-events-auto ml-auto w-full max-w-[34rem] animate-fade-in rounded-xl border border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-16px_40px_rgba(0,0,0,0.08)] backdrop-blur"
               >
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
@@ -1182,7 +1182,7 @@ export default function TopicDetail() {
                   </button>
                 </div>
 
-                <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600">
+                <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600">
                   <div className="min-w-0">
                     <span className="font-medium text-gray-900">回复 {composerReplyName}</span>
                     {composerReplyPreview ? (
@@ -1193,7 +1193,7 @@ export default function TopicDetail() {
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-gray-200 bg-gray-50 px-3 py-3">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                   <div className="flex items-end gap-3">
                     <div className="min-w-0 flex-1">
                       <MentionTextarea
@@ -1211,7 +1211,7 @@ export default function TopicDetail() {
                     </div>
                     <button
                       type="submit"
-                      className="mb-1 shrink-0 rounded-2xl bg-black px-4 py-2 text-sm font-serif text-white transition-colors hover:bg-gray-900 disabled:opacity-50"
+                      className="mb-1 shrink-0 rounded-xl bg-black px-4 py-2 text-sm font-serif text-white transition-colors hover:bg-gray-900 disabled:opacity-50"
                       disabled={submitting || !postText.trim()}
                     >
                       {submitting ? '发送中...' : '发送'}

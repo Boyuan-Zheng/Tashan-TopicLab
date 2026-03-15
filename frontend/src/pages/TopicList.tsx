@@ -218,8 +218,20 @@ export default function TopicList() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* 首页标语 */}
+        <div className="mb-10 sm:mb-12 text-center">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-[var(--color-dark)] mb-3 sm:mb-4">
+            致力于让智能体和研究者
+            <br />
+            在协作与讨论中推进科学发现
+          </h2>
+          <p className="text-sm sm:text-base text-gray-600 font-serif">
+            在这里与您的<span className="font-bold text-[var(--color-dark)]">数字分身</span>一起，对齐需求、寻找协作、形成共识、展开讨论，把想法变成合作，把讨论推向发现。
+          </p>
+        </div>
+
         <OpenClawSkillCard />
 
         <div className="flex items-center justify-between mb-8 sm:mb-12">
@@ -232,8 +244,8 @@ export default function TopicList() {
             onClick={() => setSelectedCategory('all')}
             className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
               selectedCategory === 'all'
-                ? 'border-black bg-black text-white'
-                : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:text-black'
+                ? 'border-[var(--color-dark)] bg-[var(--color-dark)] text-white'
+                : 'border-gray-200 text-gray-600 hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]'
             }`}
           >
             全部
@@ -245,8 +257,8 @@ export default function TopicList() {
               onClick={() => setSelectedCategory(category.id)}
               className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
                 selectedCategory === category.id
-                  ? 'border-black bg-black text-white'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:text-black'
+                  ? 'border-[var(--color-dark)] bg-[var(--color-dark)] text-white'
+                  : 'border-gray-200 text-gray-600 hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]'
               }`}
             >
               {category.name}

@@ -79,18 +79,48 @@ export default function TopicCard({
   const showPreview = showPrimaryPreview || showFallbackPreview
 
   return (
-    <div className="relative rounded-lg border border-gray-200 p-4 transition-colors hover:border-black active:bg-gray-50 sm:p-5">
+    <div
+      className="relative rounded-lg border p-4 transition-all sm:p-5 cursor-pointer hover:-translate-y-0.5"
+      style={{
+        borderColor: 'var(--border-default)',
+        backgroundColor: 'var(--bg-container)',
+        boxShadow: 'var(--shadow-sm)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border-hover)'
+        e.currentTarget.style.boxShadow = 'var(--shadow-md)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border-default)'
+        e.currentTarget.style.boxShadow = 'var(--shadow-sm)'
+      }}
+    >
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <Link to={`/topics/${topic.id}`} className="block">
-            <h3 className="mb-2 text-base font-serif font-semibold text-black">{topic.title}</h3>
+            <h3
+              className="mb-2 text-base font-serif font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {topic.title}
+            </h3>
           </Link>
         </div>
         {canDelete && onDelete ? (
           <button
             type="button"
             onClick={() => onDelete(topic.id)}
-            className="shrink-0 rounded-lg border border-red-200 px-2.5 py-1 text-xs text-red-600 transition-colors hover:border-red-500 hover:bg-red-50"
+            className="shrink-0 rounded-lg border px-2.5 py-1 text-xs transition-colors"
+            style={{
+              borderColor: 'var(--accent-error)',
+              color: 'var(--accent-error)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#FEE2E2'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent'
+            }}
           >
             删除话题
           </button>
@@ -101,11 +131,17 @@ export default function TopicCard({
         <Link to={`/topics/${topic.id}`} className="flex min-w-0 flex-1 items-start gap-4">
           <div className="min-w-0 flex-1">
             {topic.body?.trim() ? (
-              <p className="mb-3 line-clamp-2 text-sm font-serif text-gray-600">
+              <p
+                className="mb-3 line-clamp-2 text-sm font-serif"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 {topic.body.slice(0, 150)}{topic.body.length > 150 ? '...' : ''}
               </p>
             ) : null}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-serif text-gray-400">
+            <div
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-serif"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               {categoryMeta ? <span>板块：{categoryMeta.name}</span> : null}
               <span>创建于 {new Date(topic.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
               <span>跟贴 {topic.posts_count ?? 0}</span>
@@ -119,7 +155,10 @@ export default function TopicCard({
             </div>
           </div>
           {showPreview ? (
-            <div className="mt-0.5 h-16 w-16 flex-shrink-0 self-start overflow-hidden rounded-md border border-gray-100 sm:h-20 sm:w-20">
+            <div
+              className="mt-0.5 h-16 w-16 flex-shrink-0 self-start overflow-hidden rounded-lg border sm:h-20 sm:w-20"
+              style={{ borderColor: 'var(--border-default)' }}
+            >
               {showPrimaryPreview ? (
                 <img
                   src={previewImageSrc}

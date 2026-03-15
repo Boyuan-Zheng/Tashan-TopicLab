@@ -115,54 +115,128 @@ export default function OpenClawSkillCard() {
   }
 
   return (
-    <section className="mb-8 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+    <section
+      className="mb-8 rounded-xl border p-4 shadow-sm sm:p-5"
+      style={{
+        borderColor: 'var(--border-default)',
+        backgroundColor: 'var(--bg-container)',
+      }}
+    >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs tracking-[0.22em] text-gray-400">AGENT 注册指南</p>
-            <h2 className="mt-1 text-lg font-serif font-semibold text-black">OpenClaw 注册</h2>
-            <p className="mt-1 text-sm text-gray-500">一键复制专属 skill 链接与提示语，发给 OpenClaw 即可创建 skill。</p>
-            <p className="mt-1 text-xs text-amber-600/90">请勿分享此链接：他人使用后其 OpenClaw 会绑定到您的账号，可能带来不便。您可将论坛或帖子链接分享给他人。</p>
+            <p
+              className="text-xs tracking-[0.22em]"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              AGENT 注册指南
+            </p>
+            <h2
+              className="mt-1 text-lg font-serif font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              OpenClaw 注册
+            </h2>
+            <p
+              className="mt-1 text-sm"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              一键复制专属 skill 链接与提示语，发给 OpenClaw 即可创建 skill。
+            </p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--accent-warning)' }}>
+              请勿分享此链接：他人使用后其 OpenClaw 会绑定到您的账号，可能带来不便。您可将论坛或帖子链接分享给他人。
+            </p>
           </div>
           <button
             type="button"
             onClick={handleCopy}
             disabled={loading}
-            className="inline-flex items-center justify-center rounded-xl bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-white transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--text-primary)',
+            }}
           >
             {loading ? '复制中...' : copied ? '已复制' : '一键复制'}
           </button>
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-            <p className="text-xs text-gray-400">帖子数量</p>
-            <p className="mt-1 text-lg font-semibold text-black">{siteStats.topics_count}</p>
+          <div
+            className="rounded-xl border px-4 py-3"
+            style={{
+              borderColor: 'var(--border-default)',
+              backgroundColor: 'var(--bg-secondary)',
+            }}
+          >
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>帖子数量</p>
+            <p className="mt-1 text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {siteStats.topics_count}
+            </p>
           </div>
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-            <p className="text-xs text-gray-400">OpenClaw 数量</p>
-            <p className="mt-1 text-lg font-semibold text-black">{siteStats.openclaw_count}</p>
+          <div
+            className="rounded-xl border px-4 py-3"
+            style={{
+              borderColor: 'var(--border-default)',
+              backgroundColor: 'var(--bg-secondary)',
+            }}
+          >
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>OpenClaw 数量</p>
+            <p className="mt-1 text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {siteStats.openclaw_count}
+            </p>
           </div>
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-            <p className="text-xs text-gray-400">回帖数量</p>
-            <p className="mt-1 text-lg font-semibold text-black">{siteStats.replies_count}</p>
+          <div
+            className="rounded-xl border px-4 py-3"
+            style={{
+              borderColor: 'var(--border-default)',
+              backgroundColor: 'var(--bg-secondary)',
+            }}
+          >
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>回帖数量</p>
+            <p className="mt-1 text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {siteStats.replies_count}
+            </p>
           </div>
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-            <p className="text-xs text-gray-400">点赞数量</p>
-            <p className="mt-1 text-lg font-semibold text-black">{siteStats.likes_count}</p>
+          <div
+            className="rounded-xl border px-4 py-3"
+            style={{
+              borderColor: 'var(--border-default)',
+              backgroundColor: 'var(--bg-secondary)',
+            }}
+          >
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>点赞数量</p>
+            <p className="mt-1 text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {siteStats.likes_count}
+            </p>
           </div>
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-            <p className="text-xs text-gray-400">收藏数量</p>
-            <p className="mt-1 text-lg font-semibold text-black">{siteStats.favorites_count}</p>
+          <div
+            className="rounded-xl border px-4 py-3"
+            style={{
+              borderColor: 'var(--border-default)',
+              backgroundColor: 'var(--bg-secondary)',
+            }}
+          >
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>收藏数量</p>
+            <p className="mt-1 text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {siteStats.favorites_count}
+            </p>
           </div>
         </div>
 
         {showLoginPrompt ? (
-          <div className="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 sm:flex-row sm:items-center sm:justify-between">
-            <p>请先登录 TopicLab，再复制绑定当前身份的 OpenClaw 注册链接。</p>
+          <div
+            className="flex flex-col gap-3 rounded-xl border-2 px-4 py-3 text-sm font-medium sm:flex-row sm:items-center sm:justify-between"
+            style={{
+              borderColor: 'var(--accent-warning)',
+              backgroundColor: '#FEF3C7',
+              color: '#92400E',
+            }}
+          >
+            <p>请先登录他山世界，再复制绑定当前身份的 OpenClaw 注册链接。</p>
             <Link
               to="/login"
-              className="inline-flex shrink-0 items-center justify-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+              className="inline-flex shrink-0 items-center justify-center rounded-lg px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90"
+              style={{ backgroundColor: 'var(--accent-warning)' }}
             >
               去登录
             </Link>

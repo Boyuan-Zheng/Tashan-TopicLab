@@ -55,29 +55,51 @@ export default function LibraryPage() {
     <LibraryPageLayout title="库">
       <div className="flex flex-col md:flex-row md:items-start md:gap-8">
         <div className="relative md:w-[172px] md:flex-shrink-0">
-          <div className="flex items-center gap-2 overflow-x-auto border-b border-gray-200 bg-white px-4 py-3 md:flex-col md:items-stretch md:gap-0.5 md:border-b-0 md:bg-transparent md:px-0 md:py-0 md:sticky md:top-20 scrollbar-hide">
+          <div
+            className="flex items-center gap-2 overflow-x-auto border-b px-4 py-3 md:flex-col md:items-stretch md:gap-0.5 md:border-b-0 md:px-0 md:py-0 md:sticky md:top-20 scrollbar-hide"
+            style={{
+              borderColor: 'var(--border-default)',
+              backgroundColor: 'transparent',
+            }}
+          >
             {librarySections.map((item) => {
               const active = item.id === activeSection.id
               return (
                 <Link
                   key={item.id}
                   to={`/library/${item.id}`}
-                  className={`block rounded-md px-3 py-1.5 text-sm font-serif whitespace-nowrap transition-colors md:w-full ${
+                  className={`block rounded-lg px-3 py-1.5 text-sm font-serif whitespace-nowrap transition-colors md:w-full ${
                     active
-                      ? 'bg-gray-100 text-gray-900 font-semibold'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      ? 'font-semibold'
+                      : ''
                   }`}
+                  style={{
+                    backgroundColor: active ? 'var(--bg-secondary)' : 'transparent',
+                    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) {
+                      e.currentTarget.style.backgroundColor = 'var(--bg-hover)'
+                      e.currentTarget.style.color = 'var(--text-primary)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                      e.currentTarget.style.color = 'var(--text-secondary)'
+                    }
+                  }}
                 >
                   {item.label}
                 </Link>
               )
             })}
           </div>
-          <div className="md:hidden absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white to-transparent pointer-events-none" aria-hidden />
+          <div className="md:hidden absolute right-0 top-0 bottom-0 w-6 pointer-events-none" style={{ background: 'linear-gradient(to left, var(--bg-container), transparent)' }} aria-hidden />
         </div>
 
         <div className="flex-1 min-w-0 pt-5 md:pt-0">
-          <p className="text-sm text-gray-600 mb-6">{activeSection.description}</p>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>{activeSection.description}</p>
           {activeSection.render()}
         </div>
       </div>

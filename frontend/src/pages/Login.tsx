@@ -47,7 +47,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="border border-gray-200 rounded-lg p-6">
           <h1 className="text-xl font-serif font-bold text-center mb-2">登录</h1>
@@ -63,7 +63,7 @@ export default function Login() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-serif text-black mb-2">手机号</label>
+              <label className="block text-sm font-serif mb-2" style={{ color: 'var(--text-primary)' }}>手机号</label>
               <input
                 type="tel"
                 value={phone}
@@ -71,26 +71,38 @@ export default function Login() {
                 placeholder="请输入手机号"
                 maxLength={11}
                 disabled={loading}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-serif text-black mb-2">密码</label>
+              <label className="block text-sm font-serif" style={{ color: 'var(--text-primary)' }}>密码</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="请输入密码"
                 disabled={loading}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-black focus:outline-none"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-black text-white py-2 rounded-lg text-sm font-serif font-medium hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2 rounded-lg text-sm font-serif font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              style={{
+                backgroundColor: 'var(--color-dark)',
+                color: 'white',
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.opacity = '0.9'
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1'
+              }}
             >
               {loading ? '登录中...' : '登录'}
             </button>
@@ -98,7 +110,7 @@ export default function Login() {
 
           <div className="mt-4 text-center text-sm text-gray-500 font-serif">
             还没有账号？{' '}
-            <Link to="/register" state={{ from }} className="text-black hover:underline">立即注册</Link>
+            <Link to="/register" state={{ from }} className="hover:underline" style={{ color: 'var(--text-primary)' }}>立即注册</Link>
           </div>
         </div>
       </div>

@@ -36,7 +36,7 @@ export default function LiteratureCard({ item, onShare }: LiteratureCardProps) {
   const moreAuthors = Array.isArray(item.authors) && item.authors.length > 3 ? `等${item.authors.length}人` : ''
 
   return (
-    <article className="group relative rounded-[22px] border border-gray-200 bg-white p-4 transition-colors hover:border-black">
+    <article className="group relative rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-[var(--color-dark)]">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">

@@ -376,7 +376,7 @@ export default function SourceFeedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen">
       <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-xl font-serif font-bold text-black sm:text-2xl">信源</h1>
@@ -393,7 +393,7 @@ export default function SourceFeedPage() {
                   target="_blank"
                   rel="noreferrer"
                   aria-label={link.label}
-                  className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-serif font-semibold text-gray-700 transition-colors hover:border-black hover:text-black"
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-serif font-semibold text-gray-700 transition-colors hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]"
                 >
                   <span>{link.label}</span>
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-500">
@@ -418,9 +418,9 @@ export default function SourceFeedPage() {
                   onChange={(e) => setSearchValue(e.target.value)}
                   placeholder={section === 'academic' ? '搜索标题或作者' : '搜索标题或来源'}
                   aria-label="搜索"
-                  className="w-full rounded-full border border-gray-200 py-2 pl-4 pr-16 text-sm font-serif text-gray-700 outline-none transition-colors focus:border-black"
+                  className="w-full rounded-full border border-gray-200 py-2 pl-4 pr-16 text-sm font-serif text-gray-700 outline-none transition-colors focus:border-[var(--color-dark)]"
                 />
-                <button type="submit" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-black px-3 py-1.5 text-xs font-serif text-white">
+                <button type="submit" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-[var(--color-dark)] px-3 py-1.5 text-xs font-serif text-white">
                   搜索
                 </button>
               </div>
@@ -438,7 +438,7 @@ export default function SourceFeedPage() {
                   to={`/source-feed/${item.id}`}
                   className={`-mb-px flex-shrink-0 px-3 py-2.5 text-sm font-serif transition-colors border-b-2 ${
                     active
-                      ? 'border-black text-black font-medium'
+                      ? 'border-[var(--color-dark)] text-[var(--color-dark)] font-medium'
                       : 'border-transparent text-gray-500 hover:text-gray-900'
                   }`}
                 >
@@ -490,7 +490,7 @@ export default function SourceFeedPage() {
 
             {section === 'academic' && (
               <>
-                <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50/80 px-4 py-4 sm:px-5 sm:py-5">
+                <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-4 sm:px-5 sm:py-5">
                   <h2 className="font-serif text-base font-semibold text-gray-900 sm:text-lg">学术板块能做什么</h2>
                   <ul className="mt-3 list-none space-y-2 font-serif text-sm text-gray-700 sm:text-base [&>li]:flex [&>li]:items-start [&>li]:gap-2 [&>li]:before:mt-1.5 [&>li]:before:shrink-0 [&>li]:before:content-['·'] [&>li]:before:font-bold [&>li]:before:text-gray-400">
                     <li><strong>近期论文浏览</strong>：瀑布流展示最新论文，支持按分类、标签、日期筛选；本页内可搜索标题或作者；一键复制 arXiv 链接，分页加载更多。适合快速把握领域新趋势。</li>
