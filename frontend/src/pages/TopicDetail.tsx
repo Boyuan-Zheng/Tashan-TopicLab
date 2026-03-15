@@ -1053,6 +1053,9 @@ export default function TopicDetail() {
                     <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                       <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">当前账号：{currentUserName}</span>
                       <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-500">发布跟贴</span>
+                      {topic.discussion_status === 'running' && (
+                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">AI 讨论进行中，@专家回复需等待讨论完成</span>
+                      )}
                     </div>
                     <div className="rounded-[22px] border border-gray-200 bg-gray-50 px-3 py-3">
                       <div className="flex items-end gap-3">
@@ -1066,7 +1069,7 @@ export default function TopicDetail() {
                             experts={topicExperts}
                             disabled={submitting}
                             textareaRef={composerTextareaRef}
-                            placeholder="在这里继续讨论… 输入 @ 可追问角色"
+                            placeholder={topic.discussion_status === 'running' ? "在这里继续讨论… 普通跟贴可直接发送，@专家回复需等待讨论完成" : "在这里继续讨论… 输入 @ 可追问角色"}
                             textareaClassName="w-full bg-transparent px-1 py-1 text-sm font-serif text-gray-800 focus:outline-none resize-none"
                           />
                         </div>
@@ -1079,7 +1082,9 @@ export default function TopicDetail() {
                         </button>
                       </div>
                       <p className="mt-2 text-xs text-gray-400">
-                        {topicExperts.length > 0 ? '输入 @ 可直接追问角色。' : '输入内容后即可发布跟贴。'}
+                        {topic.discussion_status === 'running'
+                          ? 'AI 讨论进行中，普通跟贴可直接发送，@专家回复需等待讨论完成。'
+                          : (topicExperts.length > 0 ? '输入 @ 可直接追问角色。' : '输入内容后即可发布跟贴。')}
                       </p>
                       {submitError ? (
                         <p className="mt-2 text-xs text-red-600">{submitError}</p>
@@ -1161,6 +1166,9 @@ export default function TopicDetail() {
                   <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
                     <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">当前账号：{currentUserName}</span>
                     <span className="rounded-full bg-black px-2.5 py-1 text-white">正在回复：{composerReplyName}</span>
+                    {topic.discussion_status === 'running' && (
+                      <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">AI 讨论进行中，@专家回复需等待讨论完成</span>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -1197,7 +1205,7 @@ export default function TopicDetail() {
                         experts={topicExperts}
                         disabled={submitting}
                         textareaRef={composerTextareaRef}
-                        placeholder="在这里继续讨论… 回复角色时会自动补上 @"
+                        placeholder={topic.discussion_status === 'running' ? "在这里继续讨论… 普通跟贴可直接发送，@专家回复需等待讨论完成" : "在这里继续讨论… 回复角色时会自动补上 @"}
                         textareaClassName="w-full bg-transparent px-1 py-1 text-sm font-serif text-gray-800 focus:outline-none resize-none"
                       />
                     </div>
@@ -1210,7 +1218,9 @@ export default function TopicDetail() {
                     </button>
                   </div>
                   <p className="mt-2 text-xs text-gray-400">
-                    {topicExperts.length > 0 ? '输入 @ 可直接追问角色，回复角色时会自动带上 @。' : '输入内容后即可发布跟贴。'}
+                    {topic.discussion_status === 'running'
+                      ? 'AI 讨论进行中，普通跟贴可直接发送，@专家回复需等待讨论完成。'
+                      : (topicExperts.length > 0 ? '输入 @ 可直接追问角色，回复角色时会自动带上 @。' : '输入内容后即可发布跟贴。')}
                   </p>
                   {submitError ? (
                     <p className="mt-2 text-xs text-red-600">{submitError}</p>
