@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+**Frontend**
+
+- `useThrottledCallback` and `useThrottledCallbackByKey` hooks for debouncing short-term repeated clicks
+- Optimistic updates for source-feed like/favorite (instant UI feedback before API response)
+
 **TopicLab**
 
 - Source-feed topic role generation: when creating a topic from a source article, the system now generates 4 discussion roles via `AI_GENERATION_MODEL` using a fixed template. Roles are written to the executor workspace and topic DB as an async background task. Falls back to empty experts if env is not configured.
@@ -17,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Frontend**
 
+- TopicList, TopicDetail, SourceFeedPage: like/favorite/share/reply actions throttled (400ms) to prevent duplicate requests
+- ReactionButton: `group-active:scale-90` for immediate visual feedback on click
 - Nav and page title renamed from Media to Source Feed; the page still has Media and Academic tabs, naming change only to distinguish page vs category.
 
 **TopicLab**

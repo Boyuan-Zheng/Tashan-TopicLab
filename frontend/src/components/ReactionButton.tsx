@@ -43,7 +43,7 @@ export default function ReactionButton({
       }}
       {...props}
     >
-      <span className="flex h-6 w-6 items-center justify-center transition-transform duration-200 group-hover:scale-[1.03]">
+      <span className="flex h-6 w-6 items-center justify-center transition-transform duration-200 group-hover:scale-[1.03] group-active:scale-90">
         {icon}
       </span>
       {hideLabel ? <span className="sr-only">{label}</span> : <span className="font-medium tracking-[0.01em]">{pending ? '处理中...' : label}</span>}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import {
   literatureApi,
@@ -11,6 +11,7 @@ import LiteratureCard from '../components/LiteratureCard'
 import SourceArticleCard from '../components/SourceArticleCard'
 import { handleApiError } from '../utils/errorHandler'
 import { toast } from '../utils/toast'
+import { useThrottledCallbackByKey } from '../hooks/useThrottledCallback'
 
 const PAGE_SIZE = 12
 const CARD_MAX_WIDTH = 280
@@ -275,13 +276,13 @@ export default function SourceFeedPage() {
   const articleColumns = splitIntoColumns(filteredArticles, columnCount)
   const literatureColumns = splitIntoColumns(filteredLiteratureItems, columnCount)
 
-  const requireCurrentUser = () => {
+  const requireCurrentUser = useCallback(() => {
     if (currentUser) return true
     toast.error('请先登录后再操作')
     return false
-  }
+  }, [currentUser])
 
-  const buildSourceActionPayload = (article: SourceFeedArticle, enabled: boolean) => ({
+  const buildSourceActionPayload = useCallback((article: SourceFeedArticle, enabled: boolean) => ({
     enabled,
     title: article.title,
     source_feed_name: article.source_feed_name,
@@ -291,20 +292,29 @@ export default function SourceFeedPage() {
     description: article.description,
     publish_time: article.publish_time,
     created_at: article.created_at,
-  })
+  }), [])
 
-  const updateArticleInteraction = (articleId: number, interaction: SourceFeedArticle['interaction']) => {
+  const updateArticleInteraction = useCallback((articleId: number, interaction: SourceFeedArticle['interaction']) => {
     setArticles((prev) => prev.map((item) => (item.id === articleId ? { ...item, interaction } : item)))
-  }
+  }, [])
 
-  const handleLike = async (article: SourceFeedArticle) => {
+  const handleLike = useCallback(async (article: SourceFeedArticle) => {
     if (!requireCurrentUser()) return
     const nextEnabled = !(article.interaction?.liked ?? false)
     setPendingLikeIds((prev) => new Set(prev).add(article.id))
+    const previousInteraction = article.interaction
+    updateArticleInteraction(article.id, {
+      likes_count: Math.max(0, (article.interaction?.likes_count ?? 0) + (nextEnabled ? 1 : -1)),
+      favorites_count: article.interaction?.favorites_count ?? 0,
+      shares_count: article.interaction?.shares_count ?? 0,
+      liked: nextEnabled,
+      favorited: article.interaction?.favorited ?? false,
+    })
     try {
       const res = await sourceFeedApi.like(article.id, buildSourceActionPayload(article, nextEnabled))
       updateArticleInteraction(article.id, res.data)
     } catch (err) {
+      updateArticleInteraction(article.id, previousInteraction)
       handleApiError(err, nextEnabled ? '信源点赞失败' : '取消信源点赞失败')
     } finally {
       setPendingLikeIds((prev) => {
@@ -313,16 +323,25 @@ export default function SourceFeedPage() {
         return next
       })
     }
-  }
+  }, [requireCurrentUser, updateArticleInteraction, buildSourceActionPayload])
 
-  const handleFavorite = async (article: SourceFeedArticle) => {
+  const handleFavorite = useCallback(async (article: SourceFeedArticle) => {
     if (!requireCurrentUser()) return
     const nextEnabled = !(article.interaction?.favorited ?? false)
     setPendingFavoriteIds((prev) => new Set(prev).add(article.id))
+    const previousInteraction = article.interaction
+    updateArticleInteraction(article.id, {
+      likes_count: article.interaction?.likes_count ?? 0,
+      favorites_count: Math.max(0, (article.interaction?.favorites_count ?? 0) + (nextEnabled ? 1 : -1)),
+      shares_count: article.interaction?.shares_count ?? 0,
+      liked: article.interaction?.liked ?? false,
+      favorited: nextEnabled,
+    })
     try {
       const res = await sourceFeedApi.favorite(article.id, buildSourceActionPayload(article, nextEnabled))
       updateArticleInteraction(article.id, res.data)
     } catch (err) {
+      updateArticleInteraction(article.id, previousInteraction)
       handleApiError(err, nextEnabled ? '信源收藏失败' : '取消信源收藏失败')
     } finally {
       setPendingFavoriteIds((prev) => {
@@ -331,9 +350,9 @@ export default function SourceFeedPage() {
         return next
       })
     }
-  }
+  }, [requireCurrentUser, updateArticleInteraction, buildSourceActionPayload])
 
-  const handleShare = async (article: SourceFeedArticle) => {
+  const handleShare = useCallback(async (article: SourceFeedArticle) => {
     try {
       const res = await sourceFeedApi.share(article.id)
       updateArticleInteraction(article.id, res.data)
@@ -347,9 +366,9 @@ export default function SourceFeedPage() {
     } catch {
       toast.error('复制链接失败')
     }
-  }
+  }, [updateArticleInteraction])
 
-  const handleReply = async (article: SourceFeedArticle) => {
+  const handleReply = useCallback(async (article: SourceFeedArticle) => {
     setPendingReplyIds((prev) => new Set(prev).add(article.id))
     try {
       const res = await sourceFeedApi.ensureTopic(article.id)
@@ -364,7 +383,12 @@ export default function SourceFeedPage() {
         return next
       })
     }
-  }
+  }, [navigate])
+
+  const throttledLike = useThrottledCallbackByKey(handleLike, (a) => a.id)
+  const throttledFavorite = useThrottledCallbackByKey(handleFavorite, (a) => a.id)
+  const throttledShare = useThrottledCallbackByKey(handleShare, (a) => a.id)
+  const throttledReply = useThrottledCallbackByKey(handleReply, (a) => a.id)
 
   const handleLiteratureShare = (item: LiteratureRecentItem) => {
     const url = getArxivUrl(item.paper_id)
@@ -470,10 +494,10 @@ export default function SourceFeedPage() {
                           <SourceArticleCard
                             key={article.id}
                             article={article}
-                            onLike={handleLike}
-                            onFavorite={handleFavorite}
-                            onShare={handleShare}
-                            onReply={handleReply}
+                            onLike={throttledLike}
+                            onFavorite={throttledFavorite}
+                            onShare={throttledShare}
+                            onReply={throttledReply}
                             likePending={pendingLikeIds.has(article.id)}
                             favoritePending={pendingFavoriteIds.has(article.id)}
                             replyPending={pendingReplyIds.has(article.id)}

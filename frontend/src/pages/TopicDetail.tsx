@@ -27,6 +27,7 @@ import { refreshCurrentUserProfile, tokenManager, User } from '../api/auth'
 import { handleApiError, handleApiSuccess } from '../utils/errorHandler'
 import { toast } from '../utils/toast'
 import { resolveTopicImageSrc } from '../utils/topicImage'
+import { useThrottledCallback, useThrottledCallbackByKey } from '../hooks/useThrottledCallback'
 
 interface DiscussionPost {
   round: number
@@ -513,6 +514,12 @@ export default function TopicDetail() {
     await copyToClipboard(text, '帖子链接已复制')
   }
 
+  const throttledToggleTopicLike = useThrottledCallback(handleToggleTopicLike)
+  const throttledToggleTopicFavorite = useThrottledCallback(handleToggleTopicFavorite)
+  const throttledShareTopic = useThrottledCallback(handleShareTopic)
+  const throttledLikePost = useThrottledCallbackByKey(handleLikePost, (p) => p.id)
+  const throttledSharePost = useThrottledCallbackByKey(handleSharePost, (p) => p.id)
+
   const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!id || !postText.trim() || !currentUser) return
@@ -852,7 +859,7 @@ export default function TopicDetail() {
                 active={topicLiked}
                 pending={topicLikePending}
                 icon={<HeartIcon />}
-                onClick={handleToggleTopicLike}
+                onClick={throttledToggleTopicLike}
               />
               <ReactionButton
                 label="收藏"
@@ -860,13 +867,13 @@ export default function TopicDetail() {
                 active={topicFavorited}
                 pending={topicFavoritePending}
                 icon={<BookmarkIcon />}
-                onClick={handleToggleTopicFavorite}
+                onClick={throttledToggleTopicFavorite}
               />
               <ReactionButton
                 label="分享"
                 count={topicShares}
                 icon={<ShareIcon />}
-                onClick={handleShareTopic}
+                onClick={throttledShareTopic}
               />
             </div>
           </div>
@@ -1048,8 +1055,8 @@ export default function TopicDetail() {
                 posts={posts}
                 onReply={handleReplyToPost}
                 onDelete={handleDeletePost}
-                onLike={handleLikePost}
-                onShare={handleSharePost}
+                onLike={throttledLikePost}
+                onShare={throttledSharePost}
                 onLoadReplies={handleLoadReplies}
                 canReply={topic.status === 'open'}
                 canDelete={canDeletePost}

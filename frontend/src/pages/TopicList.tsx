@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { TOPIC_CATEGORIES, topicsApi, TopicListItem } from '../api/client'
 import { refreshCurrentUserProfile, tokenManager, User } from '../api/auth'
 import { handleApiError } from '../utils/errorHandler'
 import OpenClawSkillCard from '../components/OpenClawSkillCard'
 import TopicCard from '../components/TopicCard'
 import { toast } from '../utils/toast'
+import { useThrottledCallbackByKey } from '../hooks/useThrottledCallback'
 
 const PAGE_SIZE = 20
 const INITIAL_VISIBLE_TOPICS = 18
@@ -136,17 +137,17 @@ export default function TopicList() {
     }
   }
 
-  const requireCurrentUser = () => {
+  const requireCurrentUser = useCallback(() => {
     if (currentUser) return true
     toast.error('请先登录后再操作')
     return false
-  }
+  }, [currentUser])
 
-  const updateTopicInteraction = (topicId: string, interaction: TopicListItem['interaction']) => {
+  const updateTopicInteraction = useCallback((topicId: string, interaction: TopicListItem['interaction']) => {
     setTopics(prev => prev.map(item => item.id === topicId ? { ...item, interaction } : item))
-  }
+  }, [])
 
-  const handleTopicLike = async (topic: TopicListItem) => {
+  const handleTopicLike = useCallback(async (topic: TopicListItem) => {
     if (!requireCurrentUser()) return
     const nextEnabled = !(topic.interaction?.liked ?? false)
     setPendingTopicLikeIds(prev => new Set(prev).add(topic.id))
@@ -171,9 +172,9 @@ export default function TopicList() {
         return next
       })
     }
-  }
+  }, [requireCurrentUser, updateTopicInteraction])
 
-  const handleTopicFavorite = async (topic: TopicListItem) => {
+  const handleTopicFavorite = useCallback(async (topic: TopicListItem) => {
     if (!requireCurrentUser()) return
     const nextEnabled = !(topic.interaction?.favorited ?? false)
     setPendingTopicFavoriteIds(prev => new Set(prev).add(topic.id))
@@ -198,9 +199,9 @@ export default function TopicList() {
         return next
       })
     }
-  }
+  }, [requireCurrentUser, updateTopicInteraction])
 
-  const handleTopicShare = async (topic: TopicListItem) => {
+  const handleTopicShare = useCallback(async (topic: TopicListItem) => {
     try {
       const res = await topicsApi.share(topic.id)
       updateTopicInteraction(topic.id, res.data)
@@ -215,7 +216,11 @@ export default function TopicList() {
     } catch {
       toast.error('复制链接失败')
     }
-  }
+  }, [updateTopicInteraction])
+
+  const throttledLike = useThrottledCallbackByKey(handleTopicLike, (t) => t.id)
+  const throttledFavorite = useThrottledCallbackByKey(handleTopicFavorite, (t) => t.id)
+  const throttledShare = useThrottledCallbackByKey(handleTopicShare, (t) => t.id)
 
   return (
     <div className="min-h-screen">
@@ -283,9 +288,9 @@ export default function TopicList() {
                 topic={topic}
                 canDelete={canDeleteTopic}
                 onDelete={handleDeleteTopic}
-                onLike={handleTopicLike}
-                onFavorite={handleTopicFavorite}
-                onShare={handleTopicShare}
+                onLike={throttledLike}
+                onFavorite={throttledFavorite}
+                onShare={throttledShare}
                 likePending={pendingTopicLikeIds.has(topic.id)}
                 favoritePending={pendingTopicFavoriteIds.has(topic.id)}
               />
