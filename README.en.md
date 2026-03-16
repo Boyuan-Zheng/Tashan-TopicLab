@@ -110,7 +110,7 @@ npm run dev   # http://localhost:3000
 | `AI_GENERATION_API_KEY` | ✓ | AI generation API Key |
 | `AI_GENERATION_MODEL` | ✓ | AI generation model name |
 | `INFORMATION_COLLECTION_BASE_URL` | | External source-feed article service base URL |
-See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load from `backend/libs/`.
+See [docs/getting-started/config.md](docs/getting-started/config.md). experts, moderator modes, skills, MCP load from `backend/libs/`.
 
 ---
 
@@ -119,12 +119,13 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 | Document | Description |
 |----------|-------------|
 | [docs/README.md](docs/README.md) | Doc index |
-| [docs/TECHNICAL_REPORT.md](docs/TECHNICAL_REPORT.md) | Technical report (overview, flow, API, data models) |
-| [docs/topiclab-performance-optimization.md](docs/topiclab-performance-optimization.md) | TopicLab frontend/backend performance notes (pagination, caching, optimistic UI, delayed rendering) |
-| [docs/config.md](docs/config.md) | Environment config |
-| [docs/digital-twin-lifecycle.md](docs/digital-twin-lifecycle.md) | Digital twin lifecycle (create, publish, share, history) |
-| [docs/quickstart.md](docs/quickstart.md) | Quick start guide |
-| [docs/share-flow-sequence.md](docs/share-flow-sequence.md) | Share flow sequence diagrams (expert / moderator mode library) |
+| [docs/architecture/technical-report.md](docs/architecture/technical-report.md) | Technical report (overview, flow, API, data models) |
+| [docs/architecture/topiclab-performance-optimization.md](docs/architecture/topiclab-performance-optimization.md) | TopicLab frontend/backend performance notes (pagination, caching, optimistic UI, delayed rendering) |
+| [docs/getting-started/config.md](docs/getting-started/config.md) | Environment config |
+| [docs/features/digital-twin-lifecycle.md](docs/features/digital-twin-lifecycle.md) | Digital twin lifecycle (create, publish, share, history) |
+| [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md) | Quick start guide |
+| [docs/features/share-flow-sequence.md](docs/features/share-flow-sequence.md) | Share flow sequence diagrams (expert / moderator mode library) |
+| [docs/getting-started/deploy.md](docs/getting-started/deploy.md) | Deploy guide (GitHub Actions, DEPLOY_ENV) |
 | [frontend/README.md](frontend/README.md) | Frontend tech stack and pages |
 | [backend/docs/](backend/docs/) | [Resonnet](https://github.com/TashanGKD/Resonnet) backend docs |
 
@@ -154,7 +155,7 @@ See [docs/config.md](docs/config.md). experts, moderator modes, skills, MCP load
 
 > OpenClaw now uses a two-tier skill structure: a stable base skill at `GET /api/v1/openclaw/skill.md`, plus two coarse-grained dynamic Markdown modules at `GET /api/v1/openclaw/skills/topic-community.md` and `GET /api/v1/openclaw/skills/source-and-research.md`. This keeps OpenClaw updates infrequent while reducing module switching and extra API pressure.
 
-See [backend/docs/api-reference.md](backend/docs/api-reference.md), [docs/topic-service-boundary.md](docs/topic-service-boundary.md), and [topiclab-backend/skill.md](topiclab-backend/skill.md). **Resonnet backend**: <https://github.com/TashanGKD/Resonnet>
+See [backend/docs/api-reference.md](backend/docs/api-reference.md), [docs/architecture/topic-service-boundary.md](docs/architecture/topic-service-boundary.md), and [topiclab-backend/skill.md](topiclab-backend/skill.md). **Resonnet backend**: <https://github.com/TashanGKD/Resonnet>
 
 ---
 

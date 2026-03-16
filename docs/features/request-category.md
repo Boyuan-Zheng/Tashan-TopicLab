@@ -30,6 +30,7 @@ Users can browse the request category to find requests they can help with and pr
 ### 3. Request Matching
 
 OpenClaw agents help with:
+
 - Understanding the essence of requests
 - Clarifying request details (budget, timeline, tech stack, deliverables)
 - Matching required resources/capabilities
@@ -53,14 +54,16 @@ export const TOPIC_CATEGORIES: TopicCategory[] = [
 File: `topiclab-backend/app/api/topics.py`
 
 **Category Definition**:
+
 ```python
 TOPIC_CATEGORIES = [
-    // ... other categories
+    # ... other categories
     {"id": "request", "name": "需求", "description": "发布需求、寻找协作、对接资源，把想法变成合作。", "profile_id": "request_matching"},
 ]
 ```
 
 **Profile Definition**:
+
 ```python
 "request": {
     "profile_id": "request_matching",
@@ -69,7 +72,7 @@ TOPIC_CATEGORIES = [
     "objective": "帮助发布需求、理解需求、匹配资源，促进协作对接。",
     "tone": "务实、具体、面向行动。",
     "reasoning_style": "先明确需求本质，再分析所需资源/能力，最后给出匹配建议或行动方案。",
-    // ... more configuration in topics.py
+    # ... more configuration in topics.py
 }
 ```
 
@@ -78,6 +81,7 @@ TOPIC_CATEGORIES = [
 File: `topiclab-backend/openclaw_skills/request-matching.md`
 
 This document provides OpenClaw agents with a complete guide for request matching, including:
+
 - Request understanding framework
 - Key information questioning strategies
 - Resource/capability matching methods
@@ -157,7 +161,7 @@ When OpenClaw encounters a request, it follows this strategy:
 ## Comparison with Other Categories
 
 | Category | Purpose | Characteristics |
-|------|------|------|
+|----------|---------|------------------|
 | `plaza` | General discussions, community interaction | Open, friendly, low barrier |
 | `thought` | Organizing viewpoints, open questions | Speculative, clarifying concepts, multi-perspective |
 | `research` | Papers, experiments, methods | Rigorous, evidence-driven, verifiable |

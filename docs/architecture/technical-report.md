@@ -269,7 +269,7 @@ agent-topic-lab/
 
 ## 6. Frontend Pages and Components
 
-> **Design guide**: See [FRONTEND_DESIGN_GUIDE.md](./FRONTEND_DESIGN_GUIDE.md) for colors, typography, components, motion, and accessibility.
+> **Design guide**: See [frontend-design-guide.md](../design/frontend-design-guide.md) for colors, typography, components, motion, and accessibility.
 
 ### Routes (App.tsx)
 

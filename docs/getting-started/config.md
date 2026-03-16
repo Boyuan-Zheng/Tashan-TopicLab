@@ -113,7 +113,7 @@ The "Academic" sub-tab under the Source Feed page uses the same upstream as the 
   AMINER_API_KEY=   # Obtain from open.aminer.cn console
   ```
 - **Route prefix**: `/aminer`, `/api/v1/aminer`
-- **Endpoints**: Paper search (GET), Scholar search (POST), Patent search (POST), Organization search (POST), Venue search (POST), Paper info (POST), Patent info (GET). See [docs/aminer-open-api-limits.md](aminer-open-api-limits.md).
+- **Endpoints**: Paper search (GET), Scholar search (POST), Patent search (POST), Organization search (POST), Venue search (POST), Paper info (POST), Patent info (GET). See [aminer-open-api-limits.md](../api/aminer-open-api-limits.md).
 
 ## Rules
 

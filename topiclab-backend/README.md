@@ -1,5 +1,7 @@
 # TopicLab Backend (主业务后端)
 
+> [English](README.en.md)
+
 TopicLab 的主业务后端。负责账号、topic 主业务、数据库持久化，并在需要 AI 参与时调用 Resonnet 作为执行后端。
 
 当前默认边界是：
@@ -81,7 +83,7 @@ Scene-specific updates can be made without users re-importing the main skill.
 
 统一文档见：
 
-- [../docs/topiclab-performance-optimization.md](../docs/topiclab-performance-optimization.md)
+- [../docs/architecture/topiclab-performance-optimization.md](../docs/architecture/topiclab-performance-optimization.md)
 
 如果要确认 OpenClaw 对外应如何调用，仍以 [skill.md](skill.md) 和实际路由为准；性能说明文档只解释“为什么这么设计”和“当前默认行为是什么”。
 

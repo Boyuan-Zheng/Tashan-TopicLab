@@ -107,7 +107,7 @@ npm run dev   # http://localhost:3000
 | `AI_GENERATION_BASE_URL` | ✓ | AI 生成接口 base URL |
 | `AI_GENERATION_API_KEY` | ✓ | AI 生成接口 API Key |
 | `AI_GENERATION_MODEL` | ✓ | AI 生成模型名 |
-详见 [docs/config.md](docs/config.md)。专家、讨论方式、技能、MCP 等库从 `backend/libs/` 加载。
+详见 [docs/getting-started/config.md](docs/getting-started/config.md)。专家、讨论方式、技能、MCP 等库从 `backend/libs/` 加载。
 
 ---
 
@@ -116,12 +116,13 @@ npm run dev   # http://localhost:3000
 | 文档 | 说明 |
 |------|------|
 | [docs/README.md](docs/README.md) | 文档索引 |
-| [docs/TECHNICAL_REPORT.md](docs/TECHNICAL_REPORT.md) | 技术报告（系统概览、交互逻辑、代码路径、API、数据模型） |
-| [docs/topiclab-performance-optimization.md](docs/topiclab-performance-optimization.md) | TopicLab 前后端性能优化说明（英文，分页、缓存、乐观更新、延迟渲染） |
-| [docs/config.md](docs/config.md) | 环境变量与配置 |
-| [docs/digital-twin-lifecycle.md](docs/digital-twin-lifecycle.md) | 数字分身全链路（创建、发布、共享、历史） |
-| [docs/quickstart.md](docs/quickstart.md) | 快速启动指南 |
-| [docs/share-flow-sequence.md](docs/share-flow-sequence.md) | 共享流程时序图（角色库 / 讨论方式库） |
+| [docs/architecture/technical-report.md](docs/architecture/technical-report.md) | 技术报告（系统概览、交互逻辑、代码路径、API、数据模型） |
+| [docs/architecture/topiclab-performance-optimization.md](docs/architecture/topiclab-performance-optimization.md) | TopicLab 前后端性能优化说明（英文，分页、缓存、乐观更新、延迟渲染） |
+| [docs/getting-started/config.md](docs/getting-started/config.md) | 环境变量与配置 |
+| [docs/features/digital-twin-lifecycle.md](docs/features/digital-twin-lifecycle.md) | 数字分身全链路（创建、发布、共享、历史） |
+| [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md) | 快速启动指南 |
+| [docs/features/share-flow-sequence.md](docs/features/share-flow-sequence.md) | 共享流程时序图（角色库 / 讨论方式库） |
+| [docs/getting-started/deploy.md](docs/getting-started/deploy.md) | 部署指南（GitHub Actions、DEPLOY_ENV） |
 | [frontend/README.md](frontend/README.md) | 前端技术栈与页面说明 |
 | [backend/docs/](backend/docs/) | [Resonnet](https://github.com/TashanGKD/Resonnet) 后端文档 |
 
@@ -149,7 +150,7 @@ npm run dev   # http://localhost:3000
 
 > TopicLab 集成模式下，topic 主业务真相保存在 `topiclab-backend`；Resonnet 负责 discussion / expert reply 的执行与 workspace 产物。
 
-详见 [backend/docs/api-reference.md](backend/docs/api-reference.md)、[docs/topic-service-boundary.md](docs/topic-service-boundary.md) 与 [topiclab-backend/skill.md](topiclab-backend/skill.md)。完整 Resonnet 后端实现与 API：<https://github.com/TashanGKD/Resonnet>
+详见 [backend/docs/api-reference.md](backend/docs/api-reference.md)、[docs/architecture/topic-service-boundary.md](docs/architecture/topic-service-boundary.md) 与 [topiclab-backend/skill.md](topiclab-backend/skill.md)。完整 Resonnet 后端实现与 API：<https://github.com/TashanGKD/Resonnet>
 
 ---
 

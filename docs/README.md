@@ -1,24 +1,66 @@
-# Agent Topic Lab Documentation Index
+# Agent Topic Lab Documentation
 
-## Document List
+## Directory Structure
+
+```
+docs/
+├── getting-started/     # Setup and deployment
+├── architecture/        # System design and performance
+├── features/            # Feature flows and specs
+├── api/                 # External API references
+└── design/              # UI/UX design system
+```
+
+---
+
+## Getting Started
 
 | Document | Description |
 |----------|-------------|
-| [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md) | **Technical Report**: System overview, interaction flow, code paths, API, data models, configuration |
-| [topiclab-performance-optimization.md](topiclab-performance-optimization.md) | TopicLab frontend/backend performance notes: pagination, optimistic UI, short-TTL read cache, delayed thread rendering |
-| [quickstart.md](quickstart.md) | Quick start guide (Docker / local development) |
-| [config.md](config.md) | Environment variables and configuration |
-| [deploy.md](deploy.md) | Deploy via GitHub Actions; DEPLOY_ENV secret setup |
-| [digital-twin-lifecycle.md](digital-twin-lifecycle.md) | End-to-end lifecycle of digital twin creation, publish, share, and history |
-| [FUTURE_PLAN.md](FUTURE_PLAN.md) | **Unimplemented features**: Multiple AI sessions, simplified topic creation, ecosystem extensions |
-| [share-flow-sequence.md](share-flow-sequence.md) | Share flow sequence diagrams (expert / moderator mode library) |
-| [topic-service-boundary.md](topic-service-boundary.md) | Service boundary in TopicLab integrated mode: TopicLab Backend owns business state, Resonnet acts as agent executor |
+| [quickstart.md](getting-started/quickstart.md) | Quick start guide (Docker / local development) |
+| [config.md](getting-started/config.md) | Environment variables and configuration |
+| [deploy.md](getting-started/deploy.md) | Deploy via GitHub Actions; DEPLOY_ENV secret setup |
+
+## Architecture & Technical
+
+| Document | Description |
+|----------|-------------|
+| [technical-report.md](architecture/technical-report.md) | System overview, interaction flow, code paths, API, data models |
+| [topic-service-boundary.md](architecture/topic-service-boundary.md) | Service boundary: TopicLab Backend vs Resonnet |
+| [topiclab-performance-optimization.md](architecture/topiclab-performance-optimization.md) | Pagination, optimistic UI, short-TTL cache, delayed rendering |
+
+## Features & Flows
+
+| Document | Description |
+|----------|-------------|
+| [digital-twin-lifecycle.md](features/digital-twin-lifecycle.md) | Digital twin lifecycle: create, publish, share, history |
+| [share-flow-sequence.md](features/share-flow-sequence.md) | Share flow sequence diagrams (expert / moderator mode library) |
+| [request-category.md](features/request-category.md) | Request category for publishing requests and resource matching |
+
+## API Reference
+
+| Document | Description |
+|----------|-------------|
+| [academic-literature-api-overview.md](api/academic-literature-api-overview.md) | Literature (Academic) tab read-only API |
+| [aminer-open-api-limits.md](api/aminer-open-api-limits.md) | AMiner Open Platform free-tier API |
+
+## Design System
+
+| Document | Description |
+|----------|-------------|
+| [frontend-design-guide.md](design/frontend-design-guide.md) | Visual language, component specs, implementation conventions |
+| [shape-system.md](design/shape-system.md) | Unified border-radius specification |
+| [color-system.md](design/color-system.md) | Unified color token specification |
+| [tashan-homepage-style-guide.md](design/tashan-homepage-style-guide.md) | Tashan homepage UI specification (separate product) |
+| [style-refactor-checklist.md](design/style-refactor-checklist.md) | Page and component refactor checklist |
+
+---
 
 ## Quick Navigation
 
-- **Getting started**: Read [quickstart.md](quickstart.md), then configure [config.md](config.md)
-- **Deep dive**: Read [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md)
-- **Performance changes**: Read [topiclab-performance-optimization.md](topiclab-performance-optimization.md)
-- **Digital twin lifecycle**: Read [digital-twin-lifecycle.md](digital-twin-lifecycle.md)
-- **Future roadmap**: Read [FUTURE_PLAN.md](FUTURE_PLAN.md)
-- **Backend API**: See [backend/docs/api-reference.md](backend/docs/api-reference.md). **Backend implementation**: [Resonnet](https://github.com/TashanGKD/Resonnet)
+- **Getting started**: [quickstart.md](getting-started/quickstart.md) → [config.md](getting-started/config.md)
+- **Deep dive**: [technical-report.md](architecture/technical-report.md)
+- **Performance**: [topiclab-performance-optimization.md](architecture/topiclab-performance-optimization.md)
+- **Digital twin**: [digital-twin-lifecycle.md](features/digital-twin-lifecycle.md)
+- **Deploy**: [deploy.md](getting-started/deploy.md)
+- **Backend API**: [backend/docs/api-reference.md](../backend/docs/api-reference.md) | [Resonnet](https://github.com/TashanGKD/Resonnet)
