@@ -25,6 +25,7 @@ from app.services.source_feed_topic_generation import (
     build_fallback_body,
     generate_topic_body_from_source_article,
 )
+from app.services.source_feed_role_generation import generate_roles_from_topic
 from app.services.http_client import get_shared_async_client
 from app.storage.database.topic_store import (
     annotate_source_articles_with_interactions,
@@ -34,6 +35,7 @@ from app.storage.database.topic_store import (
     get_topic_id_by_source_article,
     link_source_article_to_topic,
     record_source_article_share,
+    replace_topic_experts,
     set_source_article_user_action,
     update_topic,
 )
@@ -164,7 +166,11 @@ def _guess_topic_category_from_source_article(article: dict[str, Any]) -> str:
     return "news"
 
 
-async def _ensure_executor_workspace_for_topic(topic_id: str) -> dict:
+async def _ensure_executor_workspace_for_topic(
+    topic_id: str,
+    *,
+    use_ai_generated_roles: bool = False,
+) -> dict:
     topic = get_topic(topic_id)
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
@@ -176,6 +182,7 @@ async def _ensure_executor_workspace_for_topic(topic_id: str) -> dict:
             "topic_title": topic["title"],
             "topic_body": topic["body"],
             "num_rounds": topic.get("num_rounds") or 5,
+            "use_ai_generated_roles": use_ai_generated_roles,
         },
         timeout=120.0,
     )
@@ -278,6 +285,41 @@ async def _fill_topic_body_in_background(topic_id: str, article_dict: dict) -> N
         pass
 
 
+async def _fill_topic_roles_in_background(topic_id: str) -> None:
+    """Background task: generate 4 roles via AI, set in executor workspace, update topic."""
+    try:
+        topic = get_topic(topic_id)
+        if not topic:
+            return
+        roles = await generate_roles_from_topic(
+            topic.get("title", ""),
+            topic.get("body", ""),
+        )
+        if not roles:
+            return
+        await request_json(
+            "POST",
+            f"/executor/topics/{topic_id}/experts/generated",
+            json_body={"experts": roles},
+            timeout=60.0,
+        )
+        replace_topic_experts(
+            topic_id,
+            [
+                {
+                    "name": r["name"],
+                    "label": r["label"],
+                    "description": r["description"],
+                    "source": "ai_generated",
+                    "is_from_topic_creation": True,
+                }
+                for r in roles
+            ],
+        )
+    except Exception:
+        pass
+
+
 @router.post("/articles/{article_id}/topic", response_model=EnsureSourceArticleTopicResponse)
 async def ensure_source_article_topic(article_id: int, user: dict | None = Depends(_get_optional_user)):
     user_id, auth_type = _resolve_owner_identity(user)
@@ -298,11 +340,13 @@ async def ensure_source_article_topic(article_id: int, user: dict | None = Depen
         raise HTTPException(status_code=502, detail=f"获取信源全文失败: {exc}") from exc
 
     # Create topic immediately with fallback body; LLM generation runs in background.
+    # Use empty expert_names; AI-generated roles will be filled in background.
     initial_body = build_fallback_body(article.__dict__)
     topic = create_topic(
         article.title or f"信源 {article_id}",
         initial_body,
         _guess_topic_category_from_source_article(article.__dict__),
+        initial_expert_names=[],
     )
     linked_topic_id = link_source_article_to_topic(
         article.id,
@@ -319,12 +363,15 @@ async def ensure_source_article_topic(article_id: int, user: dict | None = Depen
         preview_url = f"/api/source-feed/image?url={quote(article.pic_url, safe='')}"
         update_topic(linked_topic_id, {"preview_image": preview_url})
 
-    await _ensure_executor_workspace_for_topic(linked_topic_id)
+    await _ensure_executor_workspace_for_topic(
+        linked_topic_id, use_ai_generated_roles=True
+    )
     await hydrate_topic_workspace(linked_topic_id, [article.id])
     resolved_topic = get_topic(linked_topic_id, user_id=user_id, auth_type=auth_type)
     if resolved_topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
     asyncio.create_task(_fill_topic_body_in_background(linked_topic_id, article.__dict__))
+    asyncio.create_task(_fill_topic_roles_in_background(linked_topic_id))
     return {"topic": resolved_topic, "created": created}
 
 

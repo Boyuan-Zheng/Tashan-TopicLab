@@ -210,6 +210,37 @@ export default function TopicDetail() {
     }
   }, [topic?.body])
 
+  // 信源话题且 expert_names 为空时轮询刷新 topic，以显示 AI 生成的角色（替代「生成中…」）
+  useEffect(() => {
+    if (!id || !topic || !linkedSourceArticle) return
+    const expertNames = topic.expert_names ?? []
+    if (expertNames.length > 0) return
+    let cancelled = false
+    const maxAttempts = 15
+    let attempts = 0
+    const poll = async () => {
+      if (cancelled || attempts >= maxAttempts) return
+      attempts += 1
+      try {
+        const res = await topicsApi.get(id)
+        if (!cancelled && (res.data.expert_names?.length ?? 0) > 0) {
+          setTopic(res.data)
+          return
+        }
+      } catch {
+        /* ignore */
+      }
+      if (!cancelled && attempts < maxAttempts) {
+        setTimeout(poll, 2000)
+      }
+    }
+    const t = setTimeout(poll, 2000)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [id, topic?.id, linkedSourceArticle, topic?.expert_names?.length])
+
   const mergePosts = (existing: Post[], incoming: Post[]) => {
     const byId = new Map(existing.map(item => [item.id, item]))
     for (const post of incoming) {
@@ -594,7 +625,8 @@ export default function TopicDetail() {
   const handleStartDiscussion = async (
     model: string,
     skillList?: string[],
-    mcpServerIds?: string[]
+    mcpServerIds?: string[],
+    expertNamesOverride?: string[]
   ) => {
     if (!id) return
     setStartingDiscussion(true)
@@ -605,6 +637,7 @@ export default function TopicDetail() {
       model,
       skill_list: skillList && skillList.length > 0 ? skillList : undefined,
       mcp_server_ids: mcpServerIds && mcpServerIds.length > 0 ? mcpServerIds : undefined,
+      expert_names: expertNamesOverride && expertNamesOverride.length > 0 ? expertNamesOverride : undefined,
     }
     try {
       await discussionApi.start(id, req)
@@ -847,7 +880,10 @@ export default function TopicDetail() {
                 onTopicBodyUpdated={(body) => {
                   setTopic((prev) => (prev ? { ...prev, body } : prev))
                 }}
-                onExpertsChange={() => { void loadTopicExperts(id!) }}
+                onExpertsChange={() => {
+                  void loadTopicExperts(id!)
+                  void loadTopic(id!)
+                }}
                 onModeChange={() => loadTopic(id!)}
                 onStartDiscussion={handleStartDiscussion}
                 isStarting={startingDiscussion}
@@ -856,6 +892,7 @@ export default function TopicDetail() {
                 initialSkillIds={initialSkillIds}
                 linkedSourceArticle={linkedSourceArticle}
                 viewportWidth={viewportWidth}
+                topicExpertNames={topic.expert_names ?? []}
               />
             </div>
           ) : null}

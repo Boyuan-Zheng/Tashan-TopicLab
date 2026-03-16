@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+**TopicLab**
+
+- Source-feed topic role generation: when creating a topic from a source article, the system now generates 4 discussion roles via `AI_GENERATION_MODEL` using a fixed template. Roles are written to the executor workspace and topic DB as an async background task. Falls back to empty experts if env is not configured.
+
 ### Changed
 
 **Frontend**

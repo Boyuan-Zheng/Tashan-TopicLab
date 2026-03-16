@@ -599,6 +599,7 @@ def create_topic(
     creator_user_id: int | None = None,
     creator_name: str | None = None,
     creator_auth_type: str | None = None,
+    initial_expert_names: list[str] | None = None,
 ) -> dict:
     topic_id = str(uuid.uuid4())
     now = utc_now()
@@ -627,7 +628,10 @@ def create_topic(
                 "status": "open",
                 "mode": "discussion",
                 "num_rounds": 5,
-                "expert_names": json.dumps(DEFAULT_TOPIC_EXPERT_NAMES, ensure_ascii=False),
+                "expert_names": json.dumps(
+                    initial_expert_names if initial_expert_names is not None else DEFAULT_TOPIC_EXPERT_NAMES,
+                    ensure_ascii=False,
+                ),
                 "discussion_status": "pending",
                 "created_at": now,
                 "updated_at": now,
@@ -649,6 +653,7 @@ def create_topic(
             """),
             {"topic_id": topic_id, "status": "pending", "updated_at": now},
         )
+        expert_list = initial_expert_names if initial_expert_names is not None else DEFAULT_TOPIC_EXPERT_NAMES
         replace_topic_experts(
             topic_id,
             [
@@ -659,7 +664,7 @@ def create_topic(
                     "source": "preset",
                     "is_from_topic_creation": True,
                 }
-                for name in DEFAULT_TOPIC_EXPERT_NAMES
+                for name in expert_list
             ],
             session=session,
         )
@@ -1009,6 +1014,16 @@ def link_source_article_to_topic(
             },
         ).one()
     return str(row.topic_id)
+
+
+def is_topic_from_source(topic_id: str) -> bool:
+    """Return True if topic has a linked source article (created from source feed)."""
+    with get_db_session() as session:
+        row = session.execute(
+            text("SELECT 1 FROM topic_source_article_links WHERE topic_id = :topic_id LIMIT 1"),
+            {"topic_id": topic_id},
+        ).first()
+    return row is not None
 
 
 def get_source_pic_url_by_topic_ids(topic_ids: list[str]) -> dict[str, str]:

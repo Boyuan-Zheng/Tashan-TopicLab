@@ -335,6 +335,14 @@ export const ROUNDTABLE_MODELS = [
   { value: 'glm-4.7', label: 'GLM-4.7' },
 ]
 
+/** 内置四角色：物理、生物、计算机、伦理 */
+export const BUILTIN_EXPERT_NAMES = [
+  'physicist',
+  'biologist',
+  'computer_scientist',
+  'ethicist',
+] as const
+
 export interface StartDiscussionRequest {
   num_rounds: number
   max_turns: number
@@ -346,6 +354,8 @@ export interface StartDiscussionRequest {
   skill_list?: string[]
   /** 可选的 MCP 服务器 ID 列表，从全局 mcp.json 拷贝到话题工作区 */
   mcp_server_ids?: string[]
+  /** 覆盖角色集：传则用此列表替代 topic.expert_names，用于「使用内置角色」选择 */
+  expert_names?: string[]
 }
 
 export interface AssignableSkill {
@@ -624,6 +634,9 @@ export const topicExpertsApi = {
   delete: (topicId: string, expertName: string) => api.delete(`/topics/${topicId}/experts/${expertName}`),
   generate: (topicId: string, data: GenerateExpertRequest) =>
     api.post<GenerateExpertResponse>(`/topics/${topicId}/experts/generate`, data),
+  /** 根据话题标题和正文生成 4 个讨论角色，替换当前角色集 */
+  generateFromTopic: (topicId: string) =>
+    api.post<{ ok: boolean; expert_names: string[] }>(`/topics/${topicId}/experts/generate-from-topic`),
   getContent: (topicId: string, expertName: string) =>
     api.get<{ role_content: string }>(`/topics/${topicId}/experts/${expertName}/content`),
   share: (topicId: string, expertName: string) =>

@@ -23,6 +23,7 @@ from app.api.auth import security, verify_access_token
 from app.services.content_moderation import moderate_post_content
 from app.services.resonnet_client import request_json
 from app.services.source_feed_pipeline import fetch_source_feed_article_detail, hydrate_topic_workspace
+from app.services.source_feed_role_generation import generate_roles_from_topic
 from app.services.source_feed_topic_generation import (
     build_fallback_body,
     generate_topic_body_from_source_article,
@@ -31,6 +32,7 @@ from app.storage.database.postgres_client import get_db_session
 from app.storage.database.topic_store import (
     check_and_reset_stale_running_discussion,
     DEFAULT_MODERATOR_MODE,
+    DEFAULT_TOPIC_EXPERT_NAMES,
     assign_source_article_to_favorite_category,
     assign_topic_to_favorite_category,
     close_topic,
@@ -49,6 +51,7 @@ from app.storage.database.topic_store import (
     get_source_pic_url_by_topic_ids,
     get_topic,
     get_topic_id_by_source_article,
+    is_topic_from_source,
     get_topic_moderator_config,
     get_post_thread,
     hash_post_delete_token,
@@ -320,6 +323,8 @@ class StartDiscussionRequest(BaseModel):
     allowed_tools: list[str] | None = None
     skill_list: list[str] | None = Field(default=None)
     mcp_server_ids: list[str] | None = None
+    """Override expert set: when provided, use these instead of topic.expert_names. Use for 'use built-in' vs 'use topic' choice."""
+    expert_names: list[str] | None = None
 
 
 class DiscussionSnapshotPushRequest(BaseModel):
@@ -745,10 +750,18 @@ async def _proxy_to_resonnet(
         raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
 
 
+def _topic_has_ai_generated_experts(topic: dict) -> bool:
+    """True if topic has any expert not in built-in set (i.e. uses AI-generated roles)."""
+    names = topic.get("expert_names") or []
+    builtin = set(DEFAULT_TOPIC_EXPERT_NAMES)
+    return any(n not in builtin for n in names)
+
+
 async def _ensure_executor_workspace(topic_id: str) -> dict:
     topic = get_topic(topic_id)
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
+    use_ai_roles = is_topic_from_source(topic_id) or _topic_has_ai_generated_experts(topic)
     await request_json(
         "POST",
         "/executor/topics/bootstrap",
@@ -757,6 +770,7 @@ async def _ensure_executor_workspace(topic_id: str) -> dict:
             "topic_title": topic["title"],
             "topic_body": topic["body"],
             "num_rounds": topic.get("num_rounds") or 5,
+            "use_ai_generated_roles": use_ai_roles,
         },
         timeout=120.0,
     )
@@ -1599,12 +1613,13 @@ async def start_discussion_endpoint(topic_id: str, req: StartDiscussionRequest):
     if not updated:
         raise HTTPException(status_code=404, detail="Topic not found")
     set_discussion_status(topic_id, "running", turns_count=0, discussion_summary="", discussion_history="")
+    expert_names = req.expert_names if req.expert_names is not None else topic["expert_names"]
     payload = {
         "topic_id": topic_id,
         "topic_title": topic["title"],
         "topic_body": topic["body"],
         "num_rounds": num_rounds,
-        "expert_names": topic["expert_names"],
+        "expert_names": expert_names,
         "max_turns": req.max_turns,
         "max_budget_usd": req.max_budget_usd,
         "model": req.model or topic_config.get("model"),
@@ -1752,6 +1767,43 @@ async def get_topic_expert_content_endpoint(topic_id: str, expert_name: str, aut
         f"/topics/{topic_id}/experts/{expert_name}/content",
         authorization=authorization,
     )
+
+
+@router.post("/topics/{topic_id}/experts/generate-from-topic")
+async def generate_experts_from_topic_endpoint(topic_id: str, authorization: str | None = Header(default=None)):
+    """Generate 4 discussion roles from topic title+body via AI_GENERATION_MODEL, replace topic experts."""
+    topic = get_topic(topic_id)
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    roles = await generate_roles_from_topic(
+        topic.get("title", ""),
+        topic.get("body", ""),
+    )
+    if not roles:
+        raise HTTPException(
+            status_code=503,
+            detail="AI 角色生成失败，请检查 AI_GENERATION_* 环境变量配置",
+        )
+    await request_json(
+        "POST",
+        f"/executor/topics/{topic_id}/experts/replace",
+        json_body={"experts": roles},
+        timeout=60.0,
+    )
+    replace_topic_experts(
+        topic_id,
+        [
+            {
+                "name": r["name"],
+                "label": r["label"],
+                "description": r["description"],
+                "source": "ai_generated",
+                "is_from_topic_creation": True,
+            }
+            for r in roles
+        ],
+    )
+    return {"ok": True, "expert_names": [r["name"] for r in roles]}
 
 
 @router.post("/topics/{topic_id}/experts/generate")

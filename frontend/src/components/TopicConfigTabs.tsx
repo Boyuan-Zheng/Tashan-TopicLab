@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
-import { moderatorModesApi, ROUNDTABLE_MODELS, AssignableModeratorMode, topicsApi, SourceFeedArticle } from '../api/client'
+import { moderatorModesApi, ROUNDTABLE_MODELS, AssignableModeratorMode, topicsApi, topicExpertsApi, SourceFeedArticle, BUILTIN_EXPERT_NAMES } from '../api/client'
 import SourceArticlePreviewCard from './SourceArticlePreviewCard'
 import { handleApiError, handleApiSuccess } from '../utils/errorHandler'
 import { inputClass } from './selectors/styles'
@@ -21,13 +21,15 @@ interface TopicConfigTabsProps {
   onTopicBodyUpdated?: (body: string) => void
   onExpertsChange?: () => void
   onModeChange?: () => void
-  onStartDiscussion?: (model: string, skillList?: string[], mcpServerIds?: string[]) => Promise<void>
+  onStartDiscussion?: (model: string, skillList?: string[], mcpServerIds?: string[], expertNamesOverride?: string[]) => Promise<void>
   isStarting?: boolean
   isRunning?: boolean
   isCompleted?: boolean
   initialSkillIds?: string[]
   linkedSourceArticle?: SourceFeedArticle | null
   viewportWidth?: number
+  /** 话题当前角色名，用于信源话题时选择「话题角色」vs「内置角色」 */
+  topicExpertNames?: string[]
 }
 
 export default function TopicConfigTabs({
@@ -43,6 +45,7 @@ export default function TopicConfigTabs({
   initialSkillIds,
   linkedSourceArticle,
   viewportWidth,
+  topicExpertNames = [],
 }: TopicConfigTabsProps) {
   const [activeTabId, setActiveTabId] = useState<ConfigTabId>('detail')
   const [detailBody, setDetailBody] = useState(topicBody)
@@ -68,6 +71,9 @@ export default function TopicConfigTabs({
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([])
   const [selectedMcpIds, setSelectedMcpIds] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState(ROUNDTABLE_MODELS[0].value)
+  /** false=使用话题/AI 生成角色（默认），true=使用内置四角色 */
+  const [useBuiltInExperts, setUseBuiltInExperts] = useState(false)
+  const [generatingFromTopic, setGeneratingFromTopic] = useState(false)
 
   useEffect(() => {
     loadCurrentConfig()
@@ -198,12 +204,29 @@ export default function TopicConfigTabs({
     }
   }
 
+  const hasAiGeneratedExperts = topicExpertNames.some((n) => !BUILTIN_EXPERT_NAMES.includes(n as typeof BUILTIN_EXPERT_NAMES[number]))
+
+  const handleGenerateFromTopic = async () => {
+    setGeneratingFromTopic(true)
+    try {
+      await topicExpertsApi.generateFromTopic(topicId)
+      handleApiSuccess('角色已生成')
+      onExpertsChange?.()
+    } catch (err) {
+      handleApiError(err, '角色生成失败')
+    } finally {
+      setGeneratingFromTopic(false)
+    }
+  }
+
   const handleStartDiscussion = async () => {
     await handleSaveMode()
+    const expertOverride = useBuiltInExperts ? [...BUILTIN_EXPERT_NAMES] : undefined
     await onStartDiscussion?.(
       selectedModel,
       selectedSkillIds.length > 0 ? selectedSkillIds : undefined,
-      selectedMcpIds.length > 0 ? selectedMcpIds : undefined
+      selectedMcpIds.length > 0 ? selectedMcpIds : undefined,
+      expertOverride
     )
   }
 
@@ -407,6 +430,48 @@ export default function TopicConfigTabs({
       highlight: true,
       content: (
         <div className="space-y-4 overflow-auto min-h-0">
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-gray-700">参与讨论的角色</p>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="expert-source"
+                  checked={!useBuiltInExperts}
+                  onChange={() => setUseBuiltInExperts(false)}
+                  className="border-gray-300 text-black focus:ring-black"
+                />
+                <span className="text-sm">
+                  {linkedSourceArticle
+                    ? `使用话题角色（${topicExpertNames.length > 0 ? `${topicExpertNames.length} 个` : '生成中…'}）`
+                    : hasAiGeneratedExperts
+                      ? `使用 AI 生成角色（${topicExpertNames.length} 个）`
+                      : '使用 AI 生成角色'}
+                </span>
+              </label>
+              {!linkedSourceArticle && !hasAiGeneratedExperts && (
+                <button
+                  type="button"
+                  onClick={handleGenerateFromTopic}
+                  disabled={generatingFromTopic}
+                  className="self-start text-sm border border-gray-300 bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {generatingFromTopic ? '生成中…' : '根据话题生成 4 个角色'}
+                </button>
+              )}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="expert-source"
+                  checked={useBuiltInExperts}
+                  onChange={() => setUseBuiltInExperts(true)}
+                  className="border-gray-300 text-black focus:ring-black"
+                />
+                <span className="text-sm">使用内置角色（4 个：物理、生物、计算机、伦理）</span>
+              </label>
+            </div>
+            <p className="text-xs text-gray-500">二选一，不可混用</p>
+          </div>
           <div>
             <p className="text-sm text-gray-600 mb-3">
               启动前请确认：<strong>角色</strong>、<strong>讨论方式</strong>、<strong>技能</strong>等是否已配置好；也可使用默认配置。选择推理模型后即可开始。
@@ -426,13 +491,24 @@ export default function TopicConfigTabs({
             </select>
           </div>
           {onStartDiscussion && (
-            <button
-              onClick={handleStartDiscussion}
-              disabled={isStarting || isRunning}
-              className="border border-gray-300 bg-gray-100 text-gray-800 px-4 py-2 rounded-lg text-sm font-serif font-medium hover:bg-gray-200 hover:border-gray-400 transition-colors disabled:opacity-60 disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
-            >
-              {isStarting ? '启动中...' : isRunning ? '运行中...' : isCompleted ? '重新启动' : '启动讨论'}
-            </button>
+            <>
+              {!useBuiltInExperts && !hasAiGeneratedExperts && topicExpertNames.length === 0 && (
+                <p className="text-xs text-amber-600">
+                  {linkedSourceArticle ? '话题角色生成中，请稍候或选择「使用内置角色」' : '请点击「根据话题生成 4 个角色」或选择「使用内置角色」'}
+                </p>
+              )}
+              <button
+                onClick={handleStartDiscussion}
+                disabled={
+                  isStarting ||
+                  isRunning ||
+                  (!useBuiltInExperts && !hasAiGeneratedExperts && topicExpertNames.length === 0)
+                }
+                className="border border-gray-300 bg-gray-100 text-gray-800 px-4 py-2 rounded-lg text-sm font-serif font-medium hover:bg-gray-200 hover:border-gray-400 transition-colors disabled:opacity-60 disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+              >
+                {isStarting ? '启动中...' : isRunning ? '运行中...' : isCompleted ? '重新启动' : '启动讨论'}
+              </button>
+            </>
           )}
         </div>
       ),
