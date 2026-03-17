@@ -67,27 +67,28 @@ jobs:
             docker compose up -d
             docker image prune -f
 
-            # Read frontend port from .env (default 3000); trim whitespace/CRLF to avoid nginx config issues
-            FRONTEND_PORT=$(grep -E '^FRONTEND_PORT=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d ' \r' || echo 3000)
+            # Read frontend port and base path from .env; trim whitespace/CRLF
+            FRONTEND_PORT=$(grep -E '^FRONTEND_PORT=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d ' \r' || echo 3010)
+            VITE_BASE_PATH=$(grep -E '^VITE_BASE_PATH=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d ' \r' || echo '/topic-lab/')
+            # Ensure base path ends with /
+            [[ "$VITE_BASE_PATH" != */ ]] && VITE_BASE_PATH="${VITE_BASE_PATH}/"
+            # Strip trailing slash for the no-slash redirect
+            BASE_PATH_NO_SLASH="${VITE_BASE_PATH%/}"
 
-            # Write nginx snippet (location block only, included by world.tashan.chat server block).
-            # Requires VITE_BASE_PATH=/ in DEPLOY_ENV so frontend matches /api/.
+            # Write nginx snippet (location block only; included by tashan.chat server block).
+            # Routes /topic-lab/ → container. All API sub-routing is handled by the internal container nginx.
             mkdir -p /etc/nginx/snippets
             printf '%s\n' \
-              'location / {' \
-              "    proxy_pass http://127.0.0.1:${FRONTEND_PORT};" \
-              '    proxy_set_header Host $host;' \
-              '    proxy_set_header X-Real-IP $remote_addr;' \
-              '    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' \
-              '    proxy_set_header X-Forwarded-Proto $scheme;' \
+              "location = ${BASE_PATH_NO_SLASH} {" \
+              "    return 302 \$scheme://\$http_host${VITE_BASE_PATH};" \
               '}' \
-              'location /api/ {' \
-              "    proxy_pass http://127.0.0.1:${FRONTEND_PORT}/api/;" \
-              '    proxy_http_version 1.1;' \
+              "location ^~ ${VITE_BASE_PATH} {" \
+              "    proxy_pass http://127.0.0.1:${FRONTEND_PORT}${VITE_BASE_PATH};" \
               '    proxy_set_header Host $host;' \
               '    proxy_set_header X-Real-IP $remote_addr;' \
               '    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' \
               '    proxy_set_header X-Forwarded-Proto $scheme;' \
+              '    proxy_http_version 1.1;' \
               '    proxy_set_header Connection "";' \
               '    proxy_buffering off;' \
               '    proxy_cache off;' \
@@ -95,7 +96,7 @@ jobs:
               '    proxy_read_timeout 600s;' \
               '    proxy_send_timeout 600s;' \
               '}' \
-              | sudo tee /etc/nginx/snippets/world-tashan-chat.conf > /dev/null
+              | sudo tee /etc/nginx/snippets/topiclab-main.conf > /dev/null
             sudo nginx -t && sudo nginx -s reload
 
             echo "--------------------------------------------"
