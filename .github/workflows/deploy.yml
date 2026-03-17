@@ -27,8 +27,8 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: GITHUB_TOKEN,REPO,DEPLOY_ENV,SUBMODULE_TOKEN
-          timeout: 30m
-          command_timeout: 30m
+          timeout: 90m
+          command_timeout: 90m
           script: |
             set -euo pipefail
             BASE_DIR="${{ secrets.DEPLOY_PATH || '/var/www/github-actions/repos' }}"
@@ -63,7 +63,7 @@ jobs:
             fi
             echo "$DEPLOY_ENV" > .env
 
-            docker compose build --no-cache
+            docker compose build
             docker compose down
             docker compose up -d
             docker image prune -f
