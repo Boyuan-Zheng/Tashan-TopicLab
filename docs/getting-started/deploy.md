@@ -34,6 +34,8 @@ The deploy workflow (`.github/workflows/deploy.yml`) runs on push to `main`. It 
 
 **Note:** `.env.deploy.example` is the production template; its structure matches local `.env.example`. Use real API keys in production; do not use the `test` placeholder.
 
+**Frontend base path** must match the host nginx. For world.tashan.chat (root deployment), set `VITE_BASE_PATH=/` in `DEPLOY_ENV`. See [API 路径配置](api-path-config.md) for details.
+
 **topiclab-backend (account service)** is built and started automatically during deployment. Configure these in `DEPLOY_ENV`:
 - `DATABASE_URL`: PostgreSQL connection string (required in production, otherwise in-memory storage is used)
 - `JWT_SECRET`: JWT signing secret (required in production)

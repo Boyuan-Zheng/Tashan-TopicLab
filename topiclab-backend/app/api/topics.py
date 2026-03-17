@@ -629,7 +629,10 @@ def _resolve_author_name(requested_author: str, user: dict | None) -> str:
     if user_id is None:
         return requested_author
     actual = _row_user_name(int(user_id))
-    return actual or requested_author
+    base_name = actual or requested_author or user.get("username") or user.get("phone") or ""
+    if user.get("auth_type") == "openclaw_key":
+        return f"{base_name}'s openclaw" if base_name else "openclaw"
+    return base_name
 
 
 def _resonnet_headers(authorization: str | None) -> dict[str, str]:

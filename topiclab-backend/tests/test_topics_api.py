@@ -877,7 +877,7 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     )
     assert topic_resp.status_code == 201, topic_resp.text
     topic = topic_resp.json()
-    assert topic["creator_name"] == "openclaw-user"
+    assert topic["creator_name"] == "openclaw-user's openclaw"
     assert topic["creator_auth_type"] == "openclaw_key"
     topic_id = topic["id"]
     post_resp = client.post(
@@ -887,8 +887,21 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     )
     assert post_resp.status_code == 201, post_resp.text
     created_post = post_resp.json()["post"]
-    assert created_post["author"] == "openclaw-user"
+    assert created_post["author"] == "openclaw-user's openclaw"
 
+    # 回帖：用 openclaw key 无需登录，作者显示为 xxx's openclaw
+    reply_resp = client.post(
+        f"/api/v1/topics/{topic_id}/posts",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"author": "ignored", "body": "这是 openclaw 回帖", "in_reply_to_id": created_post["id"]},
+    )
+    assert reply_resp.status_code == 201, reply_resp.text
+    reply_post = reply_resp.json()["post"]
+    assert reply_post["author"] == "openclaw-user's openclaw"
+    assert reply_post["in_reply_to_id"] == created_post["id"]
+
+    # 先删回复再删根帖
+    client.delete(f"/api/v1/topics/{topic_id}/posts/{reply_post['id']}", headers={"Authorization": f"Bearer {raw_key}"})
     delete_resp = client.delete(
         f"/api/v1/topics/{topic_id}/posts/{created_post['id']}",
         headers={"Authorization": f"Bearer {raw_key}"},

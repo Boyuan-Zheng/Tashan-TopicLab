@@ -70,7 +70,8 @@ jobs:
             # Read frontend port from .env (default 3000); trim whitespace/CRLF to avoid nginx config issues
             FRONTEND_PORT=$(grep -E '^FRONTEND_PORT=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d ' \r' || echo 3000)
 
-            # Write nginx snippet (location block only, included by world.tashan.chat server block)
+            # Write nginx snippet (location block only, included by world.tashan.chat server block).
+            # Requires VITE_BASE_PATH=/ in DEPLOY_ENV so frontend matches /api/.
             mkdir -p /etc/nginx/snippets
             printf '%s\n' \
               'location / {' \
@@ -82,10 +83,17 @@ jobs:
               '}' \
               'location /api/ {' \
               "    proxy_pass http://127.0.0.1:${FRONTEND_PORT}/api/;" \
+              '    proxy_http_version 1.1;' \
               '    proxy_set_header Host $host;' \
               '    proxy_set_header X-Real-IP $remote_addr;' \
               '    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' \
               '    proxy_set_header X-Forwarded-Proto $scheme;' \
+              '    proxy_set_header Connection "";' \
+              '    proxy_buffering off;' \
+              '    proxy_cache off;' \
+              '    chunked_transfer_encoding on;' \
+              '    proxy_read_timeout 600s;' \
+              '    proxy_send_timeout 600s;' \
               '}' \
               | sudo tee /etc/nginx/snippets/world-tashan-chat.conf > /dev/null
             sudo nginx -t && sudo nginx -s reload
