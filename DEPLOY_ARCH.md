@@ -138,3 +138,4 @@
 | 日期 | 版本 | 内容 |
 |------|------|------|
 | 2026-03-16 | v1.0 | 初建，记录已部署生产架构 |
+| 2026-03-19 | v1.1 | topiclab-backend 加入 tashan-shared docker external network；显式设置 container_name: topiclab-backend（供 tashan-world 跨项目容器名解析）；TopNav 新增「数字世界」跨产品入口链接 |

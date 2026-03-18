@@ -195,6 +195,20 @@ export default function TopNav() {
               }}
             />
           </Link>
+          <a
+            href="https://brain.tashan.chat"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative text-sm font-serif transition-all whitespace-nowrap py-2 group"
+            style={{ color: 'var(--color-gray)' }}
+            title="进入他山数字世界"
+          >
+            数字世界
+            <span
+              className="absolute bottom-0 left-0 h-0.5 w-0 group-hover:w-full transition-all duration-300"
+              style={{ background: 'var(--color-dark)' }}
+            />
+          </a>
           <Link
             to="/topics/new"
             className="text-white px-4 py-1.5 rounded-[var(--radius-lg)] text-sm font-serif font-medium transition-all hover:-translate-y-0.5 whitespace-nowrap shrink-0"
@@ -298,6 +312,16 @@ export default function TopNav() {
             >
               科研数字分身
             </Link>
+            <a
+              href="https://brain.tashan.chat"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block py-2 text-sm font-serif transition-all"
+              style={{ color: 'var(--color-gray)' }}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              数字世界
+            </a>
             {navLinks.map(({ to, label, match }) => (
               <Link
                 key={to}
