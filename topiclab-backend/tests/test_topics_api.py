@@ -358,6 +358,80 @@ def test_source_feed_articles_list_uses_short_ttl_cache(client, monkeypatch):
     source_feed_module._source_feed_list_cache.clear()
 
 
+def test_source_feed_articles_forwards_source_type_query_to_upstream(client, monkeypatch):
+    import app.api.source_feed as source_feed_module
+
+    seen_params: list[dict | None] = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "data": {
+                    "list": [
+                        {
+                            "id": 42,
+                            "title": "微信 RSS 文章",
+                            "source_feed_name": "测试号",
+                            "source_type": "we-mp-rss",
+                            "url": "https://example.com/wx",
+                            "pic_url": None,
+                            "description": "",
+                            "publish_time": "2026-03-14 10:00:00",
+                            "created_at": "2026-03-14T10:00:00+00:00",
+                        }
+                    ],
+                    "limit": 5,
+                    "offset": 0,
+                }
+            }
+
+    class FakeHttpClient:
+        async def get(self, url, params=None, timeout=6.0):
+            seen_params.append(dict(params) if params else None)
+            return FakeResponse()
+
+    monkeypatch.setenv("SOURCE_FEED_LIST_CACHE_TTL_SECONDS", "0")
+    source_feed_module._source_feed_list_cache.clear()
+    monkeypatch.setattr(source_feed_module, "get_shared_async_client", lambda _: FakeHttpClient())
+
+    resp = client.get("/source-feed/articles?limit=5&offset=0&source_type=we-mp-rss")
+    assert resp.status_code == 200, resp.text
+    assert seen_params and seen_params[0] is not None
+    assert seen_params[0].get("source_type") == "we-mp-rss"
+    assert seen_params[0].get("limit") == 5
+    assert seen_params[0].get("offset") == 0
+
+
+def test_source_feed_articles_forwards_gqy_source_type_to_upstream(client, monkeypatch):
+    import app.api.source_feed as source_feed_module
+
+    seen_params: list[dict | None] = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"data": {"list": [], "limit": 5, "offset": 0}}
+
+    class FakeHttpClient:
+        async def get(self, url, params=None, timeout=6.0):
+            seen_params.append(dict(params) if params else None)
+            return FakeResponse()
+
+    monkeypatch.setenv("SOURCE_FEED_LIST_CACHE_TTL_SECONDS", "0")
+    source_feed_module._source_feed_list_cache.clear()
+    monkeypatch.setattr(source_feed_module, "get_shared_async_client", lambda _: FakeHttpClient())
+
+    resp = client.get("/source-feed/articles?limit=5&offset=0&source_type=gqy")
+    assert resp.status_code == 200, resp.text
+    assert seen_params and seen_params[0] is not None
+    assert seen_params[0].get("source_type") == "gqy"
+
+
 def test_discussion_and_mention_complete_via_executor(client):
     topic = client.post("/topics", json={"title": "执行测试", "body": "验证异步任务"}).json()
     topic_id = topic["id"]

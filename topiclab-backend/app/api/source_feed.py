@@ -47,7 +47,7 @@ _ALLOWED_IMAGE_HOSTS = {
 }
 _DEFAULT_SOURCE_FEED_LIST_CACHE_TTL_SECONDS = 30.0
 _MAX_SOURCE_FEED_LIST_CACHE_ENTRIES = 256
-_source_feed_list_cache: dict[tuple[int, int], tuple[float, dict[str, Any]]] = {}
+_source_feed_list_cache: dict[tuple[int, int, str], tuple[float, dict[str, Any]]] = {}
 
 
 class SourceFeedWorkspaceHydrateRequest(BaseModel):
@@ -205,10 +205,12 @@ def _validate_image_url(url: str) -> str:
 async def get_source_feed_articles(
     limit: int = Query(default=8, ge=1, le=20),
     offset: int = Query(default=0, ge=0),
+    source_type: str = Query(default=""),
     user: dict | None = Depends(_get_optional_user),
 ):
     cache_ttl = _get_source_feed_list_cache_ttl_seconds()
-    cache_key = (limit, offset)
+    source_type_key = source_type.strip()
+    cache_key = (limit, offset, source_type_key)
     page_payload: dict[str, Any] | None = None
     now = time.monotonic()
     if cache_ttl > 0:
@@ -218,9 +220,12 @@ async def get_source_feed_articles(
 
     if page_payload is None:
         upstream_url = f"{_get_information_collection_base_url()}/api/v1/articles"
+        upstream_params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if source_type_key:
+            upstream_params["source_type"] = source_type_key
         try:
             client = get_shared_async_client("source-feed")
-            response = await client.get(upstream_url, params={"limit": limit, "offset": offset}, timeout=6.0)
+            response = await client.get(upstream_url, params=upstream_params, timeout=6.0)
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail="上游信源服务请求失败") from exc

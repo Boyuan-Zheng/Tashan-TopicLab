@@ -36,12 +36,14 @@ This document lists only the **query (read)** endpoints available for the **Lite
 
 ### 2.3 GET /api/v1/literature/recent
 
-- **Purpose**: Paginated recent view list (source for the Academic tab).
+- **Purpose**: Paginated recent view list (compact “recent” view for literature clients).
 - **Query params**: `limit`, `offset`, `category` (match compact_category), `tag` (match in tags), `published_day_from`, `published_day_to`
 - **Sort**: `published_day DESC`, `paper_id DESC`
 - **Response**: Paginated list in recent compact format.
 
 The frontend accesses this via topiclab-backend proxy; see [config.md](config.md) (Literature section).
+
+**Note**: The in-app **Source feed → Academic** sub-tab does **not** use this endpoint; it uses the same article-list bridge as **Source feed → Media** (`GET /source-feed/articles` with `source_type=gqy`). Upstream `gqy` mixes arXiv RSS entries with other feeds: arXiv papers use normal paper titles (not `arXiv`-prefixed). The UI keeps only **arXiv-linked** rows: `url` contains `arxiv.org/abs/` or `arxiv.org/pdf/`, or `source_feed_name` lowercased is `arxiv` or starts with `arxiv ` (e.g. `arXiv cs.AI`).
 
 ### 2.4 GET /api/v1/literature/topic-runs
 

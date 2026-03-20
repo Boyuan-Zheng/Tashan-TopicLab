@@ -93,16 +93,18 @@ SOURCE_FEED_LIST_CACHE_TTL_SECONDS=30
 - `SOURCE_FEED_LIST_CACHE_TTL_SECONDS`: controls in-process short TTL cache for source-feed list pages (`limit + offset` key).  
 - Set to `0` to disable cache.
 
-### 9. Literature (Academic) Tab (Backend Proxy)
+### 9. Literature API vs Source Feed “Academic” Tab
 
-The "Academic" sub-tab under the Source Feed page uses the same upstream as the "Media" sub-tab: **topiclab-backend** proxies to **IC (INFORMATION_COLLECTION_BASE_URL)** at `GET /api/v1/literature/recent`.
+The **Source feed → Academic** sub-tab uses the **same article list proxy** as **Media**: `GET /source-feed/articles` with `source_type=gqy` (IC `GET /api/v1/articles`). The UI filters to arXiv-linked rows (see [academic-literature-api-overview.md](../api/academic-literature-api-overview.md) §2.3 note).
 
-- Use the same `INFORMATION_COLLECTION_BASE_URL` as the source feed (e.g. `http://ic.nexus.tashan.ac.cn`); no separate frontend direct connection is needed.
-- If the IC literature API requires the `x-ingest-token` header, configure it in the **topiclab-backend** environment:
+**Literature** endpoints (`GET /api/v1/literature/*`, including `recent`) are separate; other features or agents may still use them via **topiclab-backend** with:
+
+- The same `INFORMATION_COLLECTION_BASE_URL` as the source feed (e.g. `http://ic.nexus.tashan.ac.cn`).
+- If IC requires `x-ingest-token` for literature routes, set in **topiclab-backend**:
   ```bash
   LITERATURE_SHARED_TOKEN=your_token
   ```
-  If unset, the proxy sends no header; if IC enforces the token, the request may return 401.
+  If unset, the proxy sends no header; if IC enforces the token, those requests may return 401.
 
 ### 10. AMiner Open Platform Proxy (Free-Tier API)
 

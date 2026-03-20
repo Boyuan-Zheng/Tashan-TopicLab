@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import {
-  literatureApi,
-  LiteratureRecentItem,
-  sourceFeedApi,
-  SourceFeedArticle,
-} from '../api/client'
+import { sourceFeedApi, SourceFeedArticle } from '../api/client'
 import { tokenManager, User } from '../api/auth'
-import LiteratureCard from '../components/LiteratureCard'
 import SourceArticleCard from '../components/SourceArticleCard'
 import { handleApiError } from '../utils/errorHandler'
 import { toast } from '../utils/toast'
@@ -33,6 +27,19 @@ const SOURCE_FEED_SECTIONS = [
   { id: 'source' as const, label: '媒体' },
   { id: 'academic' as const, label: '学术' },
 ]
+
+/** 媒体页仅展示微信公众号 RSS 入库信源（与上游 IC articles 筛选一致） */
+const MEDIA_SOURCE_TYPE_FILTER = 'we-mp-rss'
+/** 学术页信源类型（与上游 IC articles 筛选一致）；gqy 流内混有非 arXiv RSS，再按链接/来源名筛 arXiv */
+const ACADEMIC_SOURCE_TYPE_FILTER = 'gqy'
+
+/** 与 IC 返回一致：论文 title 多为正文，arXiv 靠 url 或 source_feed_name（如 arXiv cs.AI）识别 */
+function isArxivLinkedArticle(article: Pick<SourceFeedArticle, 'url' | 'source_feed_name'>) {
+  const u = article.url.trim().toLowerCase()
+  if (u.includes('arxiv.org/abs/') || u.includes('arxiv.org/pdf/')) return true
+  const name = article.source_feed_name.trim().toLowerCase()
+  return name.startsWith('arxiv ') || name === 'arxiv'
+}
 
 function dedupeArticles(items: SourceFeedArticle[]) {
   const seen = new Set<number>()
@@ -71,11 +78,6 @@ function splitIntoColumns<T>(items: T[], columnCount: number): T[][] {
   return columns
 }
 
-function getArxivUrl(paperId: string): string {
-  const base = paperId.replace(/v\d+$/i, '')
-  return `https://arxiv.org/abs/${base}`
-}
-
 type SourceFeedSectionId = (typeof SOURCE_FEED_SECTIONS)[number]['id']
 
 function isSourceFeedSectionId(value: string | undefined): value is SourceFeedSectionId {
@@ -91,13 +93,13 @@ export default function SourceFeedPage() {
   }
 
   const [articles, setArticles] = useState<SourceFeedArticle[]>([])
-  const [literatureItems, setLiteratureItems] = useState<LiteratureRecentItem[]>([])
+  const [academicArticles, setAcademicArticles] = useState<SourceFeedArticle[]>([])
   const [loading, setLoading] = useState(true)
-  const [literatureLoading, setLiteratureLoading] = useState(false)
+  const [academicLoading, setAcademicLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [literatureLoadingMore, setLiteratureLoadingMore] = useState(false)
+  const [academicLoadingMore, setAcademicLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const [literatureHasMore, setLiteratureHasMore] = useState(true)
+  const [academicHasMore, setAcademicHasMore] = useState(true)
   const [query, setQuery] = useState('')
   const [searchValue, setSearchValue] = useState('')
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
@@ -108,9 +110,9 @@ export default function SourceFeedPage() {
   const loadingMoreRef = useRef(false)
   const hasMoreRef = useRef(true)
   const pageRef = useRef(0)
-  const literatureOffsetRef = useRef(0)
-  const literatureLoadingMoreRef = useRef(false)
-  const literatureHasMoreRef = useRef(true)
+  const academicPageRef = useRef(0)
+  const academicLoadingMoreRef = useRef(false)
+  const academicHasMoreRef = useRef(true)
 
   const activeSection = SOURCE_FEED_SECTIONS.find((s) => s.id === section) ?? SOURCE_FEED_SECTIONS[0]
 
@@ -121,32 +123,7 @@ export default function SourceFeedPage() {
 
   useEffect(() => {
     if (section !== 'academic') return
-    let cancelled = false
-    const load = async () => {
-      setLiteratureLoading(true)
-      literatureOffsetRef.current = 0
-      try {
-        const res = await literatureApi.recent({ limit: PAGE_SIZE, offset: 0 })
-        if (cancelled) return
-        setLiteratureItems(res.data.list)
-        const nextHasMore = res.data.list.length === PAGE_SIZE
-        setLiteratureHasMore(nextHasMore)
-        literatureHasMoreRef.current = nextHasMore
-        literatureOffsetRef.current = res.data.list.length
-      } catch {
-        if (!cancelled) {
-          setLiteratureItems([])
-          setLiteratureHasMore(false)
-          literatureHasMoreRef.current = false
-        }
-      } finally {
-        if (!cancelled) setLiteratureLoading(false)
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
+    void loadAcademicFirstPage()
   }, [section])
 
   useEffect(() => {
@@ -177,8 +154,8 @@ export default function SourceFeedPage() {
       if (section === 'source' && !loadingMoreRef.current && hasMoreRef.current) {
         void loadMore()
       }
-      if (section === 'academic' && !literatureLoadingMoreRef.current && literatureHasMoreRef.current) {
-        void loadMoreLiterature()
+      if (section === 'academic' && !academicLoadingMoreRef.current && academicHasMoreRef.current) {
+        void loadMoreAcademic()
       }
     }
     window.addEventListener('scroll', onScroll, { passive: true })
@@ -193,16 +170,20 @@ export default function SourceFeedPage() {
   }, [section, articles.length, hasMore, loading, loadingMore])
 
   useEffect(() => {
-    if (section !== 'academic' || literatureLoading || literatureLoadingMore || !literatureHasMore || literatureItems.length === 0) return
+    if (section !== 'academic' || academicLoading || academicLoadingMore || !academicHasMore || academicArticles.length === 0) return
     if (document.documentElement.scrollHeight <= window.innerHeight + 160) {
-      void loadMoreLiterature()
+      void loadMoreAcademic()
     }
-  }, [section, literatureItems.length, literatureHasMore, literatureLoading, literatureLoadingMore])
+  }, [section, academicArticles.length, academicHasMore, academicLoading, academicLoadingMore])
 
   const loadFirstPage = async () => {
     setLoading(true)
     try {
-      const res = await sourceFeedApi.list({ limit: PAGE_SIZE, offset: 0 })
+      const res = await sourceFeedApi.list({
+        limit: PAGE_SIZE,
+        offset: 0,
+        source_type: MEDIA_SOURCE_TYPE_FILTER,
+      })
       const nextList = dedupeArticles(res.data.list)
       setArticles(nextList)
       pageRef.current = 1
@@ -223,7 +204,11 @@ export default function SourceFeedPage() {
     setLoadingMore(true)
     try {
       const offset = pageRef.current * PAGE_SIZE
-      const res = await sourceFeedApi.list({ limit: PAGE_SIZE, offset })
+      const res = await sourceFeedApi.list({
+        limit: PAGE_SIZE,
+        offset,
+        source_type: MEDIA_SOURCE_TYPE_FILTER,
+      })
       const nextPage = res.data.list
       setArticles((prev) => dedupeArticles([...prev, ...nextPage]))
       pageRef.current += 1
@@ -239,23 +224,51 @@ export default function SourceFeedPage() {
     }
   }
 
-  const loadMoreLiterature = async () => {
-    literatureLoadingMoreRef.current = true
-    setLiteratureLoadingMore(true)
+  const loadAcademicFirstPage = async () => {
+    setAcademicLoading(true)
     try {
-      const offset = literatureOffsetRef.current
-      const res = await literatureApi.recent({ limit: PAGE_SIZE, offset })
-      setLiteratureItems((prev) => [...prev, ...res.data.list])
-      literatureOffsetRef.current = offset + res.data.list.length
+      const res = await sourceFeedApi.list({
+        limit: PAGE_SIZE,
+        offset: 0,
+        source_type: ACADEMIC_SOURCE_TYPE_FILTER,
+      })
+      const nextList = dedupeArticles(res.data.list.filter((a) => isArxivLinkedArticle(a)))
+      setAcademicArticles(nextList)
+      academicPageRef.current = 1
       const nextHasMore = res.data.list.length === PAGE_SIZE
-      setLiteratureHasMore(nextHasMore)
-      literatureHasMoreRef.current = nextHasMore
+      setAcademicHasMore(nextHasMore)
+      academicHasMoreRef.current = nextHasMore
     } catch {
-      setLiteratureHasMore(false)
-      literatureHasMoreRef.current = false
+      setAcademicArticles([])
+      setAcademicHasMore(false)
+      academicHasMoreRef.current = false
     } finally {
-      literatureLoadingMoreRef.current = false
-      setLiteratureLoadingMore(false)
+      setAcademicLoading(false)
+    }
+  }
+
+  const loadMoreAcademic = async () => {
+    academicLoadingMoreRef.current = true
+    setAcademicLoadingMore(true)
+    try {
+      const offset = academicPageRef.current * PAGE_SIZE
+      const res = await sourceFeedApi.list({
+        limit: PAGE_SIZE,
+        offset,
+        source_type: ACADEMIC_SOURCE_TYPE_FILTER,
+      })
+      const nextPage = res.data.list.filter((a) => isArxivLinkedArticle(a))
+      setAcademicArticles((prev) => dedupeArticles([...prev, ...nextPage]))
+      academicPageRef.current += 1
+      const nextHasMore = res.data.list.length === PAGE_SIZE
+      setAcademicHasMore(nextHasMore)
+      academicHasMoreRef.current = nextHasMore
+    } catch {
+      setAcademicHasMore(false)
+      academicHasMoreRef.current = false
+    } finally {
+      academicLoadingMoreRef.current = false
+      setAcademicLoadingMore(false)
     }
   }
 
@@ -265,16 +278,16 @@ export default function SourceFeedPage() {
     return haystack.includes(query.trim().toLowerCase())
   })
 
-  const filteredLiteratureItems = literatureItems.filter((item) => {
+  const filteredAcademicArticles = academicArticles.filter((article) => {
     if (!query.trim()) return true
-    const haystack = `${item.title} ${(item.authors ?? []).join(' ')} ${item.compact_category}`.toLowerCase()
+    const haystack = `${article.title} ${article.source_feed_name} ${article.description}`.toLowerCase()
     return haystack.includes(query.trim().toLowerCase())
   })
 
   const columnCount = getColumnCount(viewportWidth)
   const columnWidth = getColumnWidth(viewportWidth, columnCount)
   const articleColumns = splitIntoColumns(filteredArticles, columnCount)
-  const literatureColumns = splitIntoColumns(filteredLiteratureItems, columnCount)
+  const academicColumns = splitIntoColumns(filteredAcademicArticles, columnCount)
 
   const requireCurrentUser = useCallback(() => {
     if (currentUser) return true
@@ -295,8 +308,14 @@ export default function SourceFeedPage() {
   }), [])
 
   const updateArticleInteraction = useCallback((articleId: number, interaction: SourceFeedArticle['interaction']) => {
-    setArticles((prev) => prev.map((item) => (item.id === articleId ? { ...item, interaction } : item)))
-  }, [])
+    const patch = (prev: SourceFeedArticle[]) =>
+      prev.map((item) => (item.id === articleId ? { ...item, interaction } : item))
+    if (section === 'academic') {
+      setAcademicArticles(patch)
+    } else {
+      setArticles(patch)
+    }
+  }, [section])
 
   const handleLike = useCallback(async (article: SourceFeedArticle) => {
     if (!requireCurrentUser()) return
@@ -390,15 +409,6 @@ export default function SourceFeedPage() {
   const throttledShare = useThrottledCallbackByKey(handleShare, (a) => a.id)
   const throttledReply = useThrottledCallbackByKey(handleReply, (a) => a.id)
 
-  const handleLiteratureShare = (item: LiteratureRecentItem) => {
-    const url = getArxivUrl(item.paper_id)
-    const text = item.title ? `${item.title}\n${url}` : url
-    navigator.clipboard.writeText(text).then(
-      () => toast.success('论文链接已复制'),
-      () => toast.error('复制链接失败'),
-    )
-  }
-
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 sm:py-6">
@@ -440,7 +450,7 @@ export default function SourceFeedPage() {
                 <input
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
-                  placeholder={section === 'academic' ? '搜索标题或作者' : '搜索标题或来源'}
+                  placeholder="搜索标题或来源"
                   aria-label="搜索"
                   className="w-full rounded-full border border-gray-200 py-2 pl-4 pr-16 text-sm font-serif text-gray-700 outline-none transition-colors focus:border-[var(--color-dark)]"
                 />
@@ -517,9 +527,29 @@ export default function SourceFeedPage() {
                 <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-4 sm:px-5 sm:py-5">
                   <h2 className="font-serif text-base font-semibold text-gray-900 sm:text-lg">学术板块能做什么</h2>
                   <ul className="mt-3 list-none space-y-2 font-serif text-sm text-gray-700 sm:text-base [&>li]:flex [&>li]:items-start [&>li]:gap-2 [&>li]:before:mt-1.5 [&>li]:before:shrink-0 [&>li]:before:content-['·'] [&>li]:before:font-bold [&>li]:before:text-gray-400">
-                    <li><strong>近期论文浏览</strong>：瀑布流展示最新论文，支持按分类、标签、日期筛选；本页内可搜索标题或作者；一键复制 arXiv 链接，分页加载更多。适合快速把握领域新趋势。</li>
-                    <li><strong>基于论文开题与讨论</strong>：选定某篇论文或研究方向后，在 TopicLab 创建话题、注入材料、启动多专家讨论，与从信源文章开题共用同一套讨论流程。</li>
-                    <li><strong>多维学术检索</strong>：除近期流外，平台支持论文关键词检索，以及学者、机构、期刊、专利等检索与批量论文详情；可通过智能体（OpenClaw）或后续产品化功能使用。</li>
+                    <li>
+                      <span className="min-w-0">
+                        <strong>arXiv 论文流</strong>：与「媒体」相同走信源列表接口，按{' '}
+                        <code className="whitespace-nowrap rounded bg-white/80 px-1">source_type=gqy</code>{' '}
+                        拉取；上游论文标题多为正文，本站仅保留链接指向 arXiv（
+                        <code className="whitespace-nowrap rounded bg-white/80 px-1">arxiv.org/abs</code>{' '}
+                        或 <code className="whitespace-nowrap rounded bg-white/80 px-1">/pdf/</code>
+                        ）或来源名为 <code className="whitespace-nowrap rounded bg-white/80 px-1">arXiv …</code>{' '}
+                        的条目。支持搜索、点赞收藏与从信源开题，滚动加载更多。
+                      </span>
+                    </li>
+                    <li>
+                      <span className="min-w-0">
+                        <strong>基于论文开题与讨论</strong>
+                        ：选定某篇论文或研究方向后，在 TopicLab 创建话题、注入材料、启动多专家讨论，与从信源文章开题共用同一套讨论流程。
+                      </span>
+                    </li>
+                    <li>
+                      <span className="min-w-0">
+                        <strong>多维学术检索</strong>
+                        ：除本页 arXiv 流外，平台支持论文关键词检索，以及学者、机构、期刊、专利等检索与批量论文详情；可通过智能体（OpenClaw）或后续产品化功能使用。
+                      </span>
+                    </li>
                   </ul>
                   <div className="mt-4 rounded-xl bg-amber-50/80 px-3 py-2.5 sm:px-4">
                     <p className="font-serif text-sm font-medium text-amber-900">
@@ -527,12 +557,12 @@ export default function SourceFeedPage() {
                     </p>
                   </div>
                 </div>
-                {literatureLoading && <p className="font-serif text-gray-500">加载中...</p>}
-                {!literatureLoading && literatureItems.length === 0 && <p className="font-serif text-gray-500">暂无论文</p>}
-                {!literatureLoading && literatureItems.length > 0 && filteredLiteratureItems.length === 0 && <p className="font-serif text-gray-500">没有匹配结果</p>}
-                {filteredLiteratureItems.length > 0 && (
+                {academicLoading && <p className="font-serif text-gray-500">加载中...</p>}
+                {!academicLoading && academicArticles.length === 0 && <p className="font-serif text-gray-500">暂无 arXiv 链接类条目</p>}
+                {!academicLoading && academicArticles.length > 0 && filteredAcademicArticles.length === 0 && <p className="font-serif text-gray-500">没有匹配结果</p>}
+                {filteredAcademicArticles.length > 0 && (
                   <div
-                    data-testid="literature-feed-grid"
+                    data-testid="academic-feed-grid"
                     className="grid items-start gap-3"
                     style={{
                       gridTemplateColumns: `repeat(${columnCount}, ${columnWidth}px)`,
@@ -540,17 +570,27 @@ export default function SourceFeedPage() {
                       justifyContent: 'center',
                     }}
                   >
-                    {literatureColumns.map((column, columnIndex) => (
+                    {academicColumns.map((column, columnIndex) => (
                       <div key={columnIndex} className="flex flex-col gap-3">
-                        {column.map((item) => (
-                          <LiteratureCard key={item.paper_id} item={item} onShare={handleLiteratureShare} />
+                        {column.map((article) => (
+                          <SourceArticleCard
+                            key={article.id}
+                            article={article}
+                            onLike={throttledLike}
+                            onFavorite={throttledFavorite}
+                            onShare={throttledShare}
+                            onReply={throttledReply}
+                            likePending={pendingLikeIds.has(article.id)}
+                            favoritePending={pendingFavoriteIds.has(article.id)}
+                            replyPending={pendingReplyIds.has(article.id)}
+                          />
                         ))}
                       </div>
                     ))}
                   </div>
                 )}
-                {literatureLoadingMore && <div className="py-6 text-center text-sm font-serif text-gray-500">加载更多中...</div>}
-                {!literatureHasMore && literatureItems.length > 0 && <div className="py-6 text-center text-sm font-serif text-gray-400">已加载全部内容</div>}
+                {academicLoadingMore && <div className="py-6 text-center text-sm font-serif text-gray-500">加载更多中...</div>}
+                {!academicHasMore && academicArticles.length > 0 && <div className="py-6 text-center text-sm font-serif text-gray-400">已加载全部内容</div>}
               </>
             )}
       </div>

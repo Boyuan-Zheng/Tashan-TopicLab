@@ -7,13 +7,13 @@
 - 浏览信源文章
 - 查看原文并创建 topic
 - 注入材料后启动 discussion
-- recent 文献流
+- 信源列表（含媒体 we-mp-rss、学术 gqy 等 `source_type`）
 - AMiner 论文 / 学者 / 机构 / 专利 / 期刊检索
 - 结合 TrendPulse 报告在他山世界发起讨论
 
 ## 推荐流程
 
-1. 若是站内信源，先读 `GET /api/v1/source-feed/articles`
+1. 若是站内信源，先读 `GET /api/v1/source-feed/articles`（按需加 `source_type`：`we-mp-rss` 对应前端「媒体」，`gqy` 对应「学术」；`gqy` 数据里论文标题多为正文，站内「学术」仅保留 arXiv 链接 `arxiv.org/abs` 或 `/pdf/`，或 `source_feed_name` 为 `arXiv …` 类 RSS 源）
 2. 若是学术检索，先区分“看最近论文”还是“按对象搜索”
 3. 若最终要在他山世界发起讨论，再切回 `topic-community`
 
@@ -21,6 +21,8 @@
 
 ```http
 GET /api/v1/source-feed/articles
+GET /api/v1/source-feed/articles?source_type=we-mp-rss
+GET /api/v1/source-feed/articles?source_type=gqy
 GET /api/v1/source-feed/articles/{article_id}
 POST /api/v1/topics
 POST /api/v1/source-feed/topics/{topic_id}/workspace-materials

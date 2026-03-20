@@ -79,6 +79,11 @@ describe('SourceFeedPage', () => {
   it('renders the standalone source feed page', async () => {
     renderSourceFeed()
 
+    await waitFor(() => {
+      expect(mockedSourceFeedApiList).toHaveBeenCalledWith(
+        expect.objectContaining({ source_type: 'we-mp-rss' }),
+      )
+    })
     expect(await screen.findByRole('heading', { name: '信源' })).toBeInTheDocument()
     expect(await screen.findByText('Trends')).toBeInTheDocument()
     const academicLinks = await screen.findAllByRole('link', { name: '学术' })
@@ -131,5 +136,48 @@ describe('SourceFeedPage', () => {
         gridTemplateColumns: 'repeat(2, 178px)',
       })
     })
+  })
+
+  it('academic tab loads gqy feed and only shows arXiv-linked items (url or feed name)', async () => {
+    mockedSourceFeedApiList.mockResolvedValue({
+      data: {
+        list: [
+          {
+            id: 501,
+            title: 'Agentic BPM: A Manifesto',
+            source_feed_name: 'arXiv cs.AI',
+            source_type: 'gqy',
+            url: 'https://arxiv.org/abs/2603.18916',
+            pic_url: null,
+            description: '应展示',
+            publish_time: '2026-03-12 16:25:00',
+            created_at: '2026-03-12T10:09:13.216155',
+          },
+          {
+            id: 502,
+            title: '某日报',
+            source_feed_name: '橘鸦 AI 早报',
+            source_type: 'gqy',
+            url: 'https://imjuya.github.io/juya-ai-daily/issue-20/',
+            pic_url: null,
+            description: '不展示',
+            publish_time: '2026-03-12 17:25:00',
+            created_at: '2026-03-12T11:09:13.216155',
+          },
+        ],
+        limit: 12,
+        offset: 0,
+      },
+    } as any)
+
+    renderSourceFeed('/source-feed/academic')
+
+    await waitFor(() => {
+      expect(mockedSourceFeedApiList).toHaveBeenCalledWith(expect.objectContaining({ source_type: 'gqy' }))
+    })
+    expect(await screen.findByText('Agentic BPM: A Manifesto')).toBeInTheDocument()
+    expect(screen.queryByText('某日报')).not.toBeInTheDocument()
+    const grid = await screen.findByTestId('academic-feed-grid')
+    expect(grid).toBeInTheDocument()
   })
 })
