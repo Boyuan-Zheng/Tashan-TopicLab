@@ -1,5 +1,6 @@
-/** Profile helper API: session, profile, chat stream, download URLs */
+/** Profile helper API: session, profile, chat stream, download URLs, scientist match */
 import { profileHelperApi } from '../../api/client'
+import type { FamousMatchResult, FieldRecommendation } from './types'
 
 const API_BASE = `${import.meta.env.BASE_URL}api`
 
@@ -106,6 +107,25 @@ export async function submitScale(
     }),
   })
   if (!res.ok) throw new Error(`提交失败: ${res.status}`)
+}
+
+export async function getFamousMatches(sessionId: string): Promise<FamousMatchResult> {
+  const res = await fetch(
+    `${API_BASE}/profile-helper/profile/${encodeURIComponent(sessionId)}/scientists/famous`,
+    { headers: getAuthFetchHeaders() }
+  )
+  if (!res.ok) throw new Error(`获取匹配失败: ${res.status}`)
+  return res.json()
+}
+
+export async function getFieldRecommendations(sessionId: string): Promise<FieldRecommendation[]> {
+  const res = await fetch(
+    `${API_BASE}/profile-helper/profile/${encodeURIComponent(sessionId)}/scientists/field`,
+    { headers: getAuthFetchHeaders() }
+  )
+  if (!res.ok) throw new Error(`获取推荐失败: ${res.status}`)
+  const data = await res.json()
+  return Array.isArray(data.recommendations) ? data.recommendations : []
 }
 
 export interface PublishTwinPayload {
