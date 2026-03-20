@@ -455,12 +455,15 @@ export const topicsApi = {
 }
 
 export const sourceFeedApi = {
-  list: (params?: { limit?: number; offset?: number; source_type?: string }) => {
+  list: (params?: { limit?: number; offset?: number; source_type?: string; source_feed_name?: string }) => {
     const searchParams = new URLSearchParams()
     if (params?.limit != null) searchParams.set('limit', String(params.limit))
     if (params?.offset != null) searchParams.set('offset', String(params.offset))
     if (params?.source_type != null && params.source_type !== '') {
       searchParams.set('source_type', params.source_type)
+    }
+    if (params?.source_feed_name != null && params.source_feed_name !== '') {
+      searchParams.set('source_feed_name', params.source_feed_name)
     }
     const qs = searchParams.toString()
     return api.get<SourceFeedListResponse>(`/source-feed/articles${qs ? `?${qs}` : ''}`)

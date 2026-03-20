@@ -138,31 +138,90 @@ describe('SourceFeedPage', () => {
     })
   })
 
-  it('academic tab loads gqy feed and only shows arXiv-linked items (url or feed name)', async () => {
+  it('academic tab scans gqy until it finds arXiv partition rows (IC ignores source_feed_name)', async () => {
+    const blogRow = (id: number) => ({
+      id,
+      title: `Blog ${id}`,
+      source_feed_name: 'Eugene Yan Blog',
+      source_type: 'gqy',
+      url: 'https://eugeneyan.com/writing/x',
+      pic_url: null,
+      description: '',
+      publish_time: '2026-03-12 16:25:00',
+      created_at: '2026-03-12T10:09:13.216155',
+    })
+    mockedSourceFeedApiList.mockImplementation(async (params) => {
+      const off = params?.offset ?? 0
+      if (off === 0) {
+        return {
+          data: {
+            list: Array.from({ length: 12 }, (_, i) => blogRow(200 + i)),
+            limit: 12,
+            offset: 0,
+          },
+        } as any
+      }
+      if (off === 12) {
+        return {
+          data: {
+            list: [
+              {
+                id: 501,
+                title: 'Agentic BPM: A Manifesto',
+                source_feed_name: 'arXiv cs.AI',
+                source_type: 'gqy',
+                url: 'https://arxiv.org/abs/2603.18916',
+                pic_url: null,
+                description: '',
+                publish_time: '2026-03-12 17:25:00',
+                created_at: '2026-03-12T11:09:13.216155',
+              },
+              ...Array.from({ length: 11 }, (_, i) => blogRow(300 + i)),
+            ],
+            limit: 12,
+            offset: 12,
+          },
+        } as any
+      }
+      return { data: { list: [], limit: 12, offset: off } } as any
+    })
+
+    renderSourceFeed('/source-feed/academic')
+
+    await waitFor(() => {
+      expect(mockedSourceFeedApiList).toHaveBeenCalledTimes(3)
+    })
+    expect(mockedSourceFeedApiList).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ source_type: 'gqy', offset: 0 }),
+    )
+    expect(mockedSourceFeedApiList).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ source_type: 'gqy', offset: 12 }),
+    )
+    expect(mockedSourceFeedApiList).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ source_type: 'gqy', offset: 24 }),
+    )
+    expect(screen.queryByText('Blog 200')).not.toBeInTheDocument()
+    expect(await screen.findByText('Agentic BPM: A Manifesto')).toBeInTheDocument()
+    expect(await screen.findByTestId('academic-feed-grid')).toBeInTheDocument()
+  })
+
+  it('academic tab shows empty when gqy has no arXiv partition rows in first upstream page', async () => {
     mockedSourceFeedApiList.mockResolvedValue({
       data: {
         list: [
           {
-            id: 501,
-            title: 'Agentic BPM: A Manifesto',
-            source_feed_name: 'arXiv cs.AI',
+            id: 1,
+            title: 'Only blog',
+            source_feed_name: 'Eugene Yan Blog',
             source_type: 'gqy',
-            url: 'https://arxiv.org/abs/2603.18916',
+            url: 'https://eugeneyan.com/x',
             pic_url: null,
-            description: '应展示',
+            description: '',
             publish_time: '2026-03-12 16:25:00',
             created_at: '2026-03-12T10:09:13.216155',
-          },
-          {
-            id: 502,
-            title: '某日报',
-            source_feed_name: '橘鸦 AI 早报',
-            source_type: 'gqy',
-            url: 'https://imjuya.github.io/juya-ai-daily/issue-20/',
-            pic_url: null,
-            description: '不展示',
-            publish_time: '2026-03-12 17:25:00',
-            created_at: '2026-03-12T11:09:13.216155',
           },
         ],
         limit: 12,
@@ -173,11 +232,8 @@ describe('SourceFeedPage', () => {
     renderSourceFeed('/source-feed/academic')
 
     await waitFor(() => {
-      expect(mockedSourceFeedApiList).toHaveBeenCalledWith(expect.objectContaining({ source_type: 'gqy' }))
+      expect(mockedSourceFeedApiList).toHaveBeenCalledTimes(1)
     })
-    expect(await screen.findByText('Agentic BPM: A Manifesto')).toBeInTheDocument()
-    expect(screen.queryByText('某日报')).not.toBeInTheDocument()
-    const grid = await screen.findByTestId('academic-feed-grid')
-    expect(grid).toBeInTheDocument()
+    expect(await screen.findByText(/暂无论文/)).toBeInTheDocument()
   })
 })

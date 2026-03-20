@@ -47,7 +47,7 @@ _ALLOWED_IMAGE_HOSTS = {
 }
 _DEFAULT_SOURCE_FEED_LIST_CACHE_TTL_SECONDS = 30.0
 _MAX_SOURCE_FEED_LIST_CACHE_ENTRIES = 256
-_source_feed_list_cache: dict[tuple[int, int, str], tuple[float, dict[str, Any]]] = {}
+_source_feed_list_cache: dict[tuple[int, int, str, str], tuple[float, dict[str, Any]]] = {}
 
 
 class SourceFeedWorkspaceHydrateRequest(BaseModel):
@@ -206,11 +206,13 @@ async def get_source_feed_articles(
     limit: int = Query(default=8, ge=1, le=20),
     offset: int = Query(default=0, ge=0),
     source_type: str = Query(default=""),
+    source_feed_name: str = Query(default=""),
     user: dict | None = Depends(_get_optional_user),
 ):
     cache_ttl = _get_source_feed_list_cache_ttl_seconds()
     source_type_key = source_type.strip()
-    cache_key = (limit, offset, source_type_key)
+    source_feed_name_key = source_feed_name.strip()
+    cache_key = (limit, offset, source_type_key, source_feed_name_key)
     page_payload: dict[str, Any] | None = None
     now = time.monotonic()
     if cache_ttl > 0:
@@ -223,6 +225,8 @@ async def get_source_feed_articles(
         upstream_params: dict[str, Any] = {"limit": limit, "offset": offset}
         if source_type_key:
             upstream_params["source_type"] = source_type_key
+        if source_feed_name_key:
+            upstream_params["source_feed_name"] = source_feed_name_key
         try:
             client = get_shared_async_client("source-feed")
             response = await client.get(upstream_url, params=upstream_params, timeout=6.0)

@@ -30,16 +30,13 @@ const SOURCE_FEED_SECTIONS = [
 
 /** 媒体页仅展示微信公众号 RSS 入库信源（与上游 IC articles 筛选一致） */
 const MEDIA_SOURCE_TYPE_FILTER = 'we-mp-rss'
-/** 学术页信源类型（与上游 IC articles 筛选一致）；gqy 流内混有非 arXiv RSS，再按链接/来源名筛 arXiv */
+/** 学术页信源类型（与上游 IC articles 筛选一致） */
 const ACADEMIC_SOURCE_TYPE_FILTER = 'gqy'
-
-/** 与 IC 返回一致：论文 title 多为正文，arXiv 靠 url 或 source_feed_name（如 arXiv cs.AI）识别 */
-function isArxivLinkedArticle(article: Pick<SourceFeedArticle, 'url' | 'source_feed_name'>) {
-  const u = article.url.trim().toLowerCase()
-  if (u.includes('arxiv.org/abs/') || u.includes('arxiv.org/pdf/')) return true
-  const name = article.source_feed_name.trim().toLowerCase()
-  return name.startsWith('arxiv ') || name === 'arxiv'
-}
+/** 只展示这三个分区；上游 IC 当前会忽略 source_feed_name，故在 gqy 流里按字段筛选 */
+const ACADEMIC_ARXIV_FEEDS = ['arXiv cs.AI', 'arXiv cs.LG', 'arXiv cs.CV'] as const
+const ACADEMIC_ARXIV_FEED_SET = new Set<string>(ACADEMIC_ARXIV_FEEDS as unknown as string[])
+/** 单次首屏/加载更多最多翻上游 gqy 页数，避免全非目标分区时死循环 */
+const ACADEMIC_MAX_RAW_PAGES = 24
 
 function dedupeArticles(items: SourceFeedArticle[]) {
   const seen = new Set<number>()
@@ -84,6 +81,36 @@ function isSourceFeedSectionId(value: string | undefined): value is SourceFeedSe
   return SOURCE_FEED_SECTIONS.some((s) => s.id === value)
 }
 
+async function pullArxivRowsFromGqy(startRawOffset: number): Promise<{
+  rows: SourceFeedArticle[]
+  nextRawOffset: number
+  hasMore: boolean
+}> {
+  const collected: SourceFeedArticle[] = []
+  const seenIds = new Set<number>()
+  let off = startRawOffset
+  let lastUpstreamFull = false
+  for (let n = 0; n < ACADEMIC_MAX_RAW_PAGES && collected.length < PAGE_SIZE; n++) {
+    const res = await sourceFeedApi.list({
+      limit: PAGE_SIZE,
+      offset: off,
+      source_type: ACADEMIC_SOURCE_TYPE_FILTER,
+    })
+    const raw = res.data.list
+    lastUpstreamFull = raw.length === PAGE_SIZE
+    for (const a of raw) {
+      if (!ACADEMIC_ARXIV_FEED_SET.has((a.source_feed_name || '').trim())) continue
+      if (seenIds.has(a.id)) continue
+      seenIds.add(a.id)
+      collected.push(a)
+      if (collected.length >= PAGE_SIZE) break
+    }
+    off += PAGE_SIZE
+    if (!lastUpstreamFull) break
+  }
+  return { rows: collected, nextRawOffset: off, hasMore: lastUpstreamFull }
+}
+
 export default function SourceFeedPage() {
   const { section } = useParams<{ section: string }>()
   const navigate = useNavigate()
@@ -110,11 +137,18 @@ export default function SourceFeedPage() {
   const loadingMoreRef = useRef(false)
   const hasMoreRef = useRef(true)
   const pageRef = useRef(0)
-  const academicPageRef = useRef(0)
+  const academicRawOffsetRef = useRef(0)
   const academicLoadingMoreRef = useRef(false)
   const academicHasMoreRef = useRef(true)
+  const academicLoadingRef = useRef(false)
+  const loadMoreFnRef = useRef<() => Promise<void>>(async () => {})
+  const loadMoreAcademicFnRef = useRef<() => Promise<void>>(async () => {})
 
   const activeSection = SOURCE_FEED_SECTIONS.find((s) => s.id === section) ?? SOURCE_FEED_SECTIONS[0]
+
+  useEffect(() => {
+    academicLoadingRef.current = academicLoading
+  }, [academicLoading])
 
   useEffect(() => {
     if (section !== 'source') return
@@ -152,10 +186,15 @@ export default function SourceFeedPage() {
       const remaining = document.documentElement.scrollHeight - (window.innerHeight + window.scrollY)
       if (remaining > 900) return
       if (section === 'source' && !loadingMoreRef.current && hasMoreRef.current) {
-        void loadMore()
+        void loadMoreFnRef.current()
       }
-      if (section === 'academic' && !academicLoadingMoreRef.current && academicHasMoreRef.current) {
-        void loadMoreAcademic()
+      if (
+        section === 'academic' &&
+        !academicLoadingRef.current &&
+        !academicLoadingMoreRef.current &&
+        academicHasMoreRef.current
+      ) {
+        void loadMoreAcademicFnRef.current()
       }
     }
     window.addEventListener('scroll', onScroll, { passive: true })
@@ -168,13 +207,6 @@ export default function SourceFeedPage() {
       void loadMore()
     }
   }, [section, articles.length, hasMore, loading, loadingMore])
-
-  useEffect(() => {
-    if (section !== 'academic' || academicLoading || academicLoadingMore || !academicHasMore || academicArticles.length === 0) return
-    if (document.documentElement.scrollHeight <= window.innerHeight + 160) {
-      void loadMoreAcademic()
-    }
-  }, [section, academicArticles.length, academicHasMore, academicLoading, academicLoadingMore])
 
   const loadFirstPage = async () => {
     setLoading(true)
@@ -227,17 +259,12 @@ export default function SourceFeedPage() {
   const loadAcademicFirstPage = async () => {
     setAcademicLoading(true)
     try {
-      const res = await sourceFeedApi.list({
-        limit: PAGE_SIZE,
-        offset: 0,
-        source_type: ACADEMIC_SOURCE_TYPE_FILTER,
-      })
-      const nextList = dedupeArticles(res.data.list.filter((a) => isArxivLinkedArticle(a)))
-      setAcademicArticles(nextList)
-      academicPageRef.current = 1
-      const nextHasMore = res.data.list.length === PAGE_SIZE
-      setAcademicHasMore(nextHasMore)
-      academicHasMoreRef.current = nextHasMore
+      academicRawOffsetRef.current = 0
+      const { rows, nextRawOffset, hasMore } = await pullArxivRowsFromGqy(0)
+      academicRawOffsetRef.current = nextRawOffset
+      setAcademicArticles(rows)
+      setAcademicHasMore(hasMore)
+      academicHasMoreRef.current = hasMore
     } catch {
       setAcademicArticles([])
       setAcademicHasMore(false)
@@ -251,18 +278,14 @@ export default function SourceFeedPage() {
     academicLoadingMoreRef.current = true
     setAcademicLoadingMore(true)
     try {
-      const offset = academicPageRef.current * PAGE_SIZE
-      const res = await sourceFeedApi.list({
-        limit: PAGE_SIZE,
-        offset,
-        source_type: ACADEMIC_SOURCE_TYPE_FILTER,
+      const { rows, nextRawOffset, hasMore } = await pullArxivRowsFromGqy(academicRawOffsetRef.current)
+      academicRawOffsetRef.current = nextRawOffset
+      setAcademicArticles((prev) => {
+        const ids = new Set(prev.map((a) => a.id))
+        return dedupeArticles([...prev, ...rows.filter((a) => !ids.has(a.id))])
       })
-      const nextPage = res.data.list.filter((a) => isArxivLinkedArticle(a))
-      setAcademicArticles((prev) => dedupeArticles([...prev, ...nextPage]))
-      academicPageRef.current += 1
-      const nextHasMore = res.data.list.length === PAGE_SIZE
-      setAcademicHasMore(nextHasMore)
-      academicHasMoreRef.current = nextHasMore
+      setAcademicHasMore(hasMore)
+      academicHasMoreRef.current = hasMore
     } catch {
       setAcademicHasMore(false)
       academicHasMoreRef.current = false
@@ -271,6 +294,9 @@ export default function SourceFeedPage() {
       setAcademicLoadingMore(false)
     }
   }
+
+  loadMoreFnRef.current = loadMore
+  loadMoreAcademicFnRef.current = loadMoreAcademic
 
   const filteredArticles = articles.filter((article) => {
     if (!query.trim()) return true
@@ -529,36 +555,30 @@ export default function SourceFeedPage() {
                   <ul className="mt-3 list-none space-y-2 font-serif text-sm text-gray-700 sm:text-base [&>li]:flex [&>li]:items-start [&>li]:gap-2 [&>li]:before:mt-1.5 [&>li]:before:shrink-0 [&>li]:before:content-['·'] [&>li]:before:font-bold [&>li]:before:text-gray-400">
                     <li>
                       <span className="min-w-0">
-                        <strong>arXiv 论文流</strong>：与「媒体」相同走信源列表接口，按{' '}
-                        <code className="whitespace-nowrap rounded bg-white/80 px-1">source_type=gqy</code>{' '}
-                        拉取；上游论文标题多为正文，本站仅保留链接指向 arXiv（
-                        <code className="whitespace-nowrap rounded bg-white/80 px-1">arxiv.org/abs</code>{' '}
-                        或 <code className="whitespace-nowrap rounded bg-white/80 px-1">/pdf/</code>
-                        ）或来源名为 <code className="whitespace-nowrap rounded bg-white/80 px-1">arXiv …</code>{' '}
-                        的条目。支持搜索、点赞收藏与从信源开题，滚动加载更多。
+                        <strong>论文流</strong>：浏览与 arXiv 相关的最新预印本条目，支持搜索、点赞、收藏和从信源开题；滑到底可加载更多。
                       </span>
                     </li>
                     <li>
                       <span className="min-w-0">
-                        <strong>基于论文开题与讨论</strong>
-                        ：选定某篇论文或研究方向后，在 TopicLab 创建话题、注入材料、启动多专家讨论，与从信源文章开题共用同一套讨论流程。
+                        <strong>开题讨论</strong>：从条目一键开话题，和多专家讨论流程与「媒体」信源一致。
                       </span>
                     </li>
                     <li>
                       <span className="min-w-0">
-                        <strong>多维学术检索</strong>
-                        ：除本页 arXiv 流外，平台支持论文关键词检索，以及学者、机构、期刊、专利等检索与批量论文详情；可通过智能体（OpenClaw）或后续产品化功能使用。
+                        <strong>更多检索</strong>：关键词、学者、机构等深度检索可用 OpenClaw 智能体；文献趋势与研报类页面后续会陆续上线。
                       </span>
                     </li>
                   </ul>
                   <div className="mt-4 rounded-xl bg-amber-50/80 px-3 py-2.5 sm:px-4">
                     <p className="font-serif text-sm font-medium text-amber-900">
-                      <strong>特别说明</strong>：您接入本网站的 OpenClaw 已具备上述能力，可通过智能体直接使用；后续将推出可视化的文献趋势与定制化研报页面，敬请期待。
+                      <strong>提示</strong>：已接入 OpenClaw 的用户可直接用智能体做更完整的文献与检索能力。
                     </p>
                   </div>
                 </div>
                 {academicLoading && <p className="font-serif text-gray-500">加载中...</p>}
-                {!academicLoading && academicArticles.length === 0 && <p className="font-serif text-gray-500">暂无 arXiv 链接类条目</p>}
+                {!academicLoading && academicArticles.length === 0 && (
+                  <p className="font-serif text-gray-500">暂无论文，下拉可加载更多</p>
+                )}
                 {!academicLoading && academicArticles.length > 0 && filteredAcademicArticles.length === 0 && <p className="font-serif text-gray-500">没有匹配结果</p>}
                 {filteredAcademicArticles.length > 0 && (
                   <div

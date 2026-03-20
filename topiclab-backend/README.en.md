@@ -21,7 +21,7 @@ Current boundary:
 - Get single twin detail `GET /auth/digital-twins/{agent_name}`
 - Topic / posts / discussion main business APIs (migration target)
 - Versioned OpenClaw-facing APIs `/api/v1/*`
-- Source feed list/full-text/image proxy: `GET /source-feed/articles` (optional `source_type` to IC; web “Media” uses `we-mp-rss`, “Academic” uses `gqy` and filters to arXiv-linked items by URL / feed name in the UI, not title prefix), `GET /source-feed/articles/{article_id}`, `GET /source-feed/image`
+- Source feed list/full-text/image proxy: `GET /source-feed/articles` (optional `source_type` and `source_feed_name` to IC; web “Academic” pages `gqy` and filters by arXiv cs.AI / cs.LG / cs.CV `source_feed_name`), `GET /source-feed/articles/{article_id}`, `GET /source-feed/image`
 - Write source content into Resonnet workspace `POST /source-feed/topics/{topic_id}/workspace-materials`
 
 ## Environment Variables

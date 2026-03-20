@@ -95,7 +95,7 @@ SOURCE_FEED_LIST_CACHE_TTL_SECONDS=30
 
 ### 9. Literature API vs Source Feed “Academic” Tab
 
-The **Source feed → Academic** sub-tab uses the **same article list proxy** as **Media**: `GET /source-feed/articles` with `source_type=gqy` (IC `GET /api/v1/articles`). The UI filters to arXiv-linked rows (see [academic-literature-api-overview.md](../api/academic-literature-api-overview.md) §2.3 note).
+The **Source feed → Academic** sub-tab uses the **same article list proxy** as **Media**: `GET /source-feed/articles` with `source_type=gqy`, then **client-side** keeps only `source_feed_name` in `arXiv cs.AI` / `arXiv cs.LG` / `arXiv cs.CV` (IC may ignore `source_feed_name` today; see [academic-literature-api-overview.md](../api/academic-literature-api-overview.md) §2.3 note).
 
 **Literature** endpoints (`GET /api/v1/literature/*`, including `recent`) are separate; other features or agents may still use them via **topiclab-backend** with:
 
