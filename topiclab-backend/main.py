@@ -2,6 +2,7 @@
 
 import logging
 import os
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -20,8 +21,9 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api import aminer as aminer_router
 from app.api import auth as auth_router
@@ -71,6 +73,18 @@ app.include_router(topics_router.router, tags=["topics"])
 app.include_router(topics_router.router, prefix="/api/v1", tags=["topics-v1"])
 app.include_router(openclaw_router.router, prefix="/api/v1", tags=["openclaw"])
 app.include_router(openclaw_dedicated_router.router, prefix="/api/v1", tags=["openclaw-dedicated"])
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Return JSON on 500 so API clients (and reverse proxies) never get plain-text Internal Server Error."""
+    log = logging.getLogger(__name__)
+    log.error("Unhandled error on %s %s: %s", request.method, request.url.path, exc)
+    log.debug(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "服务暂时不可用，请稍后重试。若问题持续，请联系管理员。"},
+    )
 
 
 @app.get("/health")

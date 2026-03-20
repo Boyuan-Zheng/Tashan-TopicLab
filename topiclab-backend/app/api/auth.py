@@ -16,6 +16,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from jose import JWTError, jwt
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from app.storage.database.postgres_client import get_db_session
 
@@ -154,6 +155,19 @@ def _load_user_admin_flag(user_id: int | None, phone: str | None) -> bool:
 # Helper Functions
 def generate_code() -> str:
     return str(random.randint(100000, 999999))
+
+
+def _normalize_expires_at(value) -> datetime:
+    """Coerce verification_codes.expires_at from DB/driver to timezone-aware UTC."""
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, str):
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        raise TypeError(f"unexpected expires_at type: {type(value)}")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 async def send_sms(phone: str, code: str) -> tuple[bool, str]:
@@ -435,46 +449,51 @@ async def send_verification_code(req: SendCodeRequest):
 @router.post("/register")
 async def register(req: RegisterRequest):
     if DATABASE_CONFIGURED:
-        with get_db_session() as session:
-            row = session.execute(
-                text("""
-                    SELECT code, expires_at FROM verification_codes
-                    WHERE phone = :phone AND type = 'register'
-                    ORDER BY created_at DESC LIMIT 1
-                """),
-                {"phone": req.phone}
-            ).fetchone()
-            if not row or row[0] != req.code:
-                raise HTTPException(status_code=400, detail="验证码错误")
-            expires_at = row[1]
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-            if expires_at < datetime.now(timezone.utc):
-                raise HTTPException(status_code=400, detail="验证码已过期")
+        try:
+            with get_db_session() as session:
+                row = session.execute(
+                    text("""
+                        SELECT code, expires_at FROM verification_codes
+                        WHERE phone = :phone AND type = 'register'
+                        ORDER BY created_at DESC LIMIT 1
+                    """),
+                    {"phone": req.phone}
+                ).fetchone()
+                if not row or str(row[0]).strip() != str(req.code).strip():
+                    raise HTTPException(status_code=400, detail="验证码错误")
+                try:
+                    expires_at = _normalize_expires_at(row[1])
+                except (TypeError, ValueError) as e:
+                    logger.warning("Invalid expires_at for phone=%s: %s", req.phone, e)
+                    raise HTTPException(status_code=400, detail="验证码无效，请重新获取") from e
+                if expires_at < datetime.now(timezone.utc):
+                    raise HTTPException(status_code=400, detail="验证码已过期")
 
-            row = session.execute(
-                text("SELECT id FROM users WHERE phone = :phone"),
-                {"phone": req.phone}
-            ).fetchone()
-            if row:
-                raise HTTPException(status_code=400, detail="该手机号已注册")
+                row = session.execute(
+                    text("SELECT id FROM users WHERE phone = :phone"),
+                    {"phone": req.phone}
+                ).fetchone()
+                if row:
+                    raise HTTPException(status_code=400, detail="该手机号已注册")
 
-            hashed_password = bcrypt.hashpw(req.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-            result = session.execute(
-                text("""
-                    INSERT INTO users (phone, password, username, is_admin)
-                    VALUES (:phone, :password, :username, :is_admin)
-                    RETURNING id, phone, username, is_admin, created_at
-                """),
-                {
-                    "phone": req.phone,
-                    "password": hashed_password,
-                    "username": req.username,
-                    "is_admin": _is_admin_identity(None, req.phone),
-                }
-            )
-            row = result.fetchone()
-            user = {"id": row[0], "phone": row[1], "username": row[2], "is_admin": bool(row[3]), "created_at": row[4].isoformat()}
+                hashed_password = bcrypt.hashpw(req.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+                result = session.execute(
+                    text("""
+                        INSERT INTO users (phone, password, username, is_admin)
+                        VALUES (:phone, :password, :username, :is_admin)
+                        RETURNING id, phone, username, is_admin, created_at
+                    """),
+                    {
+                        "phone": req.phone,
+                        "password": hashed_password,
+                        "username": req.username,
+                        "is_admin": _is_admin_identity(None, req.phone),
+                    }
+                )
+                row = result.fetchone()
+                user = {"id": row[0], "phone": row[1], "username": row[2], "is_admin": bool(row[3]), "created_at": row[4].isoformat()}
+        except IntegrityError:
+            raise HTTPException(status_code=400, detail="该手机号已注册") from None
     else:
         if not _verify_dev_code(req.phone, req.code, "register"):
             raise HTTPException(status_code=400, detail="验证码错误或已过期")

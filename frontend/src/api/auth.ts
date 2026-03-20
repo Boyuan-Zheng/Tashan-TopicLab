@@ -1,5 +1,7 @@
 /** Auth API client */
 
+import { readApiError } from './httpError';
+
 const API_BASE = import.meta.env.BASE_URL ? `${import.meta.env.BASE_URL}api` : '/api';
 
 export interface User {
@@ -60,8 +62,7 @@ export const authApi = {
       body: JSON.stringify({ phone, type }),
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || '发送验证码失败');
+      throw new Error(await readApiError(res, '发送验证码失败'));
     }
     return res.json();
   },
@@ -73,8 +74,7 @@ export const authApi = {
       body: JSON.stringify({ phone, code, password, username }),
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || '注册失败');
+      throw new Error(await readApiError(res, '注册失败'));
     }
     return res.json();
   },
@@ -86,8 +86,7 @@ export const authApi = {
       body: JSON.stringify({ phone, password }),
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || '登录失败');
+      throw new Error(await readApiError(res, '登录失败'));
     }
     return res.json();
   },
@@ -97,8 +96,7 @@ export const authApi = {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || '获取用户信息失败');
+      throw new Error(await readApiError(res, '获取用户信息失败'));
     }
     return res.json();
   },
@@ -108,8 +106,7 @@ export const authApi = {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || '获取分身记录失败');
+      throw new Error(await readApiError(res, '获取分身记录失败'));
     }
     return res.json();
   },
@@ -119,8 +116,7 @@ export const authApi = {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || '获取分身详情失败');
+      throw new Error(await readApiError(res, '获取分身详情失败'));
     }
     return res.json();
   },
@@ -130,8 +126,7 @@ export const authApi = {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || '获取 OpenClaw Key 失败');
+      throw new Error(await readApiError(res, '获取 OpenClaw Key 失败'));
     }
     return res.json();
   },
@@ -142,8 +137,7 @@ export const authApi = {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || '生成 OpenClaw Key 失败');
+      throw new Error(await readApiError(res, '生成 OpenClaw Key 失败'));
     }
     return res.json();
   },
