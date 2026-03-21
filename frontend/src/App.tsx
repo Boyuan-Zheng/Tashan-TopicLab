@@ -13,6 +13,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import LibraryPage from './pages/LibraryPage'
 import MyFavoritesPage from './pages/MyFavoritesPage'
+import MyPage from './pages/MyPage'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import FeedbackBubble from './components/FeedbackBubble'
 
@@ -21,13 +22,14 @@ function App() {
     <AppErrorBoundary>
       <div className="flex flex-col min-h-screen">
         <TopNav />
-        <main className="flex-1 pt-14 pb-[env(safe-area-inset-bottom)]">
+        <main className="flex-1 pt-14 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]">
           <Routes>
             <Route path="/" element={<TopicList />} />
             <Route path="/source-feed" element={<Navigate to="/source-feed/source" replace />} />
             <Route path="/source-feed/:section" element={<SourceFeedPage />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/me" element={<MyPage />} />
             <Route path="/favorites" element={<MyFavoritesPage />} />
             <Route path="/topics/new" element={<CreateTopic />} />
             <Route path="/topics/:id" element={<TopicDetail />} />

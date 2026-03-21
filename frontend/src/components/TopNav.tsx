@@ -9,10 +9,54 @@ const navLinks = [
   { to: '/library', label: '库', match: (path: string) => path.startsWith('/library') || path.startsWith('/experts') || path.startsWith('/skills') || path.startsWith('/mcp') || path.startsWith('/moderator-modes') },
 ] as const
 
+const mobileTabs = [
+  {
+    to: '/',
+    label: '话题',
+    match: (path: string) => path === '/' || path.startsWith('/topics'),
+    icon: (
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 8h10M7 12h10M7 16h6" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5.5 4.75h13A1.75 1.75 0 0120.25 6.5v11A1.75 1.75 0 0118.5 19.25h-13A1.75 1.75 0 013.75 17.5v-11A1.75 1.75 0 015.5 4.75z" />
+      </svg>
+    ),
+  },
+  {
+    to: '/source-feed',
+    label: '信源',
+    match: (path: string) => path.startsWith('/source-feed'),
+    icon: (
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5.75 6.5A1.75 1.75 0 017.5 4.75h8.25A1.75 1.75 0 0117.5 6.5v11.25A1.5 1.5 0 0019 19.25h-10.5A2.75 2.75 0 015.75 16.5v-10z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8.5 8.25h6M8.5 11.5h6M8.5 14.75h3.25" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 19.25a1.5 1.5 0 001.5-1.5V9.5h-3" />
+      </svg>
+    ),
+  },
+  {
+    to: '/me',
+    label: '我的',
+    match: (path: string) =>
+      path.startsWith('/me') ||
+      path.startsWith('/profile-helper') ||
+      path.startsWith('/favorites') ||
+      path.startsWith('/library') ||
+      path.startsWith('/experts') ||
+      path.startsWith('/skills') ||
+      path.startsWith('/mcp') ||
+      path.startsWith('/moderator-modes'),
+    icon: (
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 12a3.25 3.25 0 100-6.5 3.25 3.25 0 000 6.5z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 19.25a7 7 0 0114 0" />
+      </svg>
+    ),
+  },
+] as const
+
 export default function TopNav() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [adminMode, setAdminMode] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -128,234 +172,144 @@ export default function TopNav() {
   }
 
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 w-full safe-area-inset-top overflow-x-hidden transition-all duration-300 ${
-        scrolled
-          ? 'bg-white/95 backdrop-blur-xl shadow-[0_2px_8px_rgba(15,46,79,0.08)] border-b border-[var(--color-gray-light)]'
-          : 'bg-white border-b border-[var(--color-gray-light)]'
-      }`}
-    >
-      {adminMode && location.pathname === '/' ? (
-        <div className="w-full bg-red-600 px-4 py-2 text-center text-xs font-medium tracking-[0.18em] text-white">
-          ADMIN MODE
-        </div>
-      ) : null}
-      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3 min-w-0">
-        <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0 shrink overflow-hidden" onClick={() => setMobileMenuOpen(false)}>
-          <img
-            src="/media/logo_complete.svg"
-            alt="他山"
-            className="h-8 sm:h-9 w-auto shrink-0"
-          />
-          <span
-            className="font-sans font-semibold text-base sm:text-lg tracking-[0.2em] sm:tracking-[0.3em]"
-            style={{ color: 'var(--color-dark)' }}
-          >
-            · 世 界
-          </span>
-        </Link>
+    <>
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 w-full safe-area-inset-top overflow-x-hidden transition-all duration-300 ${
+          scrolled
+            ? 'bg-white/95 backdrop-blur-xl shadow-[0_2px_8px_rgba(15,46,79,0.08)] border-b border-[var(--color-gray-light)]'
+            : 'bg-white border-b border-[var(--color-gray-light)]'
+        }`}
+      >
+        {adminMode && location.pathname === '/' ? (
+          <div className="w-full bg-red-600 px-4 py-2 text-center text-xs font-medium tracking-[0.18em] text-white">
+            ADMIN MODE
+          </div>
+        ) : null}
+        <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3 min-w-0">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0 shrink overflow-hidden">
+            <img
+              src="/media/logo_complete.svg"
+              alt="他山"
+              className="h-8 sm:h-9 w-auto shrink-0"
+            />
+            <span
+              className="font-sans font-semibold text-base sm:text-lg tracking-[0.2em] sm:tracking-[0.3em]"
+              style={{ color: 'var(--color-dark)' }}
+            >
+              · 世 界
+            </span>
+          </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-6 lg:gap-8">
-          {navLinks.map(({ to, label, match }) => (
+          {/* Desktop nav */}
+          <div className="hidden md:flex items-center gap-6 lg:gap-8">
+            {navLinks.map(({ to, label, match }) => (
+              <Link
+                key={to}
+                to={to}
+                className="relative text-sm font-serif transition-all py-2 group"
+                style={{
+                  color: match(location.pathname) ? 'var(--color-dark)' : 'var(--color-gray)',
+                }}
+              >
+                <span className={match(location.pathname) ? 'font-medium' : ''}>{label}</span>
+                <span
+                  className={`absolute bottom-0 left-0 h-0.5 transition-all duration-300 ${
+                    match(location.pathname) ? 'w-full' : 'w-0 group-hover:w-full'
+                  }`}
+                  style={{
+                    background: 'var(--color-dark)',
+                  }}
+                />
+              </Link>
+            ))}
             <Link
-              key={to}
-              to={to}
-              className="relative text-sm font-serif transition-all py-2 group"
+              to="/profile-helper"
+              className="relative text-sm font-serif font-medium transition-all whitespace-nowrap py-2 group"
               style={{
-                color: match(location.pathname) ? 'var(--color-dark)' : 'var(--color-gray)',
+                color: location.pathname.startsWith('/profile-helper') ? 'var(--color-dark)' : 'var(--color-gray)',
               }}
             >
-              <span className={match(location.pathname) ? 'font-medium' : ''}>{label}</span>
-              {/* 下划线 */}
+              科研数字分身
               <span
                 className={`absolute bottom-0 left-0 h-0.5 transition-all duration-300 ${
-                  match(location.pathname) ? 'w-full' : 'w-0 group-hover:w-full'
+                  location.pathname.startsWith('/profile-helper') ? 'w-full' : 'w-0 group-hover:w-full'
                 }`}
                 style={{
                   background: 'var(--color-dark)',
                 }}
               />
             </Link>
-          ))}
-          <Link
-            to="/profile-helper"
-            className="relative text-sm font-serif font-medium transition-all whitespace-nowrap py-2 group"
-            style={{
-              color: location.pathname.startsWith('/profile-helper') ? 'var(--color-dark)' : 'var(--color-gray)',
-            }}
-          >
-            科研数字分身
-            <span
-              className={`absolute bottom-0 left-0 h-0.5 transition-all duration-300 ${
-                location.pathname.startsWith('/profile-helper') ? 'w-full' : 'w-0 group-hover:w-full'
-              }`}
+            <Link
+              to="/topics/new"
+              className="text-white px-4 py-1.5 rounded-[var(--radius-lg)] text-sm font-serif font-medium transition-all hover:-translate-y-0.5 whitespace-nowrap shrink-0"
               style={{
                 background: 'var(--color-dark)',
+                boxShadow: 'var(--shadow-sm)',
               }}
-            />
-          </Link>
-          <Link
-            to="/topics/new"
-            className="text-white px-4 py-1.5 rounded-[var(--radius-lg)] text-sm font-serif font-medium transition-all hover:-translate-y-0.5 whitespace-nowrap shrink-0"
-            style={{
-              background: 'var(--color-dark)',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            + 创建话题
-          </Link>
-
-          {/* User Menu */}
-          {user ? (
-            <div>
-              <button
-                ref={userMenuTriggerRef}
-                type="button"
-                onClick={() => {
-                  setUserMenuOpen(v => {
-                    const next = !v
-                    if (next) {
-                      requestAnimationFrame(updateUserMenuPosition)
-                    }
-                    return next
-                  })
-                }}
-                className="flex items-center gap-2 text-sm font-serif transition-all hover:opacity-80"
-                style={{ color: 'var(--color-gray)' }}
-              >
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
-                  style={{ background: 'var(--color-dark)' }}
-                >
-                  {(user.username || user.phone).charAt(0)}
-                </div>
-                <span className="max-w-[100px] truncate">{user.username || user.phone}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Link
-                to="/login"
-                className="text-sm font-serif transition-all hover:opacity-80"
-                style={{ color: 'var(--color-gray)' }}
-              >
-                登录
-              </Link>
-              <Link
-                to="/register"
-                className="px-3 py-1.5 rounded-[var(--radius-md)] text-sm font-serif font-medium transition-all hover:opacity-90 whitespace-nowrap"
-                style={{
-                  background: 'var(--color-gray-light)',
-                  color: 'var(--color-dark)',
-                }}
-              >
-                注册
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* Mobile - 仅保留创建话题和汉堡菜单，科研数字分身已在下拉菜单中 */}
-        <div className="flex md:hidden items-center gap-2 sm:gap-3 shrink-0">
-          <Link
-            to="/topics/new"
-            className="text-white px-3 py-2 rounded-[var(--radius-md)] text-sm font-serif font-medium transition-all shrink-0 min-h-[36px] flex items-center touch-manipulation"
-            style={{ background: 'var(--color-dark)' }}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            + 创建话题
-          </Link>
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(v => !v)}
-            className="p-2.5 -mr-2 rounded-lg transition-all touch-manipulation min-h-[36px] min-w-[36px] flex items-center justify-center"
-            style={{ color: 'var(--color-gray)' }}
-            aria-label={mobileMenuOpen ? '关闭菜单' : '打开菜单'}
-            aria-expanded={mobileMenuOpen}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {mobileMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile dropdown menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-white/95 backdrop-blur-xl" style={{ borderColor: 'var(--color-gray-light)' }}>
-          <div className="px-4 py-3 space-y-0">
-            <Link
-              to="/profile-helper"
-              className="block py-2 text-sm font-serif transition-all"
-              style={{ color: location.pathname.startsWith('/profile-helper') ? 'var(--color-dark)' : 'var(--color-gray)' }}
-              onClick={() => setMobileMenuOpen(false)}
             >
-              科研数字分身
+              + 创建话题
             </Link>
-            {navLinks.map(({ to, label, match }) => (
-              <Link
-                key={to}
-                to={to}
-                className="block py-2 text-sm font-serif transition-all"
-                style={{ color: match(location.pathname) ? 'var(--color-dark)' : 'var(--color-gray)' }}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {label}
-              </Link>
-            ))}
+
             {user ? (
-              <>
-                <div className="border-t my-2" style={{ borderColor: 'var(--color-gray-light)' }}></div>
-                <div className="px-2 py-2 text-sm font-serif" style={{ color: 'var(--color-gray)' }}>
-                  {user.username || user.phone}
-                </div>
-                <Link
-                  to="/favorites"
-                  className="block px-2 py-2 text-sm font-serif transition-all"
-                  style={{ color: location.pathname.startsWith('/favorites') ? 'var(--color-dark)' : 'var(--color-gray)' }}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  我的收藏
-                </Link>
+              <div>
                 <button
+                  ref={userMenuTriggerRef}
                   type="button"
-                  onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
-                  className="block w-full text-left px-2 py-2 text-sm font-serif transition-all"
+                  onClick={() => {
+                    setUserMenuOpen(v => {
+                      const next = !v
+                      if (next) {
+                        requestAnimationFrame(updateUserMenuPosition)
+                      }
+                      return next
+                    })
+                  }}
+                  className="flex items-center gap-2 text-sm font-serif transition-all hover:opacity-80"
                   style={{ color: 'var(--color-gray)' }}
                 >
-                  退出登录
+                  <div
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
+                    style={{ background: 'var(--color-dark)' }}
+                  >
+                    {(user.username || user.phone).charAt(0)}
+                  </div>
+                  <span className="max-w-[100px] truncate">{user.username || user.phone}</span>
                 </button>
-              </>
+              </div>
             ) : (
-              <>
-                <div className="border-t my-2" style={{ borderColor: 'var(--color-gray-light)' }}></div>
+              <div className="flex items-center gap-2">
                 <Link
                   to="/login"
-                  className="block py-2 text-sm font-serif transition-all"
-                  style={{ color: location.pathname === '/login' ? 'var(--color-dark)' : 'var(--color-gray)' }}
-                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-sm font-serif transition-all hover:opacity-80"
+                  style={{ color: 'var(--color-gray)' }}
                 >
                   登录
                 </Link>
                 <Link
                   to="/register"
-                  className="block py-2 text-sm font-serif transition-all"
-                  style={{ color: location.pathname === '/register' ? 'var(--color-dark)' : 'var(--color-gray)' }}
-                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-1.5 rounded-[var(--radius-md)] text-sm font-serif font-medium transition-all hover:opacity-90 whitespace-nowrap"
+                  style={{
+                    background: 'var(--color-gray-light)',
+                    color: 'var(--color-dark)',
+                  }}
                 >
                   注册
                 </Link>
-              </>
+              </div>
             )}
           </div>
+
+          <div className="flex md:hidden items-center shrink-0">
+            <Link
+              to="/topics/new"
+              className="text-white px-3 py-2 rounded-[var(--radius-md)] text-sm font-serif font-medium transition-all shrink-0 min-h-[36px] flex items-center touch-manipulation"
+              style={{ background: 'var(--color-dark)' }}
+            >
+              + 创建话题
+            </Link>
+          </div>
         </div>
-      )}
+      </nav>
       {userMenuOpen &&
         createPortal(
           <div
@@ -396,6 +350,34 @@ export default function TopNav() {
           </div>,
           document.body,
         )}
-    </nav>
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white/95 backdrop-blur-xl md:hidden"
+        style={{
+          borderColor: 'var(--border-default)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          boxShadow: '0 -8px 24px rgba(15, 23, 42, 0.08)',
+        }}
+        >
+          <div className="mx-auto flex h-16 max-w-md items-stretch px-2">
+          {mobileTabs.map((tab) => {
+            const active = tab.match(location.pathname)
+            return (
+              <Link
+                key={tab.to}
+                to={tab.to}
+                className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] text-xs font-medium transition-colors"
+                style={{
+                  color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  backgroundColor: active ? 'var(--bg-secondary)' : 'transparent',
+                }}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+    </>
   )
 }
