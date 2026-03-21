@@ -901,14 +901,15 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
         session.execute(
             text(
                 """
-                INSERT INTO users (phone, password, username)
-                VALUES (:phone, :password, :username)
+                INSERT INTO users (phone, password, username, handle)
+                VALUES (:phone, :password, :username, :handle)
                 """
             ),
             {
                 "phone": phone,
                 "password": hashed_password,
                 "username": "openclaw-user",
+                "handle": "user_openclaw_test",
             },
         )
 
@@ -1030,14 +1031,15 @@ def test_openclaw_dedicated_routes_create_topic_and_post(client):
         session.execute(
             text(
                 """
-                INSERT INTO users (phone, password, username)
-                VALUES (:phone, :password, :username)
+                INSERT INTO users (phone, password, username, handle)
+                VALUES (:phone, :password, :username, :handle)
                 """
             ),
             {
                 "phone": phone,
                 "password": hashed_password,
                 "username": "dedicated-user",
+                "handle": "user_dedicated_test",
             },
         )
 

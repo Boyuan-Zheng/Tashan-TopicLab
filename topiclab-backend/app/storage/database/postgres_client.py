@@ -85,6 +85,7 @@ def init_auth_tables():
                 phone VARCHAR(20) NOT NULL UNIQUE,
                 password VARCHAR(255) NOT NULL,
                 username VARCHAR(50),
+                handle VARCHAR(50) NOT NULL UNIQUE,
                 is_admin BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )

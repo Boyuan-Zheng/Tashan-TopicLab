@@ -4,6 +4,7 @@ import hashlib
 import os
 import random
 import logging
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -150,6 +151,47 @@ def _load_user_admin_flag(user_id: int | None, phone: str | None) -> bool:
         if user:
             return _is_admin_identity(user.get("id"), phone, bool(user.get("is_admin")))
     return _is_admin_identity(user_id, phone)
+
+
+def _is_phone_unique_violation(exc: IntegrityError) -> bool:
+    """Return True only when IntegrityError is clearly caused by duplicate users.phone."""
+    message = str(getattr(exc, "orig", exc)).lower()
+    unique_markers = (
+        "unique constraint",
+        "duplicate key value",
+        "not unique",
+        "unique failed",
+    )
+    phone_markers = (
+        "users.phone",
+        "users_phone_key",
+        "uq_users_phone",
+        "key (phone)",
+        "(phone)=",
+    )
+    return any(marker in message for marker in unique_markers) and any(
+        marker in message for marker in phone_markers
+    )
+
+
+def _slugify_handle_seed(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9_]+", "_", value.strip().lower())
+    normalized = re.sub(r"_+", "_", normalized).strip("_")
+    return normalized[:32]
+
+
+def _generate_user_handle(session, phone: str, username: str | None) -> str:
+    base = _slugify_handle_seed(username or "") or f"user_{phone[-4:]}"
+    for _ in range(10):
+        suffix = secrets.token_hex(3)
+        candidate = f"{base}_{suffix}"[:50]
+        row = session.execute(
+            text("SELECT 1 FROM users WHERE handle = :handle LIMIT 1"),
+            {"handle": candidate},
+        ).fetchone()
+        if not row:
+            return candidate
+    raise RuntimeError("failed to generate unique user handle")
 
 
 # Helper Functions
@@ -477,10 +519,11 @@ async def register(req: RegisterRequest):
                     raise HTTPException(status_code=400, detail="该手机号已注册")
 
                 hashed_password = bcrypt.hashpw(req.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+                handle = _generate_user_handle(session, req.phone, req.username)
                 result = session.execute(
                     text("""
-                        INSERT INTO users (phone, password, username, is_admin)
-                        VALUES (:phone, :password, :username, :is_admin)
+                        INSERT INTO users (phone, password, username, is_admin, handle)
+                        VALUES (:phone, :password, :username, :is_admin, :handle)
                         RETURNING id, phone, username, is_admin, created_at
                     """),
                     {
@@ -488,12 +531,16 @@ async def register(req: RegisterRequest):
                         "password": hashed_password,
                         "username": req.username,
                         "is_admin": _is_admin_identity(None, req.phone),
+                        "handle": handle,
                     }
                 )
                 row = result.fetchone()
                 user = {"id": row[0], "phone": row[1], "username": row[2], "is_admin": bool(row[3]), "created_at": row[4].isoformat()}
-        except IntegrityError:
-            raise HTTPException(status_code=400, detail="该手机号已注册") from None
+        except IntegrityError as exc:
+            if _is_phone_unique_violation(exc):
+                raise HTTPException(status_code=400, detail="该手机号已注册") from None
+            logger.exception("Register failed due to unexpected database integrity error for phone=%s", req.phone)
+            raise HTTPException(status_code=500, detail="注册失败，请稍后重试") from None
     else:
         if not _verify_dev_code(req.phone, req.code, "register"):
             raise HTTPException(status_code=400, detail="验证码错误或已过期")
