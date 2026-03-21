@@ -8,7 +8,7 @@ import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import bcrypt
 import httpx
@@ -76,7 +76,7 @@ JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 
-# SMS Bao Configuration (https://www.smsbao.com/)
+# SMS Bao Configuration (https://www.smsbao.com/openapi/213.html)
 SMSBAO_API = "https://api.smsbao.com/sms"
 
 security = HTTPBearer(auto_error=False)
@@ -212,27 +212,54 @@ def _normalize_expires_at(value) -> datetime:
     return dt
 
 
+def _resolve_smsbao_p_value(password: str | None, api_key: str | None) -> str:
+    """Use API key directly; otherwise MD5 plaintext password unless already pre-hashed."""
+    if api_key and api_key.strip():
+        return api_key.strip()
+    raw = (password or "").strip()
+    if not raw:
+        return ""
+    if re.fullmatch(r"[0-9a-fA-F]{32}", raw):
+        return raw
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()
+
+
 async def send_sms(phone: str, code: str) -> tuple[bool, str]:
-    """Send SMS via SMS Bao API. Password must be MD5 of login password."""
+    """Send SMS via SMS Bao production API."""
     username = os.getenv("SMSBAO_USERNAME")
     password = os.getenv("SMSBAO_PASSWORD")
-    if not username or not password:
+    api_key = os.getenv("SMSBAO_API_KEY")
+    goods_id = (os.getenv("SMSBAO_GOODSID") or "").strip()
+    credential = (api_key or password or "").strip()
+    if not username or not credential:
         logger.info(f"[DEV] Verification code for {phone}: {code}")
         return True, f"开发模式：验证码 {code}"
 
-    content = f"【短信宝】您的验证码是{code}"
-    p_md5 = hashlib.md5(password.encode("utf-8")).hexdigest()
-    c_encoded = quote(content, safe="")
-    url = f"{SMSBAO_API}?u={username}&p={p_md5}&m={phone}&c={c_encoded}"
+    content = f"【他山世界】您的验证码是{code}"
+    # SMSBao accepts either an API key directly or the MD5 of the login password.
+    p_value = _resolve_smsbao_p_value(password, api_key)
+    params = {
+        "u": username,
+        "p": p_value,
+        "m": phone,
+        "c": content,
+    }
+    if goods_id:
+        params["g"] = goods_id
+    url = f"{SMSBAO_API}?{urlencode(params, quote_via=quote)}"
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url)
-            result = response.text
+            result = response.text.strip()
             if result == "0":
                 return True, "验证码发送成功"
             error_messages = {
-                "30": "密码错误", "40": "账号不存在", "41": "余额不足",
-                "43": "IP地址限制", "50": "内容含有敏感词", "51": "手机号码不正确",
+                "30": "短信宝凭证错误",
+                "40": "短信宝账号不存在",
+                "41": "短信宝余额不足",
+                "43": "短信宝 IP 地址受限",
+                "50": "短信内容未通过审核或含敏感词",
+                "51": "手机号码不正确",
             }
             return False, error_messages.get(result, f"发送失败：{result}")
         except Exception as e:

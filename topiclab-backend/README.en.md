@@ -31,7 +31,10 @@ Loaded from project root `.env`. Required:
 
 - `DATABASE_URL` — PostgreSQL connection string
 - `JWT_SECRET` — JWT signing secret
-- `SMSBAO_USERNAME` / `SMSBAO_PASSWORD` — SMSBao (optional)
+- `SMSBAO_USERNAME` — SMSBao production username (optional)
+- `SMSBAO_API_KEY` — SMSBao production API key; preferred over password (optional, recommended)
+- `SMSBAO_PASSWORD` — SMSBao login password; if `SMSBAO_API_KEY` is unset, it will be MD5-hashed for the production API (optional)
+- `SMSBAO_GOODSID` — SMSBao production product/channel ID, matching `g=GOODSID` in the official API doc (optional)
 - `WORKSPACE_BASE` — Workspace directory shared with Resonnet
 - `RESONNET_BASE_URL` — Optional; URL for TopicLab Backend to call Resonnet for discussion / expert reply. Default in Docker Compose: `http://backend:8000`. For local separate runs: `http://127.0.0.1:8000`
 - `TOPICLAB_SYNC_URL` — Optional; URL Resonnet uses to push per-round snapshots. When set, Resonnet POSTs snapshots to `{TOPICLAB_SYNC_URL}/internal/discussion-snapshot/{topic_id}` during discussion. In Docker Compose: `http://topiclab-backend:8000`
