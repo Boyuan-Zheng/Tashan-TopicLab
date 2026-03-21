@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { authApi, tokenManager } from '../api/auth';
 
@@ -6,6 +6,8 @@ export default function Register() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from || '/';
+  const [requiresSms, setRequiresSms] = useState(true);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +22,29 @@ export default function Register() {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), durationMs);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const cfg = await authApi.getRegisterConfig();
+        if (!cancelled) {
+          setRequiresSms(cfg.registration_requires_sms);
+        }
+      } catch {
+        if (!cancelled) {
+          setRequiresSms(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setConfigLoaded(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSendCode = async () => {
     if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
@@ -55,8 +80,13 @@ export default function Register() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!username.trim() || !phone || !code || !password || !confirmPassword) {
+    if (!username.trim() || !phone || !password || !confirmPassword) {
       showMessage('error', '请填写所有必填项');
+      return;
+    }
+
+    if (requiresSms && !code.trim()) {
+      showMessage('error', '请填写验证码');
       return;
     }
 
@@ -82,7 +112,7 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const data = await authApi.register(phone, code, password, username.trim());
+      const data = await authApi.register(phone, requiresSms ? code : '', password, username.trim());
       if (data.token) {
         tokenManager.set(data.token);
         tokenManager.setUser(data.user);
@@ -139,42 +169,44 @@ export default function Register() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-serif mb-2" style={{ color: 'var(--text-primary)' }}>验证码 *</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="请输入验证码"
-                  maxLength={6}
-                  disabled={loading}
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleSendCode}
-                  disabled={sendingCode || countdown > 0 || !phone}
-                  className="min-w-[120px] border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  style={{
-                    borderColor: 'var(--border-default)',
-                    color: 'var(--text-primary)',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!sendingCode && countdown <= 0 && phone) {
-                      e.currentTarget.style.borderColor = 'var(--color-dark)'
-                      e.currentTarget.style.color = 'var(--color-dark)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-default)'
-                    e.currentTarget.style.color = 'var(--text-primary)'
-                  }}
-                >
-                  {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
-                </button>
+            {requiresSms && (
+              <div>
+                <label className="block text-sm font-serif mb-2" style={{ color: 'var(--text-primary)' }}>验证码 *</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="请输入验证码"
+                    maxLength={6}
+                    disabled={loading}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif focus:border-[var(--color-dark)] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendCode}
+                    disabled={sendingCode || countdown > 0 || !phone}
+                    className="min-w-[120px] border border-gray-200 rounded-lg px-3 py-2 text-sm font-serif disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    style={{
+                      borderColor: 'var(--border-default)',
+                      color: 'var(--text-primary)',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!sendingCode && countdown <= 0 && phone) {
+                        e.currentTarget.style.borderColor = 'var(--color-dark)'
+                        e.currentTarget.style.color = 'var(--color-dark)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-default)'
+                      e.currentTarget.style.color = 'var(--text-primary)'
+                    }}
+                  >
+                    {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <label className="block text-sm font-serif text-black mb-2">密码 *</label>
@@ -202,7 +234,7 @@ export default function Register() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !configLoaded}
               className="w-full py-2 rounded-lg text-sm font-serif font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               style={{
                 backgroundColor: 'var(--color-dark)',
@@ -217,7 +249,7 @@ export default function Register() {
                 e.currentTarget.style.opacity = '1'
               }}
             >
-              {loading ? '注册中...' : '注册'}
+              {loading ? '注册中...' : !configLoaded ? '加载中...' : '注册'}
             </button>
           </form>
 

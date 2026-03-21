@@ -28,6 +28,11 @@ export interface SendCodeResponse {
   dev_code?: string;
 }
 
+export interface RegisterConfigResponse {
+  registration_requires_sms: boolean;
+  skip_sms_until: string | null;
+}
+
 export interface DigitalTwinRecord {
   agent_name: string;
   display_name: string | null;
@@ -55,6 +60,14 @@ export interface OpenClawKeyInfo {
 }
 
 export const authApi = {
+  getRegisterConfig: async (): Promise<RegisterConfigResponse> => {
+    const res = await fetch(`${API_BASE}/auth/register-config`);
+    if (!res.ok) {
+      throw new Error(await readApiError(res, '获取注册配置失败'));
+    }
+    return res.json();
+  },
+
   sendCode: async (phone: string, type: 'register' | 'login' | 'reset_password' = 'register'): Promise<SendCodeResponse> => {
     const res = await fetch(`${API_BASE}/auth/send-code`, {
       method: 'POST',

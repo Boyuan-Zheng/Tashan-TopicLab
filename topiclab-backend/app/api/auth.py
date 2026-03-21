@@ -8,6 +8,7 @@ import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 from urllib.parse import quote, urlencode
 
 import bcrypt
@@ -76,6 +77,34 @@ JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 
+# 限时免短信注册：截止时间（中国时间）。可通过 REGISTER_SKIP_SMS_UNTIL 覆盖；设为空字符串则关闭。
+_DEFAULT_REGISTER_SKIP_SMS_UNTIL = datetime(2026, 3, 22, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+
+def _parsed_register_skip_sms_until() -> Optional[datetime]:
+    raw = os.getenv("REGISTER_SKIP_SMS_UNTIL")
+    if raw == "":
+        return None
+    if raw:
+        try:
+            s = raw.strip().replace("Z", "+00:00")
+            dt = datetime.fromisoformat(s)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except ValueError:
+            logger.warning("Invalid REGISTER_SKIP_SMS_UNTIL=%r; SMS bypass disabled", raw)
+            return None
+    return _DEFAULT_REGISTER_SKIP_SMS_UNTIL
+
+
+def register_sms_bypass_active() -> bool:
+    end = _parsed_register_skip_sms_until()
+    if end is None:
+        return False
+    return datetime.now(timezone.utc) < end.astimezone(timezone.utc)
+
+
 # SMS Bao Configuration (https://www.smsbao.com/openapi/213.html)
 SMSBAO_API = "https://api.smsbao.com/sms"
 
@@ -91,7 +120,7 @@ class SendCodeRequest(BaseModel):
 class RegisterRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=50, description="用户名")
     phone: str = Field(..., pattern=r"^1[3-9]\d{9}$", description="手机号")
-    code: str = Field(..., min_length=6, max_length=6, description="验证码")
+    code: str = Field(default="", max_length=6, description="验证码；限时免验证期间可留空")
     password: str = Field(..., min_length=6, description="密码")
 
 
@@ -515,28 +544,44 @@ async def send_verification_code(req: SendCodeRequest):
     return {"message": "验证码发送成功", "dev_code": code if not os.getenv("SMSBAO_USERNAME") else None}
 
 
+@router.get("/register-config")
+async def register_config():
+    until = _parsed_register_skip_sms_until()
+    return {
+        "registration_requires_sms": not register_sms_bypass_active(),
+        "skip_sms_until": until.isoformat() if until else None,
+    }
+
+
 @router.post("/register")
 async def register(req: RegisterRequest):
+    skip_sms = register_sms_bypass_active()
+    if not skip_sms:
+        c = (req.code or "").strip()
+        if len(c) != 6 or not c.isdigit():
+            raise HTTPException(status_code=400, detail="请输入6位短信验证码")
+
     if DATABASE_CONFIGURED:
         try:
             with get_db_session() as session:
-                row = session.execute(
-                    text("""
-                        SELECT code, expires_at FROM verification_codes
-                        WHERE phone = :phone AND type = 'register'
-                        ORDER BY created_at DESC LIMIT 1
-                    """),
-                    {"phone": req.phone}
-                ).fetchone()
-                if not row or str(row[0]).strip() != str(req.code).strip():
-                    raise HTTPException(status_code=400, detail="验证码错误")
-                try:
-                    expires_at = _normalize_expires_at(row[1])
-                except (TypeError, ValueError) as e:
-                    logger.warning("Invalid expires_at for phone=%s: %s", req.phone, e)
-                    raise HTTPException(status_code=400, detail="验证码无效，请重新获取") from e
-                if expires_at < datetime.now(timezone.utc):
-                    raise HTTPException(status_code=400, detail="验证码已过期")
+                if not skip_sms:
+                    row = session.execute(
+                        text("""
+                            SELECT code, expires_at FROM verification_codes
+                            WHERE phone = :phone AND type = 'register'
+                            ORDER BY created_at DESC LIMIT 1
+                        """),
+                        {"phone": req.phone}
+                    ).fetchone()
+                    if not row or str(row[0]).strip() != str(req.code).strip():
+                        raise HTTPException(status_code=400, detail="验证码错误")
+                    try:
+                        expires_at = _normalize_expires_at(row[1])
+                    except (TypeError, ValueError) as e:
+                        logger.warning("Invalid expires_at for phone=%s: %s", req.phone, e)
+                        raise HTTPException(status_code=400, detail="验证码无效，请重新获取") from e
+                    if expires_at < datetime.now(timezone.utc):
+                        raise HTTPException(status_code=400, detail="验证码已过期")
 
                 row = session.execute(
                     text("SELECT id FROM users WHERE phone = :phone"),
@@ -569,7 +614,7 @@ async def register(req: RegisterRequest):
             logger.exception("Register failed due to unexpected database integrity error for phone=%s", req.phone)
             raise HTTPException(status_code=500, detail="注册失败，请稍后重试") from None
     else:
-        if not _verify_dev_code(req.phone, req.code, "register"):
+        if not skip_sms and not _verify_dev_code(req.phone, req.code, "register"):
             raise HTTPException(status_code=400, detail="验证码错误或已过期")
         if _get_dev_user(req.phone):
             raise HTTPException(status_code=400, detail="该手机号已注册")
