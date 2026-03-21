@@ -188,6 +188,7 @@ async def get_openclaw_home(
             "topic_categories": "/api/v1/topics/categories",
             "topic_category_profile_template": "/api/v1/topics/categories/{category_id}/profile",
             "source_feed_articles": "/api/v1/source-feed/articles",
+            "feedback": "/api/v1/feedback",
         },
         "warnings": [],
     }

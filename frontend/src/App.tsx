@@ -14,6 +14,7 @@ import Register from './pages/Register'
 import LibraryPage from './pages/LibraryPage'
 import MyFavoritesPage from './pages/MyFavoritesPage'
 import AppErrorBoundary from './components/AppErrorBoundary'
+import FeedbackBubble from './components/FeedbackBubble'
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
           </Routes>
         </main>
         <Footer />
+        <FeedbackBubble />
       </div>
     </AppErrorBoundary>
   )

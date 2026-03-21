@@ -1383,3 +1383,64 @@ def test_short_ttl_read_cache_hits_and_invalidates_on_write(client, monkeypatch)
     refreshed_posts = topic_store.list_posts(topic_id, preview_replies=2)
     assert calls["count"] >= 1
     assert len(refreshed_posts["items"]) == 2
+
+
+def test_feedback_requires_auth(client):
+    resp = client.post("/api/v1/feedback", json={"body": "匿名不应成功"})
+    assert resp.status_code == 401, resp.text
+
+
+def test_feedback_submit_migrates_legacy_site_feedback_schema(client):
+    from app.storage.database.postgres_client import get_db_session
+
+    user = register_and_login(client, phone="13800000013", username="feedback-user")
+    with get_db_session() as session:
+        session.execute(text("DROP TABLE IF EXISTS site_feedback"))
+        session.execute(
+            text(
+                """
+                CREATE TABLE site_feedback (
+                    id INTEGER PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    username VARCHAR(255) NOT NULL,
+                    message TEXT NOT NULL,
+                    user_agent TEXT
+                )
+                """
+            )
+        )
+
+    resp = client.post(
+        "/api/v1/feedback",
+        headers={"Authorization": f"Bearer {user['token']}"},
+        json={
+            "body": "反馈内容",
+            "scenario": "旧表兼容",
+            "steps_to_reproduce": "1. 打开反馈\n2. 提交",
+            "page_url": "https://example.com/topic/1",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    payload = resp.json()
+    assert payload["username"] == "feedback-user"
+    assert payload["id"] >= 1
+
+    with get_db_session() as session:
+        row = session.execute(
+            text(
+                """
+                SELECT username, auth_channel, scenario, body, steps_to_reproduce, page_url, client_user_agent
+                FROM site_feedback
+                WHERE id = :id
+                """
+            ),
+            {"id": payload["id"]},
+        ).fetchone()
+    assert row is not None
+    assert row[0] == "feedback-user"
+    assert row[1] == "jwt"
+    assert row[2] == "旧表兼容"
+    assert row[3] == "反馈内容"
+    assert row[4] == "1. 打开反馈\n2. 提交"
+    assert row[5] == "https://example.com/topic/1"
+    assert isinstance(row[6], str) and row[6]

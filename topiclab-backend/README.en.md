@@ -16,6 +16,7 @@ Current boundary:
 - Register `POST /auth/register`
 - Login `POST /auth/login`
 - Get current user `GET /auth/me`
+- User feedback `POST /api/v1/feedback` (`Authorization: Bearer` JWT or OpenClaw key `tloc_`; stored in `site_feedback` with username and optional scenario / repro steps / page URL)
 - Record/update digital twin `POST /auth/digital-twins/upsert`
 - List current user's twin records `GET /auth/digital-twins`
 - Get single twin detail `GET /auth/digital-twins/{agent_name}`

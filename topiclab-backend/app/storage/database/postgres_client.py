@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from typing import Optional
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
@@ -76,6 +76,90 @@ def get_db_session():
         session.close()
 
 
+def _apply_site_feedback_ddl(session) -> None:
+    """Create site_feedback table and indexes (idempotent)."""
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS site_feedback (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                username VARCHAR(255) NOT NULL,
+                auth_channel VARCHAR(32) NOT NULL DEFAULT 'jwt',
+                scenario TEXT NOT NULL DEFAULT '',
+                body TEXT NOT NULL,
+                steps_to_reproduce TEXT NOT NULL DEFAULT '',
+                page_url TEXT,
+                client_user_agent TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    inspector = inspect(session.bind)
+    existing_columns = {column["name"] for column in inspector.get_columns("site_feedback")}
+    column_migrations = {
+        "username": "ALTER TABLE site_feedback ADD COLUMN username VARCHAR(255) NOT NULL DEFAULT ''",
+        "auth_channel": "ALTER TABLE site_feedback ADD COLUMN auth_channel VARCHAR(32) NOT NULL DEFAULT 'jwt'",
+        "scenario": "ALTER TABLE site_feedback ADD COLUMN scenario TEXT NOT NULL DEFAULT ''",
+        "body": "ALTER TABLE site_feedback ADD COLUMN body TEXT NOT NULL DEFAULT ''",
+        "steps_to_reproduce": "ALTER TABLE site_feedback ADD COLUMN steps_to_reproduce TEXT NOT NULL DEFAULT ''",
+        "page_url": "ALTER TABLE site_feedback ADD COLUMN page_url TEXT",
+        "client_user_agent": "ALTER TABLE site_feedback ADD COLUMN client_user_agent TEXT",
+        "created_at": "ALTER TABLE site_feedback ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP",
+    }
+    for column_name, ddl in column_migrations.items():
+        if column_name not in existing_columns:
+            session.execute(text(ddl))
+    if "message" in existing_columns:
+        session.execute(
+            text(
+                """
+                UPDATE site_feedback
+                SET body = CASE
+                    WHEN COALESCE(body, '') <> '' THEN body
+                    ELSE COALESCE(message, '')
+                END
+                """
+            )
+        )
+    if "user_agent" in existing_columns:
+        session.execute(
+            text(
+                """
+                UPDATE site_feedback
+                SET client_user_agent = CASE
+                    WHEN COALESCE(client_user_agent, '') <> '' THEN client_user_agent
+                    ELSE user_agent
+                END
+                """
+            )
+        )
+    session.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_site_feedback_user_id
+            ON site_feedback(user_id)
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_site_feedback_created_at
+            ON site_feedback(created_at DESC)
+            """
+        )
+    )
+
+
+def ensure_site_feedback_schema() -> None:
+    """Ensure feedback table exists (e.g. after deploy before next full init_auth_tables)."""
+    with get_db_session() as session:
+        _apply_site_feedback_ddl(session)
+    logger.info("site_feedback schema ensured")
+
+
 def init_auth_tables():
     """Create auth-related tables if they do not exist."""
     with get_db_session() as session:
@@ -93,6 +177,23 @@ def init_auth_tables():
         session.execute(text("""
             ALTER TABLE users
             ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE
+        """))
+        session.execute(text("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS handle VARCHAR(50)
+        """))
+        session.execute(text("""
+            UPDATE users
+            SET handle = 'user_' || id
+            WHERE handle IS NULL OR handle = ''
+        """))
+        session.execute(text("""
+            ALTER TABLE users
+            ALTER COLUMN handle SET NOT NULL
+        """))
+        session.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS users_handle_unique
+            ON users(handle)
         """))
         session.execute(text("""
             CREATE TABLE IF NOT EXISTS verification_codes (
@@ -147,6 +248,7 @@ def init_auth_tables():
             CREATE INDEX IF NOT EXISTS idx_openclaw_api_keys_token_hash
             ON openclaw_api_keys(token_hash)
         """))
+        _apply_site_feedback_ddl(session)
     logger.info("Auth tables initialized")
 
 

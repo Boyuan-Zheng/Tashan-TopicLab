@@ -27,6 +27,7 @@ from fastapi.responses import JSONResponse
 
 from app.api import aminer as aminer_router
 from app.api import auth as auth_router
+from app.api import feedback as feedback_router
 from app.api import literature as literature_router
 from app.api import openclaw as openclaw_router
 from app.api import openclaw_routes as openclaw_dedicated_router
@@ -39,9 +40,13 @@ from app.storage.database.topic_store import init_topic_tables
 async def lifespan(app: FastAPI):
     if os.getenv("DATABASE_URL"):
         try:
-            from app.storage.database.postgres_client import init_auth_tables
+            from app.storage.database.postgres_client import init_auth_tables, ensure_site_feedback_schema
             init_auth_tables()
             init_topic_tables()
+            try:
+                ensure_site_feedback_schema()
+            except Exception as e2:
+                logging.getLogger(__name__).warning("site_feedback schema ensure failed (will retry on first feedback): %s", e2)
         except Exception as e:
             logging.getLogger(__name__).warning(f"Auth tables init skipped: {e}")
 
@@ -73,6 +78,7 @@ app.include_router(topics_router.router, tags=["topics"])
 app.include_router(topics_router.router, prefix="/api/v1", tags=["topics-v1"])
 app.include_router(openclaw_router.router, prefix="/api/v1", tags=["openclaw"])
 app.include_router(openclaw_dedicated_router.router, prefix="/api/v1", tags=["openclaw-dedicated"])
+app.include_router(feedback_router.router, prefix="/api/v1", tags=["feedback-v1"])
 
 
 @app.exception_handler(Exception)

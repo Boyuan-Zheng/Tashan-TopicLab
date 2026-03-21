@@ -413,14 +413,14 @@ export const topicsApi = {
   like: (id: string, enabled: boolean) => api.post<TopicInteraction>(`/topics/${id}/like`, { enabled }),
   favorite: (id: string, enabled: boolean) => api.post<TopicInteraction>(`/topics/${id}/favorite`, { enabled }),
   share: (id: string) => api.post<TopicInteraction>(`/topics/${id}/share`),
-  getFavorites: () => api.get<MyFavoritesResponse>('/api/v1/me/favorites'),
-  listFavoriteCategories: () => api.get<{ list: FavoriteCategory[] }>('/api/v1/me/favorite-categories'),
+  getFavorites: () => api.get<MyFavoritesResponse>('v1/me/favorites'),
+  listFavoriteCategories: () => api.get<{ list: FavoriteCategory[] }>('v1/me/favorite-categories'),
   getRecentFavorites: (type: 'topics' | 'sources', params?: { cursor?: string | null; limit?: number }) => {
     const searchParams = new URLSearchParams()
     searchParams.set('type', type)
     if (params?.cursor) searchParams.set('cursor', params.cursor)
     if (params?.limit != null) searchParams.set('limit', String(params.limit))
-    return api.get<FavoriteCategoryItemsPage>(`/api/v1/me/favorites/recent?${searchParams.toString()}`)
+    return api.get<FavoriteCategoryItemsPage>(`v1/me/favorites/recent?${searchParams.toString()}`)
   },
   getFavoriteCategoryItems: (
     categoryId: string,
@@ -431,26 +431,26 @@ export const topicsApi = {
     searchParams.set('type', type)
     if (params?.cursor) searchParams.set('cursor', params.cursor)
     if (params?.limit != null) searchParams.set('limit', String(params.limit))
-    return api.get<FavoriteCategoryItemsPage>(`/api/v1/me/favorite-categories/${categoryId}/items?${searchParams.toString()}`)
+    return api.get<FavoriteCategoryItemsPage>(`v1/me/favorite-categories/${categoryId}/items?${searchParams.toString()}`)
   },
-  createFavoriteCategory: (data: FavoriteCategoryCreateRequest) => api.post<FavoriteCategory>('/api/v1/me/favorite-categories', data),
+  createFavoriteCategory: (data: FavoriteCategoryCreateRequest) => api.post<FavoriteCategory>('v1/me/favorite-categories', data),
   updateFavoriteCategory: (categoryId: string, data: FavoriteCategoryUpdateRequest) =>
-    api.patch<FavoriteCategory>(`/api/v1/me/favorite-categories/${categoryId}`, data),
+    api.patch<FavoriteCategory>(`v1/me/favorite-categories/${categoryId}`, data),
   deleteFavoriteCategory: (categoryId: string) =>
-    api.delete<{ ok: boolean; category_id: string }>(`/api/v1/me/favorite-categories/${categoryId}`),
+    api.delete<{ ok: boolean; category_id: string }>(`v1/me/favorite-categories/${categoryId}`),
   assignTopicToFavoriteCategory: (categoryId: string, topicId: string) =>
-    api.post<FavoriteCategory>(`/api/v1/me/favorite-categories/${categoryId}/topics/${topicId}`),
+    api.post<FavoriteCategory>(`v1/me/favorite-categories/${categoryId}/topics/${topicId}`),
   unassignTopicFromFavoriteCategory: (categoryId: string, topicId: string) =>
-    api.delete<FavoriteCategory>(`/api/v1/me/favorite-categories/${categoryId}/topics/${topicId}`),
+    api.delete<FavoriteCategory>(`v1/me/favorite-categories/${categoryId}/topics/${topicId}`),
   assignSourceToFavoriteCategory: (categoryId: string, articleId: number) =>
-    api.post<FavoriteCategory>(`/api/v1/me/favorite-categories/${categoryId}/source-articles/${articleId}`),
+    api.post<FavoriteCategory>(`v1/me/favorite-categories/${categoryId}/source-articles/${articleId}`),
   unassignSourceFromFavoriteCategory: (categoryId: string, articleId: number) =>
-    api.delete<FavoriteCategory>(`/api/v1/me/favorite-categories/${categoryId}/source-articles/${articleId}`),
+    api.delete<FavoriteCategory>(`v1/me/favorite-categories/${categoryId}/source-articles/${articleId}`),
   classifyFavorites: (data: { category_name: string; description?: string; topic_ids?: string[]; article_ids?: number[] }) =>
-    api.post<FavoriteCategory>('/api/v1/me/favorite-categories/classify', data),
+    api.post<FavoriteCategory>('v1/me/favorite-categories/classify', data),
   getFavoriteCategorySummaryPayload: (categoryId: string) =>
     api.get<{ category: FavoriteCategoryRef; topics: TopicListItem[]; source_articles: SourceFeedArticle[]; combined_markdown: string }>(
-      `/api/v1/me/favorite-categories/${categoryId}/summary-payload`,
+      `v1/me/favorite-categories/${categoryId}/summary-payload`,
     ),
 }
 
@@ -785,6 +785,29 @@ export const profileHelperApi = {
     `${import.meta.env.BASE_URL}api/profile-helper/download/${sessionId}`,
   getForumDownloadUrl: (sessionId: string) =>
     `${import.meta.env.BASE_URL}api/profile-helper/download/${sessionId}/forum`,
+}
+
+export interface FeedbackSubmitPayload {
+  body: string
+  scenario?: string
+  steps_to_reproduce?: string
+  page_url?: string | null
+}
+
+export interface FeedbackSubmitResponse {
+  id: number
+  username: string
+  created_at: string
+}
+
+export const feedbackApi = {
+  submit: (payload: FeedbackSubmitPayload) =>
+    api.post<FeedbackSubmitResponse>('v1/feedback', {
+      body: payload.body,
+      scenario: payload.scenario ?? '',
+      steps_to_reproduce: payload.steps_to_reproduce ?? '',
+      page_url: payload.page_url ?? null,
+    }),
 }
 
 export default api
