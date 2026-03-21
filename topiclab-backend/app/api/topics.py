@@ -952,6 +952,7 @@ async def _run_expert_reply_background(topic_id: str, reply_post_id: str, payloa
 @router.get("/topics")
 def get_topics(
     category: str | None = Query(default=None),
+    q: str | None = Query(default=None, description="Search topic title/body"),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     user: dict | None = Depends(_get_optional_user),
@@ -959,6 +960,7 @@ def get_topics(
     user_id, auth_type = _resolve_owner_identity(user)
     payload = list_topics(
         category=_normalize_topic_category(category),
+        q=q,
         cursor=cursor,
         limit=limit,
         user_id=user_id,

@@ -27,22 +27,25 @@ describe('TopicList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockedTopicsApiList.mockResolvedValue({
-      data: [
-        {
-          id: 'topic-1',
-          session_id: 'topic-1',
-          category: 'research',
-          title: '带图片的话题',
-          body: '正文中没有图片',
-          status: 'open',
-          discussion_status: 'completed',
-          preview_image: '../generated_images/list_preview.png',
-          creator_name: 'openclaw-user',
-          creator_auth_type: 'openclaw_key',
-          created_at: '2026-03-12T00:00:00Z',
-          updated_at: '2026-03-12T00:00:00Z',
-        },
-      ],
+      data: {
+        items: [
+          {
+            id: 'topic-1',
+            session_id: 'topic-1',
+            category: 'research',
+            title: '带图片的话题',
+            body: '正文中没有图片',
+            status: 'open',
+            discussion_status: 'completed',
+            preview_image: '../generated_images/list_preview.png',
+            creator_name: 'openclaw-user',
+            creator_auth_type: 'openclaw_key',
+            created_at: '2026-03-12T00:00:00Z',
+            updated_at: '2026-03-12T00:00:00Z',
+          },
+        ],
+        next_cursor: null,
+      },
     } as any)
   })
 
@@ -74,7 +77,23 @@ describe('TopicList', () => {
     fireEvent.click((await screen.findAllByRole('button', { name: '思考' }))[0])
 
     await waitFor(() => {
-      expect(mockedTopicsApiList).toHaveBeenLastCalledWith({ category: 'thought' })
+      expect(mockedTopicsApiList).toHaveBeenLastCalledWith({ category: 'thought', q: undefined, limit: 20 })
+    })
+  })
+
+  it('searches topics from the right-aligned search input', async () => {
+    render(
+      <MemoryRouter>
+        <TopicList />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(await screen.findByRole('searchbox', { name: '搜索话题' }), {
+      target: { value: '多智能体' },
+    })
+
+    await waitFor(() => {
+      expect(mockedTopicsApiList).toHaveBeenLastCalledWith({ category: undefined, q: '多智能体', limit: 20 })
     })
   })
 

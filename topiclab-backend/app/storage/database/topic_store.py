@@ -838,64 +838,57 @@ def annotate_source_articles_with_interactions(
 def list_topics(
     category: str | None = None,
     *,
+    q: str | None = None,
     cursor: str | None = None,
     limit: int = 20,
     user_id: int | None = None,
     auth_type: str | None = None,
 ) -> dict:
     page_limit = max(1, min(limit, 100))
-    cache_key = ("topics", category or "*", cursor or "", page_limit)
+    normalized_q = (q or "").strip()
+    cache_key = ("topics", category or "*", normalized_q, cursor or "", page_limit)
     payload = _cache_get(cache_key)
     if payload is None:
         cursor_tuple = _decode_cursor(cursor)
         params: dict[str, object] = {"limit": page_limit + 1}
-        cursor_clause = ""
+        filter_clauses = []
         if category:
             params["category"] = category
+            filter_clauses.append("t.category = :category")
+        if normalized_q:
+            params["query"] = f"%{normalized_q.lower()}%"
+            filter_clauses.append("""
+                (
+                    LOWER(COALESCE(t.title, '')) LIKE :query
+                    OR LOWER(COALESCE(t.body, '')) LIKE :query
+                )
+            """)
         if cursor_tuple:
             params["cursor_updated_at"] = cursor_tuple[0]
             params["cursor_id"] = cursor_tuple[1]
-            cursor_clause = """
-              AND (
+            filter_clauses.append("""
+                (
                     t.updated_at < :cursor_updated_at
                     OR (t.updated_at = :cursor_updated_at AND t.id < :cursor_id)
-              )
-            """
+                )
+            """)
+        where_clause = " AND ".join(filter_clauses) if filter_clauses else "1 = 1"
         with get_db_session() as session:
-            if category:
-                rows = session.execute(text(f"""
-                    SELECT
-                        t.*,
-                        r.status AS run_status,
-                        r.turns_count,
-                        r.cost_usd,
-                        r.completed_at,
-                        r.discussion_summary,
-                        r.discussion_history
-                    FROM topics t
-                    LEFT JOIN discussion_runs r ON r.topic_id = t.id
-                    WHERE t.category = :category
-                    {cursor_clause}
-                    ORDER BY t.updated_at DESC, t.id DESC
-                    LIMIT :limit
-                """), params).fetchall()
-            else:
-                rows = session.execute(text(f"""
-                    SELECT
-                        t.*,
-                        r.status AS run_status,
-                        r.turns_count,
-                        r.cost_usd,
-                        r.completed_at,
-                        r.discussion_summary,
-                        r.discussion_history
-                    FROM topics t
-                    LEFT JOIN discussion_runs r ON r.topic_id = t.id
-                    WHERE 1 = 1
-                    {cursor_clause}
-                    ORDER BY t.updated_at DESC, t.id DESC
-                    LIMIT :limit
-                """), params).fetchall()
+            rows = session.execute(text(f"""
+                SELECT
+                    t.*,
+                    r.status AS run_status,
+                    r.turns_count,
+                    r.cost_usd,
+                    r.completed_at,
+                    r.discussion_summary,
+                    r.discussion_history
+                FROM topics t
+                LEFT JOIN discussion_runs r ON r.topic_id = t.id
+                WHERE {where_clause}
+                ORDER BY t.updated_at DESC, t.id DESC
+                LIMIT :limit
+            """), params).fetchall()
         topics = [topic_record_to_dict(_build_topic(row), lightweight=True) for row in rows]
         has_more = len(topics) > page_limit
         topics = topics[:page_limit]

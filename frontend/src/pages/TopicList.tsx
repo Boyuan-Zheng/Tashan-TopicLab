@@ -6,6 +6,7 @@ import OpenClawSkillCard from '../components/OpenClawSkillCard'
 import TopicCard from '../components/TopicCard'
 import { toast } from '../utils/toast'
 import { useThrottledCallbackByKey } from '../hooks/useThrottledCallback'
+import { useDebouncedCallback } from '../hooks/useDebouncedCallback'
 
 const PAGE_SIZE = 20
 const INITIAL_VISIBLE_TOPICS = 18
@@ -14,6 +15,8 @@ const VISIBLE_TOPICS_STEP = 18
 export default function TopicList() {
   const [topics, setTopics] = useState<TopicListItem[]>([])
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -23,6 +26,10 @@ export default function TopicList() {
   const [pendingTopicFavoriteIds, setPendingTopicFavoriteIds] = useState<Set<string>>(new Set())
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const revealMoreRef = useRef<HTMLDivElement | null>(null)
+
+  const debouncedSetSearchQuery = useDebouncedCallback((value: string) => {
+    setSearchQuery(value.trim())
+  }, 250)
 
   useEffect(() => {
     const syncUser = async () => {
@@ -51,11 +58,11 @@ export default function TopicList() {
 
   useEffect(() => {
     void loadTopics()
-  }, [selectedCategory])
+  }, [selectedCategory, searchQuery])
 
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE_TOPICS)
-  }, [selectedCategory, topics.length])
+  }, [selectedCategory, searchQuery, topics.length])
 
   useEffect(() => {
     const node = loadMoreRef.current
@@ -90,6 +97,7 @@ export default function TopicList() {
     try {
       const res = await topicsApi.list({
         category: selectedCategory === 'all' ? undefined : selectedCategory,
+        q: searchQuery || undefined,
         limit: PAGE_SIZE,
       })
       setTopics(res.data.items)
@@ -110,6 +118,7 @@ export default function TopicList() {
     try {
       const res = await topicsApi.list({
         category: selectedCategory === 'all' ? undefined : selectedCategory,
+        q: searchQuery || undefined,
         cursor: nextCursor,
         limit: PAGE_SIZE,
       })
@@ -243,32 +252,62 @@ export default function TopicList() {
           <h1 className="text-xl sm:text-2xl font-serif font-bold text-black">话题列表</h1>
         </div>
 
-        <div className="mb-5 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setSelectedCategory('all')}
-            className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-              selectedCategory === 'all'
-                ? 'border-[var(--color-dark)] bg-[var(--color-dark)] text-white'
-                : 'border-gray-200 text-gray-600 hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]'
-            }`}
-          >
-            全部
-          </button>
-          {TOPIC_CATEGORIES.map((category) => (
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
             <button
-              key={category.id}
               type="button"
-              onClick={() => setSelectedCategory(category.id)}
+              onClick={() => setSelectedCategory('all')}
               className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                selectedCategory === category.id
+                selectedCategory === 'all'
                   ? 'border-[var(--color-dark)] bg-[var(--color-dark)] text-white'
                   : 'border-gray-200 text-gray-600 hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]'
               }`}
             >
-              {category.name}
+              全部
             </button>
-          ))}
+            {TOPIC_CATEGORIES.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => setSelectedCategory(category.id)}
+                className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                  selectedCategory === category.id
+                    ? 'border-[var(--color-dark)] bg-[var(--color-dark)] text-white'
+                    : 'border-gray-200 text-gray-600 hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]'
+                }`}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
+          <label className="relative block sm:ml-auto sm:w-64">
+            <span className="sr-only">搜索话题</span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 20 20"
+              fill="none"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            >
+              <path
+                d="M14.5 14.5L18 18M16.4 9.2A7.2 7.2 0 1 1 2 9.2a7.2 7.2 0 0 1 14.4 0Z"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(event) => {
+                const value = event.target.value
+                setSearchInput(value)
+                debouncedSetSearchQuery(value)
+              }}
+              placeholder="搜索话题"
+              className="w-full rounded-full border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-700 outline-none transition focus:border-[var(--color-dark)] focus:ring-2 focus:ring-[rgba(35,45,69,0.08)]"
+            />
+          </label>
         </div>
 
         {loading && (
@@ -276,7 +315,9 @@ export default function TopicList() {
         )}
 
         {!loading && topics.length === 0 && (
-          <p className="text-gray-500 font-serif">当前板块暂无话题</p>
+          <p className="text-gray-500 font-serif">
+            {searchQuery ? '没有找到匹配的话题' : '当前板块暂无话题'}
+          </p>
         )}
 
         <div className="flex flex-col gap-4">

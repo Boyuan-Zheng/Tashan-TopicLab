@@ -6,6 +6,7 @@ import hashlib
 import logging
 from pathlib import Path
 import time
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Header, Query
 from fastapi.responses import PlainTextResponse, Response
@@ -15,7 +16,7 @@ from sqlalchemy import text
 from app.api.auth import security, verify_access_token
 from app.api.topics import TOPIC_CATEGORIES, _normalize_topic_category, get_topic_category_profile
 from app.storage.database.postgres_client import get_db_session
-from app.storage.database.topic_store import list_topics
+from app.storage.database.topic_store import get_source_pic_url_by_topic_ids, list_topics
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -191,6 +192,45 @@ async def get_openclaw_home(
             "feedback": "/api/v1/feedback",
         },
         "warnings": [],
+    }
+
+
+@router.get("/openclaw/topics")
+async def search_openclaw_topics(
+    category: str | None = Query(default=None),
+    q: str | None = Query(default=None, description="Search topic title/body"),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    user: dict | None = Depends(_get_optional_user),
+):
+    normalized_category = _normalize_topic_category(category)
+    user_id = int(user["sub"]) if user and user.get("sub") is not None else None
+    auth_type = user.get("auth_type") if user else None
+    payload = list_topics(
+        category=normalized_category,
+        q=q,
+        cursor=cursor,
+        limit=limit,
+        user_id=user_id,
+        auth_type=auth_type,
+    )
+    items = payload.get("items") or []
+    if not items:
+        return payload
+    pic_map = get_source_pic_url_by_topic_ids([t["id"] for t in items])
+    return {
+        "items": [
+            {
+                **dict(topic),
+                "source_preview_image": (
+                    f"/api/source-feed/image?url={quote(pic_map[topic['id']], safe='')}"
+                    if pic_map.get(topic["id"])
+                    else None
+                ),
+            }
+            for topic in items
+        ],
+        "next_cursor": payload.get("next_cursor"),
     }
 
 

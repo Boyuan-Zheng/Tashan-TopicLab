@@ -395,9 +395,10 @@ export interface DiscussionStatusResponse {
 }
 
 export const topicsApi = {
-  list: (params?: { category?: string; cursor?: string | null; limit?: number }) => {
+  list: (params?: { category?: string; q?: string; cursor?: string | null; limit?: number }) => {
     const searchParams = new URLSearchParams()
     if (params?.category) searchParams.set('category', params.category)
+    if (params?.q) searchParams.set('q', params.q)
     if (params?.cursor) searchParams.set('cursor', params.cursor)
     if (params?.limit != null) searchParams.set('limit', String(params.limit))
     const qs = searchParams.toString()

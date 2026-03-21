@@ -2,6 +2,7 @@
 
 import os
 import logging
+import sys
 from contextlib import contextmanager
 from typing import Optional
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
@@ -12,6 +13,33 @@ from sqlalchemy.pool import QueuePool
 
 logger = logging.getLogger(__name__)
 PGSSLMODE = os.getenv("PGSSLMODE", "disable")
+
+
+def _is_sqlite_url(url: str) -> bool:
+    return urlparse(url).scheme.startswith("sqlite")
+
+
+def _is_test_process() -> bool:
+    if os.getenv("TOPICLAB_TESTING") == "1":
+        return True
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return True
+    argv = " ".join(sys.argv).lower()
+    return "pytest" in argv
+
+
+def _guard_against_non_sqlite_test_database(url: str) -> None:
+    if not _is_test_process():
+        return
+    if _is_sqlite_url(url):
+        return
+    if os.getenv("TOPICLAB_ALLOW_NON_SQLITE_TEST_DB") == "1":
+        logger.warning("TOPICLAB_ALLOW_NON_SQLITE_TEST_DB=1 set; allowing non-SQLite database during tests")
+        return
+    raise RuntimeError(
+        "Refusing to open non-SQLite DATABASE_URL while running tests. "
+        "Use a local SQLite DB, or set TOPICLAB_ALLOW_NON_SQLITE_TEST_DB=1 only for an intentional override."
+    )
 
 
 def _get_engine_url() -> Optional[str]:
@@ -40,6 +68,7 @@ def get_engine():
     url = _get_engine_url()
     if not url:
         raise ValueError("DATABASE_URL is not set")
+    _guard_against_non_sqlite_test_database(url)
     kwargs = {"pool_pre_ping": True}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}

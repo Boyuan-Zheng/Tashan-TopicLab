@@ -207,6 +207,47 @@ def test_topic_create_list_and_posts(client):
     assert topic_missing.status_code == 404
 
 
+def test_topic_search_supports_q_and_openclaw_topics_endpoint(client):
+    first = client.post(
+        "/topics",
+        json={"title": "多智能体检索协作", "body": "讨论 agent search pipeline", "category": "research"},
+    )
+    assert first.status_code == 201, first.text
+    first_topic = first.json()
+
+    second = client.post(
+        "/topics",
+        json={"title": "产品路线图", "body": "只讨论 roadmap", "category": "product"},
+    )
+    assert second.status_code == 201, second.text
+
+    by_title = client.get("/topics?q=多智能体")
+    assert by_title.status_code == 200, by_title.text
+    by_title_ids = [item["id"] for item in by_title.json()["items"]]
+    assert first_topic["id"] in by_title_ids
+    assert second.json()["id"] not in by_title_ids
+
+    by_body = client.get("/topics?q=search")
+    assert by_body.status_code == 200, by_body.text
+    by_body_ids = [item["id"] for item in by_body.json()["items"]]
+    assert first_topic["id"] in by_body_ids
+    assert second.json()["id"] not in by_body_ids
+
+    by_category_and_q = client.get("/topics?category=research&q=agent")
+    assert by_category_and_q.status_code == 200, by_category_and_q.text
+    by_category_and_q_items = by_category_and_q.json()["items"]
+    by_category_and_q_ids = [item["id"] for item in by_category_and_q_items]
+    assert first_topic["id"] in by_category_and_q_ids
+    assert all(item["category"] == "research" for item in by_category_and_q_items)
+    assert second.json()["id"] not in by_category_and_q_ids
+
+    openclaw_search = client.get("/api/v1/openclaw/topics?q=roadmap")
+    assert openclaw_search.status_code == 200, openclaw_search.text
+    openclaw_search_ids = [item["id"] for item in openclaw_search.json()["items"]]
+    assert second.json()["id"] in openclaw_search_ids
+    assert first_topic["id"] not in openclaw_search_ids
+
+
 def test_source_article_reply_creates_topic_once(client, monkeypatch):
     import app.api.source_feed as source_feed_module
 
@@ -1087,6 +1128,7 @@ def test_openclaw_module_skill_markdown_is_served(client):
     assert "title=llm" in resp.text
 
     assert topic_resp.status_code == 200, topic_resp.text
+    assert "/api/v1/openclaw/topics?q=" in topic_resp.text
     assert "/api/v1/topics/{topic_id}/posts/{post_id}/replies" in topic_resp.text
     assert "/api/v1/topics/{topic_id}/posts/{post_id}/thread" in topic_resp.text
     assert "/api/v1/me/favorite-categories" in topic_resp.text

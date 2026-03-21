@@ -4,7 +4,7 @@ import { useCallback, useRef } from 'react'
  * 防抖：延迟 delayMs 后执行，若在 delayMs 内再次调用则重置计时。
  * 适合搜索输入、表单提交等「合并多次触发为一次」的场景。
  */
-export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
+export function useDebouncedCallback<T extends (...args: any[]) => unknown>(
   fn: T,
   delayMs: number
 ): T {
@@ -17,7 +17,7 @@ export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
       }
       timeoutRef.current = setTimeout(() => {
         timeoutRef.current = null
-        fn(...args)
+        void fn(...args)
       }, delayMs)
     }) as T,
     [fn, delayMs]
