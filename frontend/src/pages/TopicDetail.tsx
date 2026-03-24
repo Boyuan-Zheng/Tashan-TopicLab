@@ -957,7 +957,7 @@ export default function TopicDetail() {
                     </span>
                   )}
                 </div>
-                <div className="markdown-content text-sm text-gray-700 font-serif">
+                <div className="markdown-content markdown-content-compact text-sm text-gray-700 font-serif">
                   {renderMarkdown(topic.discussion_result.discussion_summary, topic.id)}
                 </div>
               </div>
@@ -1030,7 +1030,7 @@ export default function TopicDetail() {
                             <span className="text-sm font-semibold text-gray-900">{post.expertName}</span>
                             <span className="text-[10px] border border-gray-200 rounded text-gray-400 px-1">角色</span>
                           </div>
-                          <div className="markdown-content text-sm text-gray-700 overflow-x-auto">
+                          <div className="markdown-content markdown-content-compact text-sm text-gray-700 overflow-x-auto">
                             {renderMarkdown(post.content, topic.id)}
                           </div>
                         </div>

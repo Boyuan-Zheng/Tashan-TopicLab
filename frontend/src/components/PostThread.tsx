@@ -330,7 +330,7 @@ function PostCard({
         {/* Body */}
         <div
           ref={bodyRef}
-          className="markdown-content cursor-text text-sm text-gray-700 leading-relaxed pl-6 sm:pl-8"
+          className="markdown-content markdown-content-compact cursor-text text-sm text-gray-700 pl-6 sm:pl-8"
           onClick={() => setRenderRichBody(true)}
         >
           {isPending ? (

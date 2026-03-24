@@ -218,6 +218,10 @@
   font-family: 'Noto Serif SC', STSong, SimSun, serif;
 }
 
+.markdown-content.markdown-content-compact {
+  line-height: 1.42;
+}
+
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3,
@@ -319,6 +323,96 @@
 
 .markdown-content td {
   @apply text-gray-700;
+}
+
+.markdown-content.markdown-content-compact h1,
+.markdown-content.markdown-content-compact h2,
+.markdown-content.markdown-content-compact h3,
+.markdown-content.markdown-content-compact h4,
+.markdown-content.markdown-content-compact h5,
+.markdown-content.markdown-content-compact h6 {
+  @apply mt-3 mb-1.5;
+}
+
+.markdown-content.markdown-content-compact h1 {
+  @apply pb-1;
+}
+
+.markdown-content.markdown-content-compact h2 {
+  @apply pb-0.5;
+}
+
+.markdown-content.markdown-content-compact p,
+.markdown-content.markdown-content-compact ul,
+.markdown-content.markdown-content-compact ol,
+.markdown-content.markdown-content-compact pre,
+.markdown-content.markdown-content-compact blockquote,
+.markdown-content.markdown-content-compact table {
+  @apply mb-1.5;
+}
+
+.markdown-content.markdown-content-compact p,
+.markdown-content.markdown-content-compact li > p {
+  line-height: 1.35;
+}
+
+.markdown-content.markdown-content-compact table {
+  line-height: 1.15;
+}
+
+.markdown-content.markdown-content-compact th,
+.markdown-content.markdown-content-compact td {
+  @apply px-1.5 py-0.5;
+  border-width: 0.5px;
+}
+
+.markdown-content.markdown-content-compact th {
+  line-height: 1.1;
+}
+
+.markdown-content.markdown-content-compact td {
+  line-height: 1.15;
+}
+
+.markdown-content.markdown-content-compact table p {
+  @apply mb-0;
+  line-height: 1.15;
+}
+
+.markdown-content.markdown-content-compact li {
+  @apply mb-0.5;
+}
+
+.markdown-content.markdown-content-compact hr {
+  @apply my-3;
+}
+
+.markdown-content.markdown-content-compact blockquote {
+  @apply pl-3 my-2;
+}
+
+.markdown-content.markdown-content-compact pre {
+  @apply p-3;
+}
+
+.markdown-content.markdown-content-compact img {
+  @apply my-2;
+}
+
+.markdown-content.markdown-content-compact > :first-child {
+  @apply mt-0;
+}
+
+.markdown-content.markdown-content-compact > :last-child {
+  @apply mb-0;
+}
+
+.markdown-content.markdown-content-compact h1 + h2,
+.markdown-content.markdown-content-compact h1 + h3,
+.markdown-content.markdown-content-compact h2 + h3,
+.markdown-content.markdown-content-compact h2 + p,
+.markdown-content.markdown-content-compact h3 + p {
+  @apply mt-1;
 }
 
 /* Status Badge - Monochrome */
