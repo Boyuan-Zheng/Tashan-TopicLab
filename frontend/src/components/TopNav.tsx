@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { refreshCurrentUserProfile, tokenManager, User } from '../api/auth'
+import { useMobileChromeHidden } from '../hooks/useMobileChromeHidden'
 
 const navLinks = [
   { to: '/', label: '话题列表', match: (path: string) => path === '/' && !path.startsWith('/topics') && !path.startsWith('/source-feed') && !path.startsWith('/library') && !path.startsWith('/profile-helper') && !path.startsWith('/agent-links') },
@@ -64,6 +65,7 @@ export default function TopNav() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [userMenuPosition, setUserMenuPosition] = useState({ top: 0, left: 0 })
   const [scrolled, setScrolled] = useState(false)
+  const mobileChromeHidden = useMobileChromeHidden()
   const userMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
 
@@ -177,7 +179,9 @@ export default function TopNav() {
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 w-full safe-area-inset-top overflow-x-hidden transition-all duration-300 ${
+        className={`fixed top-0 left-0 right-0 z-50 w-full safe-area-inset-top overflow-x-hidden transition-all duration-300 md:translate-y-0 ${
+          mobileChromeHidden ? '-translate-y-full' : 'translate-y-0'
+        } ${
           scrolled
             ? 'bg-white/95 backdrop-blur-xl shadow-[0_2px_8px_rgba(15,46,79,0.08)] border-b border-[var(--color-gray-light)]'
             : 'bg-white border-b border-[var(--color-gray-light)]'
@@ -346,7 +350,9 @@ export default function TopNav() {
           document.body,
         )}
       <div
-        className="fixed inset-x-0 z-50 px-3 md:hidden"
+        className={`fixed inset-x-0 z-50 px-3 transition-transform duration-300 ease-out md:hidden ${
+          mobileChromeHidden ? 'translate-y-[calc(100%+1.5rem+env(safe-area-inset-bottom))]' : 'translate-y-0'
+        }`}
         style={{
           bottom: 'calc(0.85rem + env(safe-area-inset-bottom))',
         }}
@@ -411,28 +417,6 @@ export default function TopNav() {
           </div>
         </div>
       </div>
-      <Link
-        to="/topics/new"
-        className="fixed z-[34] flex h-12 w-12 items-center justify-center rounded-full border text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 active:scale-95 md:hidden"
-        style={{
-          right: 'max(1rem, env(safe-area-inset-right))',
-          bottom: 'calc(5.9rem + env(safe-area-inset-bottom))',
-          background: 'linear-gradient(180deg, rgba(51,65,85,0.68) 0%, rgba(30,41,59,0.54) 100%)',
-          borderColor: 'rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 10px 24px rgba(15, 23, 42, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(16px) saturate(1.15)',
-        }}
-        aria-label="创建话题"
-      >
-        <span
-          className="pointer-events-none absolute inset-[3px] rounded-full"
-          aria-hidden
-          style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.01) 100%)' }}
-        />
-        <svg className="relative h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14M5 12h14" />
-        </svg>
-      </Link>
     </>
   )
 }

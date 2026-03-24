@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
 import { tokenManager } from '../api/auth'
@@ -8,6 +8,10 @@ type FeedbackDraftEventDetail = {
   scenario?: string
   steps?: string
   body?: string
+}
+
+type FeedbackBubbleProps = {
+  renderTrigger?: (open: () => void) => ReactNode
 }
 
 function formatAxiosDetail(err: unknown): string {
@@ -28,7 +32,7 @@ function formatAxiosDetail(err: unknown): string {
 /**
  * 固定在视口右下偏上区域，避免与常见底部输入栏、话题回复浮层（约 z-40）重叠。
  */
-export default function FeedbackBubble() {
+export default function FeedbackBubble({ renderTrigger }: FeedbackBubbleProps) {
   const location = useLocation()
   const panelTitleId = useId()
   const [open, setOpen] = useState(false)
@@ -106,37 +110,10 @@ export default function FeedbackBubble() {
   }, [body, close, location.pathname, location.search, scenario, steps, token])
 
   const fab = (
-    <button
-      type="button"
-      className="feedback-bubble-fab fixed z-[35] flex h-12 w-12 items-center justify-center rounded-full border text-slate-700 shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-      style={{
-        right: 'max(1rem, env(safe-area-inset-right))',
-        bottom: 'calc(10rem + env(safe-area-inset-bottom))',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.66) 0%, rgba(255,255,255,0.42) 100%)',
-        borderColor: 'rgba(255,255,255,0.26)',
-        boxShadow: '0 10px 24px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.32)',
-        backdropFilter: 'blur(16px) saturate(1.2)',
-      }}
-      aria-label="打开反馈"
-      onClick={() => {
-        setOpen(true)
-        setMessage(null)
-      }}
-    >
-      <span
-        className="pointer-events-none absolute inset-[3px] rounded-full"
-        aria-hidden
-        style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.04) 100%)' }}
-      />
-      <svg className="relative h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-        <path
-          strokeWidth={1.75}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8L3 20l1.2-3.6A7.96 7.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-        />
-      </svg>
-    </button>
+    renderTrigger?.(() => {
+      setOpen(true)
+      setMessage(null)
+    }) ?? null
   )
 
   const modal =

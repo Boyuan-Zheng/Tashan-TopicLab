@@ -18,7 +18,7 @@ import AppsPage from './pages/AppsPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AppErrorBoundary from './components/AppErrorBoundary'
-import FeedbackBubble from './components/FeedbackBubble'
+import FloatingActions from './components/FloatingActions'
 
 function App() {
   const location = useLocation()
@@ -55,7 +55,7 @@ function App() {
           </Routes>
         </main>
         {isAdminRoute ? null : <Footer />}
-        {isAdminRoute ? null : <FeedbackBubble />}
+        {isAdminRoute ? null : <FloatingActions />}
       </div>
     </AppErrorBoundary>
   )

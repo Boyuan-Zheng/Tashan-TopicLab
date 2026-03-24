@@ -1212,6 +1212,8 @@ export default function TopicDetail() {
         )}
       </div>
 
+      <div id="topic-detail-bottom-anchor" className="h-px w-full" aria-hidden />
+
       {shouldShowReplyDock && (
         <div
           className="fixed inset-0 z-40 flex items-end justify-end px-4 sm:px-6 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
