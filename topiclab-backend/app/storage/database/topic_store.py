@@ -80,6 +80,20 @@ def _to_iso(value) -> str:
     return value.isoformat()
 
 
+def _to_utc_datetime(value) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, str):
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def _json_loads(value, default):
     if value in (None, ""):
         return default
@@ -138,6 +152,7 @@ def init_topic_tables() -> None:
                 moderator_mode_id VARCHAR(64),
                 moderator_mode_name VARCHAR(255),
                 preview_image TEXT,
+                preview_image_synced_at TIMESTAMPTZ,
                 creator_user_id INTEGER,
                 creator_name VARCHAR(255),
                 creator_auth_type VARCHAR(64)
@@ -146,6 +161,7 @@ def init_topic_tables() -> None:
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_user_id INTEGER"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_name VARCHAR(255)"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_auth_type VARCHAR(64)"))
+        session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS preview_image_synced_at TIMESTAMPTZ"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS posts_count INTEGER NOT NULL DEFAULT 0"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS likes_count INTEGER NOT NULL DEFAULT 0"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS favorites_count INTEGER NOT NULL DEFAULT 0"))
@@ -630,12 +646,12 @@ def create_topic(
                 INSERT INTO topics (
                     id, session_id, title, body, category, status, mode, num_rounds,
                     expert_names, discussion_status, created_at, updated_at,
-                    moderator_mode_id, moderator_mode_name, preview_image,
+                    moderator_mode_id, moderator_mode_name, preview_image, preview_image_synced_at,
                     creator_user_id, creator_name, creator_auth_type
                 ) VALUES (
                     :id, :session_id, :title, :body, :category, :status, :mode, :num_rounds,
                     :expert_names, :discussion_status, :created_at, :updated_at,
-                    :moderator_mode_id, :moderator_mode_name, :preview_image,
+                    :moderator_mode_id, :moderator_mode_name, :preview_image, :preview_image_synced_at,
                     :creator_user_id, :creator_name, :creator_auth_type
                 )
             """),
@@ -658,6 +674,7 @@ def create_topic(
                 "moderator_mode_id": "standard",
                 "moderator_mode_name": "标准圆桌",
                 "preview_image": preview_image,
+                "preview_image_synced_at": now,
                 "creator_user_id": creator_user_id,
                 "creator_name": creator_name,
                 "creator_auth_type": creator_auth_type,
@@ -910,6 +927,23 @@ def list_topics(
                 LIMIT :limit
             """), params).fetchall()
         topics = [topic_record_to_dict(_build_topic(row), lightweight=True) for row in rows]
+        topic_ids_needing_preview_sync = [
+            str(row.id)
+            for row in rows
+            if (_to_utc_datetime(getattr(row, "preview_image_synced_at", None)) or datetime.min.replace(tzinfo=timezone.utc))
+            < (_to_utc_datetime(getattr(row, "updated_at", None)) or datetime.min.replace(tzinfo=timezone.utc))
+        ]
+        post_preview_map = get_post_preview_image_by_topic_ids(topic_ids_needing_preview_sync)
+        if topic_ids_needing_preview_sync:
+            persist_topic_preview_images(
+                {
+                    topic_id: post_preview_map.get(topic_id)
+                    for topic_id in topic_ids_needing_preview_sync
+                }
+            )
+        for topic in topics:
+            if topic["id"] in topic_ids_needing_preview_sync:
+                topic["preview_image"] = post_preview_map.get(topic["id"]) or topic.get("preview_image")
         has_more = len(topics) > page_limit
         topics = topics[:page_limit]
         next_cursor = None
@@ -1097,6 +1131,25 @@ def get_topic_origin_by_ids(topic_ids: list[str]) -> dict[str, str]:
     return result
 
 
+def get_source_feed_name_by_topic_ids(topic_ids: list[str]) -> dict[str, str]:
+    if not topic_ids:
+        return {}
+    with get_db_session() as session:
+        rows = session.execute(
+            text("""
+                SELECT topic_id, snapshot_source_feed_name
+                FROM topic_source_article_links
+                WHERE topic_id IN :topic_ids
+            """).bindparams(bindparam("topic_ids", expanding=True)),
+            {"topic_ids": topic_ids},
+        ).fetchall()
+    return {
+        str(row.topic_id): str(row.snapshot_source_feed_name or "")
+        for row in rows
+        if str(row.snapshot_source_feed_name or "").strip()
+    }
+
+
 def link_app_to_topic(
     app_id: str,
     topic_id: str,
@@ -1178,6 +1231,59 @@ def get_source_pic_url_by_topic_ids(topic_ids: list[str]) -> dict[str, str]:
     return {str(row.topic_id): str(row.snapshot_pic_url) for row in rows}
 
 
+def get_post_preview_image_by_topic_ids(topic_ids: list[str]) -> dict[str, str]:
+    """Return mapping topic_id -> latest post image markdown ref for topics lacking a dedicated preview."""
+    if not topic_ids:
+        return {}
+    with get_db_session() as session:
+        rows = session.execute(
+            text(
+                """
+                SELECT topic_id, body
+                FROM posts
+                WHERE topic_id IN :topic_ids
+                  AND body IS NOT NULL
+                  AND body != ''
+                  AND body LIKE '%![%'
+                ORDER BY topic_id ASC, created_at DESC, id DESC
+                """
+            ).bindparams(bindparam("topic_ids", expanding=True)),
+            {"topic_ids": topic_ids},
+        ).fetchall()
+    previews: dict[str, str] = {}
+    for row in rows:
+        topic_id = str(row.topic_id)
+        if topic_id in previews:
+            continue
+        preview = extract_preview_image(row.body)
+        if preview:
+            previews[topic_id] = preview
+    return previews
+
+
+def persist_topic_preview_images(preview_map: dict[str, str | None]) -> None:
+    if not preview_map:
+        return
+    synced_at = utc_now()
+    with get_db_session() as session:
+        for topic_id, preview_image in preview_map.items():
+            session.execute(
+                text(
+                    """
+                    UPDATE topics
+                    SET preview_image = COALESCE(:preview_image, preview_image),
+                        preview_image_synced_at = :synced_at
+                    WHERE id = :topic_id
+                    """
+                ),
+                {
+                    "topic_id": topic_id,
+                    "preview_image": preview_image,
+                    "synced_at": synced_at,
+                },
+            )
+
+
 def update_topic(topic_id: str, data: dict) -> dict | None:
     allowed = {
         "title",
@@ -1197,6 +1303,8 @@ def update_topic(topic_id: str, data: dict) -> dict | None:
         payload["expert_names"] = json.dumps(payload["expert_names"], ensure_ascii=False)
     if "body" in payload and "preview_image" not in payload:
         payload["preview_image"] = extract_preview_image(payload["body"])
+    if "preview_image" in payload:
+        payload["preview_image_synced_at"] = utc_now()
     payload["updated_at"] = utc_now()
     assignments = ", ".join(f"{key} = :{key}" for key in payload)
     payload["topic_id"] = topic_id
@@ -1650,15 +1758,36 @@ def upsert_post(post: dict) -> dict:
             },
         )
         if existing is None:
-            session.execute(
-                text("""
-                    UPDATE topics
-                    SET posts_count = posts_count + 1,
-                        updated_at = :updated_at
-                    WHERE id = :topic_id
-                """),
-                {"topic_id": post["topic_id"], "updated_at": utc_now()},
-            )
+            topic_update_payload = {
+                "topic_id": post["topic_id"],
+                "updated_at": utc_now(),
+            }
+            preview_image = extract_preview_image(post.get("body"))
+            if preview_image:
+                topic_update_payload["preview_image"] = preview_image
+                session.execute(
+                    text(
+                        """
+                        UPDATE topics
+                        SET posts_count = posts_count + 1,
+                            updated_at = :updated_at,
+                            preview_image = :preview_image,
+                            preview_image_synced_at = :updated_at
+                        WHERE id = :topic_id
+                        """
+                    ),
+                    topic_update_payload,
+                )
+            else:
+                session.execute(
+                    text("""
+                        UPDATE topics
+                        SET posts_count = posts_count + 1,
+                            updated_at = :updated_at
+                        WHERE id = :topic_id
+                    """),
+                    topic_update_payload,
+                )
             if post.get("in_reply_to_id"):
                 session.execute(
                     text("""

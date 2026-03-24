@@ -81,6 +81,7 @@ export interface TopicListItem {
   preview_image?: string | null
   /** 信源默认图，可作为预览图加载失败时的 fallback */
   source_preview_image?: string | null
+  source_feed_name?: string | null
   creator_user_id?: number | null
   creator_name?: string | null
   creator_auth_type?: string | null

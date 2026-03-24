@@ -208,6 +208,57 @@ def test_topic_create_list_and_posts(client):
     assert topic_missing.status_code == 404
 
 
+def test_topic_list_uses_latest_post_oss_image_as_preview_fallback(client):
+    create = client.post("/topics", json={"title": "评论图预览", "body": "正文无图", "category": "research"})
+    assert create.status_code == 201, create.text
+    topic_id = create.json()["id"]
+
+    post_resp = client.post(
+        f"/topics/{topic_id}/posts",
+        json={
+            "author": "alice",
+            "body": "这条评论带图\n\n![截图](https://oss-example.aliyuncs.com/topic-media/comment-preview.webp)",
+        },
+    )
+    assert post_resp.status_code == 201, post_resp.text
+
+    topic_detail = client.get(f"/topics/{topic_id}")
+    assert topic_detail.status_code == 200, topic_detail.text
+    assert topic_detail.json()["preview_image"] == "https://oss-example.aliyuncs.com/topic-media/comment-preview.webp"
+
+    list_resp = client.get("/topics")
+    assert list_resp.status_code == 200, list_resp.text
+    listed = next(item for item in list_resp.json()["items"] if item["id"] == topic_id)
+    assert listed["preview_image"] == "https://oss-example.aliyuncs.com/topic-media/comment-preview.webp"
+
+
+def test_topic_list_prefers_latest_post_oss_image_over_topic_preview_image(client):
+    create = client.post(
+        "/topics",
+        json={
+            "title": "评论图优先",
+            "body": "正文带图 ![正文图](https://oss-example.aliyuncs.com/topic-media/body-preview.webp)",
+            "category": "research",
+        },
+    )
+    assert create.status_code == 201, create.text
+    topic_id = create.json()["id"]
+
+    post_resp = client.post(
+        f"/topics/{topic_id}/posts",
+        json={
+            "author": "alice",
+            "body": "更新后的评论图\n\n![评论图](https://oss-example.aliyuncs.com/topic-media/comment-preview-latest.webp)",
+        },
+    )
+    assert post_resp.status_code == 201, post_resp.text
+
+    list_resp = client.get("/topics")
+    assert list_resp.status_code == 200, list_resp.text
+    listed = next(item for item in list_resp.json()["items"] if item["id"] == topic_id)
+    assert listed["preview_image"] == "https://oss-example.aliyuncs.com/topic-media/comment-preview-latest.webp"
+
+
 def test_topic_search_supports_q_and_openclaw_topics_endpoint(client):
     first = client.post(
         "/topics",
@@ -1029,6 +1080,68 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     posts_after_delete = client.get(f"/api/v1/topics/{topic_id}/posts")
     assert posts_after_delete.status_code == 200, posts_after_delete.text
     assert posts_after_delete.json()["items"] == []
+
+
+def test_openclaw_home_reply_stats_include_openclaw_top_level_posts(client):
+    import app.api.openclaw as openclaw_module
+
+    from app.storage.database.postgres_client import get_db_session
+
+    openclaw_module._site_stats_cache["value"] = None
+    openclaw_module._site_stats_cache["expires_at"] = 0.0
+
+    phone = f"139{int(time.time() * 1000) % 100000000:08d}"
+    hashed_password = bcrypt.hashpw("password123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    with get_db_session() as session:
+        session.execute(
+            text(
+                """
+                INSERT INTO users (phone, password, username, handle)
+                VALUES (:phone, :password, :username, :handle)
+                """
+            ),
+            {
+                "phone": phone,
+                "password": hashed_password,
+                "username": "openclaw-stats-user",
+                "handle": "openclaw_stats_user",
+            },
+        )
+
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"phone": phone, "password": "password123"},
+    )
+    assert login.status_code == 200, login.text
+    jwt_token = login.json()["token"]
+
+    key_resp = client.post(
+        "/api/v1/auth/openclaw-key",
+        headers={"Authorization": f"Bearer {jwt_token}"},
+    )
+    assert key_resp.status_code == 200, key_resp.text
+    raw_key = key_resp.json()["key"]
+
+    topic_resp = client.post(
+        "/api/v1/topics",
+        json={"title": "统计口径验证", "body": "用于验证 OpenClaw 跟帖是否计入回帖数量"},
+    )
+    assert topic_resp.status_code == 201, topic_resp.text
+    topic_id = topic_resp.json()["id"]
+
+    post_resp = client.post(
+        f"/api/v1/openclaw/topics/{topic_id}/posts",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"body": "这是 OpenClaw 发表的一条顶层跟帖"},
+    )
+    assert post_resp.status_code == 201, post_resp.text
+
+    openclaw_module._site_stats_cache["value"] = None
+    openclaw_module._site_stats_cache["expires_at"] = 0.0
+
+    home_resp = client.get("/api/v1/home")
+    assert home_resp.status_code == 200, home_resp.text
+    assert home_resp.json()["site_stats"]["replies_count"] >= 1
 
 
 def test_openclaw_dedicated_routes_require_openclaw_key_reject_jwt(client):

@@ -51,6 +51,7 @@ from app.storage.database.topic_store import (
     get_favorite_category_summary_payload,
     get_post,
     get_source_pic_url_by_topic_ids,
+    get_source_feed_name_by_topic_ids,
     get_topic_origin_by_ids,
     get_topic,
     get_topic_id_by_source_article,
@@ -1000,12 +1001,14 @@ def get_topics(
     items = payload.get("items") or []
     if items:
         pic_map = get_source_pic_url_by_topic_ids([t["id"] for t in items])
+        source_name_map = get_source_feed_name_by_topic_ids([t["id"] for t in items])
         origin_map = get_topic_origin_by_ids([t["id"] for t in items])
         out = []
         for t in items:
             row = dict(t)
             pic = pic_map.get(t["id"])
             row["source_preview_image"] = f"/api/source-feed/image?url={quote(pic, safe='')}" if pic else None
+            row["source_feed_name"] = source_name_map.get(t["id"]) or None
             row["topic_origin"] = origin_map.get(t["id"])
             out.append(row)
         payload = {"items": out, "next_cursor": payload.get("next_cursor")}

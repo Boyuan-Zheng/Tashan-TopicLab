@@ -5,6 +5,14 @@ import FavoriteCategoryPicker from './FavoriteCategoryPicker'
 import ReactionButton from './ReactionButton'
 import { getTopicPreviewImageSrc } from '../utils/topicImage'
 
+function getTopicSourceLabel(topic: TopicListItem) {
+  const sourceFeedName = topic.source_feed_name?.trim()
+  if (sourceFeedName) return sourceFeedName
+  if (topic.topic_origin === 'source') return '信源话题'
+  if (topic.topic_origin === 'app') return '应用话题'
+  return '站内创建'
+}
+
 function HeartIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
@@ -61,6 +69,7 @@ export default function TopicCard({
   onCreateCategory,
 }: TopicCardProps) {
   const categoryMeta = getTopicCategoryMeta(topic.category)
+  const sourceLabel = getTopicSourceLabel(topic)
   const previewImageSrc = getTopicPreviewImageSrc(topic, {
     width: 128,
     height: 128,
@@ -95,6 +104,33 @@ export default function TopicCard({
         e.currentTarget.style.boxShadow = 'var(--shadow-sm)'
       }}
     >
+      {showPreview ? (
+        <Link to={`/topics/${topic.id}`} className="mb-4 block">
+          <div
+            className="aspect-[16/9] w-full overflow-hidden rounded-xl border"
+            style={{ borderColor: 'var(--border-default)' }}
+          >
+            {showPrimaryPreview ? (
+              <img
+                src={previewImageSrc}
+                alt={`${topic.title} 预览图`}
+                className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.02]"
+                loading="lazy"
+                onError={() => setPreviewImageFailed(true)}
+              />
+            ) : (
+              <img
+                src={sourceFallbackSrc}
+                alt={`${topic.title} 预览图`}
+                className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.02]"
+                loading="lazy"
+                onError={() => setSourcePreviewFailed(true)}
+              />
+            )}
+          </div>
+        </Link>
+      ) : null}
+
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <Link to={`/topics/${topic.id}`} className="block">
@@ -132,10 +168,10 @@ export default function TopicCard({
           <div className="min-w-0 flex-1">
             {topic.body?.trim() ? (
               <p
-                className="mb-3 line-clamp-2 text-sm font-serif"
+                className="mb-3 line-clamp-3 text-sm font-serif"
                 style={{ color: 'var(--text-secondary)' }}
               >
-                {topic.body.slice(0, 150)}{topic.body.length > 150 ? '...' : ''}
+                {topic.body.slice(0, 180)}{topic.body.length > 180 ? '...' : ''}
               </p>
             ) : null}
             <div
@@ -143,6 +179,7 @@ export default function TopicCard({
               style={{ color: 'var(--text-tertiary)' }}
             >
               {categoryMeta ? <span>板块：{categoryMeta.name}</span> : null}
+              <span>信源：{sourceLabel}</span>
               <span>创建于 {new Date(topic.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
               <span>跟贴 {topic.posts_count ?? 0}</span>
               {topic.creator_name ? (
@@ -154,30 +191,6 @@ export default function TopicCard({
               {topic.discussion_status !== 'pending' ? <span>AI 话题讨论</span> : null}
             </div>
           </div>
-          {showPreview ? (
-            <div
-              className="mt-0.5 h-16 w-16 flex-shrink-0 self-start overflow-hidden rounded-lg border sm:h-20 sm:w-20"
-              style={{ borderColor: 'var(--border-default)' }}
-            >
-              {showPrimaryPreview ? (
-                <img
-                  src={previewImageSrc}
-                  alt={`${topic.title} 预览图`}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  onError={() => setPreviewImageFailed(true)}
-                />
-              ) : (
-                <img
-                  src={sourceFallbackSrc}
-                  alt={`${topic.title} 预览图`}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  onError={() => setSourcePreviewFailed(true)}
-                />
-              )}
-            </div>
-          ) : null}
         </Link>
       </div>
 
