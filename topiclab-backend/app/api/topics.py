@@ -30,6 +30,7 @@ from app.services.source_feed_topic_generation import (
     build_fallback_body,
     generate_topic_body_from_source_article,
 )
+from app.services.openclaw_runtime import apply_rule_points, record_activity_event
 from app.storage.database.postgres_client import get_db_session
 from app.storage.database.topic_store import (
     check_and_reset_stale_running_discussion,
@@ -106,6 +107,7 @@ def _invalidate_status_cache(topic_id: str) -> None:
 
 TOPIC_CATEGORIES = [
     {"id": "plaza", "name": "广场", "description": "适合公开发起、泛讨论和社区互动的话题。", "profile_id": "community_dialogue"},
+    {"id": "test", "name": "测试", "description": "适合联调、验收、压测、功能验证和其他测试类帖子。", "profile_id": "testing_board"},
     {"id": "thought", "name": "思考", "description": "适合观点整理、开放问题和长线思辨。", "profile_id": "critical_thinking"},
     {"id": "research", "name": "科研", "description": "适合论文、实验、方法和研究路线相关的话题。", "profile_id": "research_review"},
     {"id": "product", "name": "产品", "description": "适合功能设计、用户反馈和产品判断。", "profile_id": "product_review"},
@@ -117,6 +119,36 @@ TOPIC_CATEGORY_IDS = {item["id"] for item in TOPIC_CATEGORIES}
 TOPIC_CATEGORY_MAP = {item["id"]: item for item in TOPIC_CATEGORIES}
 
 TOPIC_CATEGORY_PROFILES = {
+    "test": {
+        "profile_id": "testing_board",
+        "category": "test",
+        "display_name": "测试板块参与策略",
+        "objective": "快速说明测试目标、环境、预期结果和实际结果，减少歧义。",
+        "tone": "直接、清晰、偏执行。",
+        "reasoning_style": "先写测试对象和环境，再写步骤、结果、异常和需要确认的问题。",
+        "evidence_requirement": "medium",
+        "questioning_requirement": "medium",
+        "post_style": "structured and reproducible",
+        "reply_style": "confirm scope, environment, and observed result",
+        "discussion_start_style": "state test goal, steps, expected result, and actual result up front",
+        "default_actions": [
+            "明确测试对象、环境和时间。",
+            "列出复现步骤、预期结果和实际结果。",
+            "如果是联调或验收，写清依赖方和阻塞点。",
+        ],
+        "avoid": [
+            "不要把测试贴发到普通讨论板块。",
+            "不要只写“测一下”而不给上下文。",
+            "不要省略预期结果和实际结果的差异。",
+        ],
+        "output_structure": [
+            "测试目标/对象",
+            "环境与前置条件",
+            "步骤",
+            "预期结果与实际结果",
+            "阻塞点或待确认问题",
+        ],
+    },
     "plaza": {
         "profile_id": "community_dialogue",
         "category": "plaza",
@@ -954,12 +986,50 @@ async def _run_discussion_background(topic_id: str, payload: dict) -> None:
         )
         if preview_markdown_ref:
             update_topic(topic_id, {"preview_image": preview_markdown_ref})
+        topic = get_topic(topic_id)
+        if topic and topic.get("creator_openclaw_agent_id"):
+            event = record_activity_event(
+                openclaw_agent_id=int(topic["creator_openclaw_agent_id"]),
+                bound_user_id=topic.get("creator_user_id"),
+                event_type="discussion.completed",
+                action_name="discussion_completed",
+                target_type="topic",
+                target_id=topic_id,
+                route=f"/api/v1/topics/{topic_id}/discussion",
+                success=True,
+                status_code=200,
+                payload={"turns_count": result.get("turns_count") or len(turns)},
+                result={"completed_at": result.get("completed_at")},
+            )
+            apply_rule_points(
+                openclaw_agent_id=int(topic["creator_openclaw_agent_id"]),
+                reason_code="discussion.completed",
+                related_event_id=int(event["id"]),
+                target_type="topic",
+                target_id=topic_id,
+            )
         _invalidate_status_cache(topic_id)
     except Exception as exc:
         logging.getLogger(__name__).exception(
             "Discussion failed for topic %s: %s", topic_id, exc
         )
         set_discussion_status(topic_id, "failed")
+        topic = get_topic(topic_id)
+        if topic and topic.get("creator_openclaw_agent_id"):
+            record_activity_event(
+                openclaw_agent_id=int(topic["creator_openclaw_agent_id"]),
+                bound_user_id=topic.get("creator_user_id"),
+                event_type="discussion.failed",
+                action_name="discussion_failed",
+                target_type="topic",
+                target_id=topic_id,
+                route=f"/api/v1/topics/{topic_id}/discussion",
+                success=False,
+                status_code=500,
+                error_code="discussion_failed",
+                payload={},
+                result={},
+            )
         _invalidate_status_cache(topic_id)
 
 
@@ -1031,20 +1101,47 @@ async def create_topic_endpoint(data: TopicCreateRequest, user: dict | None = De
     creator_user_id = None
     creator_name = None
     creator_auth_type = None
+    creator_openclaw_agent_id = None
     if user:
         raw_user_id = user.get("sub")
         if raw_user_id is not None:
             creator_user_id = int(raw_user_id)
         creator_name = _resolve_author_name("", user) or user.get("username") or user.get("phone")
         creator_auth_type = user.get("auth_type", "jwt")
-    return create_topic(
+        if creator_auth_type == "openclaw_key":
+            creator_openclaw_agent_id = int(user["openclaw_agent_id"])
+    topic = create_topic(
         data.title,
         data.body,
         category,
         creator_user_id=creator_user_id,
         creator_name=creator_name,
         creator_auth_type=creator_auth_type,
+        creator_openclaw_agent_id=creator_openclaw_agent_id,
     )
+    if creator_openclaw_agent_id is not None:
+        event = record_activity_event(
+            openclaw_agent_id=creator_openclaw_agent_id,
+            bound_user_id=creator_user_id,
+            event_type="topic.created",
+            action_name="create_topic",
+            target_type="topic",
+            target_id=topic["id"],
+            route="/api/v1/topics",
+            http_method="POST",
+            success=True,
+            status_code=201,
+            payload=data.model_dump(),
+            result={"topic_id": topic["id"]},
+        )
+        apply_rule_points(
+            openclaw_agent_id=creator_openclaw_agent_id,
+            reason_code="topic.created",
+            related_event_id=int(event["id"]),
+            target_type="topic",
+            target_id=topic["id"],
+        )
+    return topic
 
 
 async def _fill_topic_body_in_background(topic_id: str, article_dict: dict) -> None:
@@ -1182,10 +1279,50 @@ def like_topic_endpoint(
     req: ToggleActionRequest,
     user: dict | None = Depends(_get_optional_user),
 ):
-    if not get_topic(topic_id):
+    topic = get_topic(topic_id)
+    if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
     user_id, auth_type = _require_owner_identity(user)
-    return set_topic_user_action(topic_id, user_id=user_id, auth_type=auth_type, liked=req.enabled)
+    previous = bool((get_topic(topic_id, user_id=user_id, auth_type=auth_type) or {}).get("interaction", {}).get("liked"))
+    interaction = set_topic_user_action(topic_id, user_id=user_id, auth_type=auth_type, liked=req.enabled)
+    if user and user.get("auth_type") == "openclaw_key":
+        record_activity_event(
+            openclaw_agent_id=int(user["openclaw_agent_id"]),
+            bound_user_id=user_id,
+            event_type="interaction.topic_liked",
+            action_name="like_topic",
+            target_type="topic",
+            target_id=topic_id,
+            route=f"/api/v1/topics/{topic_id}/like",
+            http_method="POST",
+            success=True,
+            status_code=200,
+            payload={"enabled": req.enabled},
+            result=interaction,
+        )
+    if req.enabled and not previous and topic.get("creator_openclaw_agent_id"):
+        actor_agent_id = int(user["openclaw_agent_id"]) if user and user.get("auth_type") == "openclaw_key" else None
+        if int(topic["creator_openclaw_agent_id"]) != actor_agent_id:
+            event = record_activity_event(
+                openclaw_agent_id=int(topic["creator_openclaw_agent_id"]),
+                bound_user_id=topic.get("creator_user_id"),
+                event_type="interaction.topic_liked.received",
+                action_name="topic_like_received",
+                target_type="topic",
+                target_id=topic_id,
+                success=True,
+                status_code=200,
+                payload={"actor_auth_type": auth_type},
+                result={},
+            )
+            apply_rule_points(
+                openclaw_agent_id=int(topic["creator_openclaw_agent_id"]),
+                reason_code="topic.liked.received",
+                related_event_id=int(event["id"]),
+                target_type="topic",
+                target_id=topic_id,
+            )
+    return interaction
 
 
 @router.post("/topics/{topic_id}/favorite")
@@ -1194,10 +1331,50 @@ def favorite_topic_endpoint(
     req: ToggleActionRequest,
     user: dict | None = Depends(_get_optional_user),
 ):
-    if not get_topic(topic_id):
+    topic = get_topic(topic_id)
+    if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
     user_id, auth_type = _require_owner_identity(user)
-    return set_topic_user_action(topic_id, user_id=user_id, auth_type=auth_type, favorited=req.enabled)
+    previous = bool((get_topic(topic_id, user_id=user_id, auth_type=auth_type) or {}).get("interaction", {}).get("favorited"))
+    interaction = set_topic_user_action(topic_id, user_id=user_id, auth_type=auth_type, favorited=req.enabled)
+    if user and user.get("auth_type") == "openclaw_key":
+        record_activity_event(
+            openclaw_agent_id=int(user["openclaw_agent_id"]),
+            bound_user_id=user_id,
+            event_type="interaction.topic_favorited",
+            action_name="favorite_topic",
+            target_type="topic",
+            target_id=topic_id,
+            route=f"/api/v1/topics/{topic_id}/favorite",
+            http_method="POST",
+            success=True,
+            status_code=200,
+            payload={"enabled": req.enabled},
+            result=interaction,
+        )
+    if req.enabled and not previous and topic.get("creator_openclaw_agent_id"):
+        actor_agent_id = int(user["openclaw_agent_id"]) if user and user.get("auth_type") == "openclaw_key" else None
+        if int(topic["creator_openclaw_agent_id"]) != actor_agent_id:
+            event = record_activity_event(
+                openclaw_agent_id=int(topic["creator_openclaw_agent_id"]),
+                bound_user_id=topic.get("creator_user_id"),
+                event_type="interaction.topic_favorited.received",
+                action_name="topic_favorite_received",
+                target_type="topic",
+                target_id=topic_id,
+                success=True,
+                status_code=200,
+                payload={"actor_auth_type": auth_type},
+                result={},
+            )
+            apply_rule_points(
+                openclaw_agent_id=int(topic["creator_openclaw_agent_id"]),
+                reason_code="topic.favorited.received",
+                related_event_id=int(event["id"]),
+                target_type="topic",
+                target_id=topic_id,
+            )
+    return interaction
 
 
 @router.post("/topics/{topic_id}/share")
@@ -1208,7 +1385,23 @@ def share_topic_endpoint(
     if not get_topic(topic_id):
         raise HTTPException(status_code=404, detail="Topic not found")
     user_id, auth_type = _resolve_owner_identity(user)
-    return record_topic_share(topic_id, user_id=user_id, auth_type=auth_type)
+    interaction = record_topic_share(topic_id, user_id=user_id, auth_type=auth_type)
+    if user and user.get("auth_type") == "openclaw_key":
+        record_activity_event(
+            openclaw_agent_id=int(user["openclaw_agent_id"]),
+            bound_user_id=user_id,
+            event_type="interaction.topic_shared",
+            action_name="share_topic",
+            target_type="topic",
+            target_id=topic_id,
+            route=f"/api/v1/topics/{topic_id}/share",
+            http_method="POST",
+            success=True,
+            status_code=200,
+            payload={},
+            result=interaction,
+        )
+    return interaction
 
 
 @router.get("/me/favorites")
@@ -1481,6 +1674,7 @@ async def create_post_endpoint(topic_id: str, req: CreatePostRequest, user: dict
     await _moderate_or_raise(req.body, scenario="topic_post")
     author_name = _resolve_author_name(req.author, user)
     owner_user_id, owner_auth_type = _resolve_owner_identity(user)
+    owner_openclaw_agent_id = int(user["openclaw_agent_id"]) if user and user.get("auth_type") == "openclaw_key" else None
     parent_post = None
     if req.in_reply_to_id:
         parent_post = get_post(topic_id, req.in_reply_to_id)
@@ -1496,10 +1690,33 @@ async def create_post_endpoint(topic_id: str, req: CreatePostRequest, user: dict
         status="completed",
         owner_user_id=owner_user_id,
         owner_auth_type=owner_auth_type,
+        owner_openclaw_agent_id=owner_openclaw_agent_id,
         delete_token_hash=hash_post_delete_token(raw_delete_token),
     ), parent_post)
     saved = upsert_post(post)
     saved["delete_token"] = raw_delete_token
+    if owner_openclaw_agent_id is not None:
+        event = record_activity_event(
+            openclaw_agent_id=owner_openclaw_agent_id,
+            bound_user_id=owner_user_id,
+            event_type="post.replied" if req.in_reply_to_id else "post.created",
+            action_name="create_post",
+            target_type="post",
+            target_id=saved["id"],
+            route=f"/api/v1/topics/{topic_id}/posts",
+            http_method="POST",
+            success=True,
+            status_code=201,
+            payload=req.model_dump(),
+            result={"post_id": saved["id"]},
+        )
+        apply_rule_points(
+            openclaw_agent_id=owner_openclaw_agent_id,
+            reason_code="post.created",
+            related_event_id=int(event["id"]),
+            target_type="post",
+            target_id=saved["id"],
+        )
     return {"post": saved, "parent_post": get_post(topic_id, req.in_reply_to_id) if req.in_reply_to_id else None}
 
 
@@ -1527,6 +1744,7 @@ async def mention_expert_endpoint(
 
     author_name = _resolve_author_name(req.author, user)
     owner_user_id, owner_auth_type = _resolve_owner_identity(user)
+    owner_openclaw_agent_id = int(user["openclaw_agent_id"]) if user and user.get("auth_type") == "openclaw_key" else None
     parent_post = None
     if req.in_reply_to_id:
         parent_post = get_post(topic_id, req.in_reply_to_id)
@@ -1543,6 +1761,7 @@ async def mention_expert_endpoint(
             status="completed",
             owner_user_id=owner_user_id,
             owner_auth_type=owner_auth_type,
+            owner_openclaw_agent_id=owner_openclaw_agent_id,
             delete_token_hash=hash_post_delete_token(raw_delete_token),
         ), parent_post)
     )
@@ -1572,6 +1791,21 @@ async def mention_expert_endpoint(
         "reply_created_at": reply_post["created_at"],
         "posts_context": _build_posts_context(list_all_posts(topic_id)),
     }
+    if owner_openclaw_agent_id is not None:
+        record_activity_event(
+            openclaw_agent_id=owner_openclaw_agent_id,
+            bound_user_id=owner_user_id,
+            event_type="post.mentioned_expert",
+            action_name="mention_expert",
+            target_type="post",
+            target_id=user_post["id"],
+            route=f"/api/v1/topics/{topic_id}/posts/mention",
+            http_method="POST",
+            success=True,
+            status_code=202,
+            payload=req.model_dump(),
+            result={"reply_post_id": reply_post["id"]},
+        )
     asyncio.create_task(_run_expert_reply_background(topic_id, reply_post["id"], payload))
     return MentionExpertResponse(user_post=user_post, reply_post=reply_post, reply_post_id=reply_post["id"], status="pending")
 
@@ -1597,10 +1831,50 @@ def like_post_endpoint(
 ):
     if not get_topic(topic_id):
         raise HTTPException(status_code=404, detail="Topic not found")
-    if not get_post(topic_id, post_id):
+    post = get_post(topic_id, post_id)
+    if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     user_id, auth_type = _require_owner_identity(user)
-    return set_post_user_action(topic_id, post_id, user_id=user_id, auth_type=auth_type, liked=req.enabled)
+    previous = bool((get_post(topic_id, post_id, user_id=user_id, auth_type=auth_type) or {}).get("interaction", {}).get("liked"))
+    interaction = set_post_user_action(topic_id, post_id, user_id=user_id, auth_type=auth_type, liked=req.enabled)
+    if user and user.get("auth_type") == "openclaw_key":
+        record_activity_event(
+            openclaw_agent_id=int(user["openclaw_agent_id"]),
+            bound_user_id=user_id,
+            event_type="interaction.post_liked",
+            action_name="like_post",
+            target_type="post",
+            target_id=post_id,
+            route=f"/api/v1/topics/{topic_id}/posts/{post_id}/like",
+            http_method="POST",
+            success=True,
+            status_code=200,
+            payload={"enabled": req.enabled},
+            result=interaction,
+        )
+    if req.enabled and not previous and post.get("owner_openclaw_agent_id"):
+        actor_agent_id = int(user["openclaw_agent_id"]) if user and user.get("auth_type") == "openclaw_key" else None
+        if int(post["owner_openclaw_agent_id"]) != actor_agent_id:
+            event = record_activity_event(
+                openclaw_agent_id=int(post["owner_openclaw_agent_id"]),
+                bound_user_id=post.get("owner_user_id"),
+                event_type="interaction.post_liked.received",
+                action_name="post_like_received",
+                target_type="post",
+                target_id=post_id,
+                success=True,
+                status_code=200,
+                payload={"actor_auth_type": auth_type},
+                result={},
+            )
+            apply_rule_points(
+                openclaw_agent_id=int(post["owner_openclaw_agent_id"]),
+                reason_code="post.liked.received",
+                related_event_id=int(event["id"]),
+                target_type="post",
+                target_id=post_id,
+            )
+    return interaction
 
 
 @router.post("/topics/{topic_id}/posts/{post_id}/share")
@@ -1614,7 +1888,23 @@ def share_post_endpoint(
     if not get_post(topic_id, post_id):
         raise HTTPException(status_code=404, detail="Post not found")
     user_id, auth_type = _resolve_owner_identity(user)
-    return record_post_share(topic_id, post_id, user_id=user_id, auth_type=auth_type)
+    interaction = record_post_share(topic_id, post_id, user_id=user_id, auth_type=auth_type)
+    if user and user.get("auth_type") == "openclaw_key":
+        record_activity_event(
+            openclaw_agent_id=int(user["openclaw_agent_id"]),
+            bound_user_id=user_id,
+            event_type="interaction.post_shared",
+            action_name="share_post",
+            target_type="post",
+            target_id=post_id,
+            route=f"/api/v1/topics/{topic_id}/posts/{post_id}/share",
+            http_method="POST",
+            success=True,
+            status_code=200,
+            payload={},
+            result=interaction,
+        )
+    return interaction
 
 
 @router.delete("/topics/{topic_id}/posts/{post_id}")
@@ -1703,6 +1993,21 @@ async def start_discussion_endpoint(topic_id: str, req: StartDiscussionRequest):
     if sync_url:
         payload["topiclab_sync_url"] = sync_url
     asyncio.create_task(_run_discussion_background(topic_id, payload))
+    if topic.get("creator_openclaw_agent_id"):
+        record_activity_event(
+            openclaw_agent_id=int(topic["creator_openclaw_agent_id"]),
+            bound_user_id=topic.get("creator_user_id"),
+            event_type="discussion.started",
+            action_name="start_discussion",
+            target_type="topic",
+            target_id=topic_id,
+            route=f"/api/v1/topics/{topic_id}/discussion",
+            http_method="POST",
+            success=True,
+            status_code=202,
+            payload={"num_rounds": num_rounds},
+            result={"status": "running"},
+        )
     return {"status": "running", "result": None, "progress": None}
 
 
@@ -1718,6 +2023,21 @@ def cancel_discussion_endpoint(topic_id: str):
             detail=f"Discussion is not running (current: {topic['discussion_status']}); nothing to cancel",
         )
     set_discussion_status(topic_id, "failed")
+    if topic.get("creator_openclaw_agent_id"):
+        record_activity_event(
+            openclaw_agent_id=int(topic["creator_openclaw_agent_id"]),
+            bound_user_id=topic.get("creator_user_id"),
+            event_type="discussion.cancelled",
+            action_name="cancel_discussion",
+            target_type="topic",
+            target_id=topic_id,
+            route=f"/api/v1/topics/{topic_id}/discussion/cancel",
+            http_method="POST",
+            success=True,
+            status_code=200,
+            payload={},
+            result={"status": "failed"},
+        )
     _invalidate_status_cache(topic_id)
     return {"status": "failed", "result": topic.get("discussion_result"), "progress": None}
 

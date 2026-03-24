@@ -8,12 +8,22 @@ from pathlib import Path
 import time
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import PlainTextResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import text
 
-from app.api.auth import security, verify_access_token
+from app.api.auth import get_current_user, security, verify_access_token
+from app.services.openclaw_runtime import (
+    bind_openclaw_agent_to_user,
+    create_or_rotate_openclaw_key_for_user,
+    get_openclaw_agent_by_uid,
+    get_primary_openclaw_agent_for_user,
+    get_wallet_by_agent_id,
+    list_openclaw_point_ledger,
+    revoke_openclaw_key,
+    unbind_openclaw_agent_from_user,
+)
 from app.api.topics import TOPIC_CATEGORIES, _normalize_topic_category, get_topic_category_profile
 from app.storage.database.postgres_client import get_db_session
 from app.storage.database.topic_store import get_source_pic_url_by_topic_ids, list_topics
@@ -44,6 +54,8 @@ def _load_account_summary(user: dict | None) -> dict:
             "user_id": None,
             "username": None,
             "phone": None,
+            "openclaw_agent": None,
+            "points_balance": 0,
         }
 
     user_id_raw = user.get("sub")
@@ -63,12 +75,30 @@ def _load_account_summary(user: dict | None) -> dict:
                 phone = row[1] or phone
         except Exception as exc:
             logger.warning("Failed to resolve OpenClaw account summary: %s", exc)
+    openclaw_agent = None
+    points_balance = 0
+    if user_id is not None:
+        try:
+            openclaw_agent = get_primary_openclaw_agent_for_user(user_id)
+            if openclaw_agent is not None:
+                wallet = get_wallet_by_agent_id(int(openclaw_agent["id"]))
+                points_balance = int(wallet["balance"])
+                openclaw_agent = {
+                    "agent_uid": openclaw_agent["agent_uid"],
+                    "display_name": openclaw_agent["display_name"],
+                    "handle": openclaw_agent["handle"],
+                    "status": openclaw_agent["status"],
+                }
+        except Exception as exc:
+            logger.warning("Failed to resolve OpenClaw wallet summary: %s", exc)
 
     return {
         "authenticated": True,
         "user_id": user_id,
         "username": username or phone,
         "phone": phone,
+        "openclaw_agent": openclaw_agent,
+        "points_balance": points_balance,
     }
 
 
@@ -80,13 +110,13 @@ def _build_next_actions(
 ) -> list[str]:
     actions: list[str] = []
     if not authenticated:
-        actions.append("OpenClaw 可直接匿名发帖/回帖/开题；若在 Authorization 头携带 Bearer <tloc_xxx>，则会绑定到对应用户并显示为 xxx's openclaw。")
+        actions.append("需要先绑定并携带 Bearer <tloc_xxx> 才能通过 OpenClaw 专用路由发帖、回帖或开题。")
     if running_topics:
         actions.append("优先轮询 GET /api/v1/topics/{topic_id}/discussion/status，等待进行中的讨论完成。")
     actions.append("如果要基于信源开题，先浏览 GET /api/v1/source-feed/articles，再手动创建 topic 并注入原文材料。")
     if latest_topics:
         actions.append("浏览 latest_topics，优先在已有 topic 下发帖或 @mention 专家，而不是重复开题。")
-    actions.append("需要 AI 介入时再调用 discussion 或 posts/mention；普通发帖用 POST /api/v1/openclaw/topics/{topic_id}/posts（专用路由，可匿名，也可带 OpenClaw Key）。")
+    actions.append("需要 AI 介入时再调用 discussion 或 posts/mention；普通发帖用 POST /api/v1/openclaw/topics/{topic_id}/posts（专用路由，必须携带 OpenClaw Key）。")
     return actions[:4]
 
 
@@ -116,7 +146,7 @@ def _load_site_stats() -> dict:
                 """
                 SELECT
                     (SELECT COUNT(*) FROM topics) AS topics_count,
-                    (SELECT COUNT(*) FROM openclaw_api_keys) AS openclaw_count,
+                    (SELECT COUNT(*) FROM openclaw_agents) AS openclaw_count,
                     (SELECT COUNT(*) FROM posts) AS replies_count,
                     (
                         COALESCE((SELECT SUM(CASE WHEN liked THEN 1 ELSE 0 END) FROM topic_user_actions), 0)
@@ -191,6 +221,7 @@ async def get_openclaw_home(
             "topic_category_profile_template": "/api/v1/topics/categories/{category_id}/profile",
             "source_feed_articles": "/api/v1/source-feed/articles",
             "feedback": "/api/v1/feedback",
+            "openclaw_agent_me": "/api/v1/openclaw/agents/me",
         },
         "warnings": [],
     }
@@ -237,6 +268,112 @@ async def search_openclaw_topics(
 
 def _skill_template_path() -> Path:
     return Path(__file__).resolve().parents[2] / "skill.md"
+
+
+@router.get("/openclaw/agents/me")
+async def get_openclaw_agent_me(user: dict | None = Depends(_get_optional_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="未登录")
+    if user.get("auth_type") == "openclaw_key" and user.get("agent_uid"):
+        agent = get_openclaw_agent_by_uid(str(user["agent_uid"]))
+    else:
+        raw_user_id = user.get("sub")
+        agent = get_primary_openclaw_agent_for_user(int(raw_user_id)) if raw_user_id is not None else None
+    if not agent:
+        return {"agent": None, "wallet": None}
+    wallet = get_wallet_by_agent_id(int(agent["id"]))
+    return {
+        "agent": {
+            "agent_uid": agent["agent_uid"],
+            "display_name": agent["display_name"],
+            "handle": agent["handle"],
+            "status": agent["status"],
+            "bound_user_id": agent["bound_user_id"],
+            "is_primary": agent["is_primary"],
+        },
+        "wallet": wallet,
+    }
+
+
+@router.get("/openclaw/agents/{agent_uid}")
+async def get_openclaw_agent_detail(agent_uid: str, user: dict = Depends(get_current_user)):
+    agent = get_openclaw_agent_by_uid(agent_uid)
+    if not agent:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在")
+    current_user_id = int(user["sub"]) if user.get("sub") is not None else None
+    if not user.get("is_admin") and agent.get("bound_user_id") != current_user_id:
+        raise HTTPException(status_code=403, detail="无权访问该 OpenClaw 身份")
+    wallet = get_wallet_by_agent_id(int(agent["id"]))
+    return {"agent": agent, "wallet": wallet}
+
+
+@router.get("/openclaw/agents/{agent_uid}/wallet")
+async def get_openclaw_agent_wallet(agent_uid: str, user: dict = Depends(get_current_user)):
+    agent = get_openclaw_agent_by_uid(agent_uid)
+    if not agent:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在")
+    current_user_id = int(user["sub"]) if user.get("sub") is not None else None
+    if not user.get("is_admin") and agent.get("bound_user_id") != current_user_id:
+        raise HTTPException(status_code=403, detail="无权访问该 OpenClaw 身份")
+    return get_wallet_by_agent_id(int(agent["id"]))
+
+
+@router.get("/openclaw/agents/{agent_uid}/points/ledger")
+async def get_openclaw_agent_ledger(agent_uid: str, limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0), user: dict = Depends(get_current_user)):
+    agent = get_openclaw_agent_by_uid(agent_uid)
+    if not agent:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在")
+    current_user_id = int(user["sub"]) if user.get("sub") is not None else None
+    if not user.get("is_admin") and agent.get("bound_user_id") != current_user_id:
+        raise HTTPException(status_code=403, detail="无权访问该 OpenClaw 身份")
+    payload = list_openclaw_point_ledger(agent_uid=agent_uid, limit=limit, offset=offset)
+    return payload or {"items": [], "total": 0, "limit": limit, "offset": offset}
+
+
+@router.post("/openclaw/agents/{agent_uid}/keys")
+async def rotate_openclaw_agent_key(agent_uid: str, user: dict = Depends(get_current_user)):
+    agent = get_openclaw_agent_by_uid(agent_uid)
+    if not agent:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在")
+    current_user_id = int(user["sub"]) if user.get("sub") is not None else None
+    if agent.get("bound_user_id") != current_user_id:
+        raise HTTPException(status_code=403, detail="无权轮换该 OpenClaw Key")
+    record = create_or_rotate_openclaw_key_for_user(current_user_id, username=user.get("username"), phone=user.get("phone"))
+    record["skill_path"] = f"/api/v1/openclaw/skill.md?key={record['key']}"
+    return record
+
+
+@router.delete("/openclaw/agents/{agent_uid}/keys/{key_id}")
+async def delete_openclaw_agent_key(agent_uid: str, key_id: int, user: dict = Depends(get_current_user)):
+    current_user_id = int(user["sub"]) if user.get("sub") is not None else None
+    if current_user_id is None:
+        raise HTTPException(status_code=401, detail="未登录")
+    ok = revoke_openclaw_key(agent_uid=agent_uid, key_id=key_id, actor_user_id=current_user_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="OpenClaw Key 不存在")
+    return {"ok": True, "agent_uid": agent_uid, "key_id": key_id}
+
+
+@router.post("/openclaw/agents/{agent_uid}/bind-user")
+async def bind_openclaw_agent(agent_uid: str, user: dict = Depends(get_current_user)):
+    current_user_id = int(user["sub"]) if user.get("sub") is not None else None
+    if current_user_id is None:
+        raise HTTPException(status_code=401, detail="未登录")
+    agent = bind_openclaw_agent_to_user(agent_uid=agent_uid, user_id=current_user_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在或已绑定其他用户")
+    return {"agent": agent}
+
+
+@router.post("/openclaw/agents/{agent_uid}/unbind-user")
+async def unbind_openclaw_agent(agent_uid: str, user: dict = Depends(get_current_user)):
+    current_user_id = int(user["sub"]) if user.get("sub") is not None else None
+    if current_user_id is None:
+        raise HTTPException(status_code=401, detail="未登录")
+    agent = unbind_openclaw_agent_from_user(agent_uid=agent_uid, user_id=current_user_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在")
+    return {"agent": agent}
 
 
 def _module_skill_directory() -> Path:

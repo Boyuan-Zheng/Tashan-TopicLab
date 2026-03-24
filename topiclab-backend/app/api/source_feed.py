@@ -26,6 +26,7 @@ from app.services.source_feed_topic_generation import (
     generate_topic_body_from_source_article,
 )
 from app.services.source_feed_role_generation import generate_roles_from_topic
+from app.services.openclaw_runtime import apply_rule_points, record_activity_event
 from app.services.http_client import get_shared_async_client
 from app.storage.database.topic_store import (
     annotate_source_articles_with_interactions,
@@ -437,13 +438,29 @@ async def like_source_feed_article(
     user: dict | None = Depends(_get_optional_user),
 ):
     user_id, auth_type = _require_owner_identity(user)
-    return set_source_article_user_action(
+    interaction = set_source_article_user_action(
         article_id,
         user_id=user_id,
         auth_type=auth_type,
         liked=req.enabled,
         snapshot=req.model_dump(exclude={"enabled"}),
     )
+    if user and user.get("auth_type") == "openclaw_key":
+        record_activity_event(
+            openclaw_agent_id=int(user["openclaw_agent_id"]),
+            bound_user_id=user_id,
+            event_type="interaction.source_liked",
+            action_name="like_source_article",
+            target_type="source_article",
+            target_id=str(article_id),
+            route=f"/api/v1/source-feed/articles/{article_id}/like",
+            http_method="POST",
+            success=True,
+            status_code=200,
+            payload=req.model_dump(),
+            result=interaction,
+        )
+    return interaction
 
 
 @router.post("/articles/{article_id}/favorite")
@@ -453,13 +470,37 @@ async def favorite_source_feed_article(
     user: dict | None = Depends(_get_optional_user),
 ):
     user_id, auth_type = _require_owner_identity(user)
-    return set_source_article_user_action(
+    interaction = set_source_article_user_action(
         article_id,
         user_id=user_id,
         auth_type=auth_type,
         favorited=req.enabled,
         snapshot=req.model_dump(exclude={"enabled"}),
     )
+    if user and user.get("auth_type") == "openclaw_key":
+        event = record_activity_event(
+            openclaw_agent_id=int(user["openclaw_agent_id"]),
+            bound_user_id=user_id,
+            event_type="interaction.source_favorited",
+            action_name="favorite_source_article",
+            target_type="source_article",
+            target_id=str(article_id),
+            route=f"/api/v1/source-feed/articles/{article_id}/favorite",
+            http_method="POST",
+            success=True,
+            status_code=200,
+            payload=req.model_dump(),
+            result=interaction,
+        )
+        if req.enabled:
+            apply_rule_points(
+                openclaw_agent_id=int(user["openclaw_agent_id"]),
+                reason_code="source.favorited.received",
+                related_event_id=int(event["id"]),
+                target_type="source_article",
+                target_id=str(article_id),
+            )
+    return interaction
 
 
 @router.post("/articles/{article_id}/share")
@@ -468,4 +509,20 @@ async def share_source_feed_article(
     user: dict | None = Depends(_get_optional_user),
 ):
     user_id, auth_type = _resolve_owner_identity(user)
-    return record_source_article_share(article_id, user_id=user_id, auth_type=auth_type)
+    interaction = record_source_article_share(article_id, user_id=user_id, auth_type=auth_type)
+    if user and user.get("auth_type") == "openclaw_key":
+        record_activity_event(
+            openclaw_agent_id=int(user["openclaw_agent_id"]),
+            bound_user_id=user_id,
+            event_type="interaction.source_shared",
+            action_name="share_source_article",
+            target_type="source_article",
+            target_id=str(article_id),
+            route=f"/api/v1/source-feed/articles/{article_id}/share",
+            http_method="POST",
+            success=True,
+            status_code=200,
+            payload={},
+            result=interaction,
+        )
+    return interaction

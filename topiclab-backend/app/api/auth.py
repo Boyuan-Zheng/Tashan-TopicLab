@@ -21,6 +21,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.storage.database.postgres_client import get_db_session
+from app.services.openclaw_runtime import (
+    create_or_rotate_openclaw_key_for_user,
+    get_openclaw_key_record as get_openclaw_key_record_db,
+    verify_openclaw_api_key as verify_openclaw_api_key_db,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -142,11 +147,14 @@ class TwinUpsertRequest(BaseModel):
 
 class OpenClawKeyResponse(BaseModel):
     has_key: bool
+    key_id: int | None = None
     key: str | None = None
     masked_key: str | None = None
     created_at: str | None = None
     last_used_at: str | None = None
     skill_path: str | None = None
+    agent_uid: str | None = None
+    openclaw_agent: dict | None = None
 
 
 def _split_csv_env(name: str) -> set[str]:
@@ -329,24 +337,7 @@ def generate_openclaw_key() -> str:
 
 def get_openclaw_key_record(user_id: int) -> dict | None:
     if DATABASE_CONFIGURED:
-        with get_db_session() as session:
-            row = session.execute(
-                text(
-                    """
-                    SELECT token_prefix, created_at, last_used_at
-                    FROM openclaw_api_keys
-                    WHERE user_id = :user_id
-                    """
-                ),
-                {"user_id": user_id},
-            ).fetchone()
-        if not row:
-            return None
-        return {
-            "masked_key": row[0],
-            "created_at": row[1].isoformat() if row[1] else None,
-            "last_used_at": row[2].isoformat() if row[2] else None,
-        }
+        return get_openclaw_key_record_db(user_id)
 
     record = _dev_openclaw_keys.get(user_id)
     if not record:
@@ -359,39 +350,22 @@ def get_openclaw_key_record(user_id: int) -> dict | None:
 
 
 def create_or_rotate_openclaw_key(user_id: int) -> dict:
-    raw_key = generate_openclaw_key()
-    token_hash = _hash_openclaw_key(raw_key)
-    token_prefix = _mask_openclaw_key(raw_key)
-    now = datetime.now(timezone.utc)
-
     if DATABASE_CONFIGURED:
         with get_db_session() as session:
-            session.execute(
-                text(
-                    """
-                    INSERT INTO openclaw_api_keys (
-                        user_id, token_hash, token_prefix, created_at, updated_at, last_used_at
-                    ) VALUES (
-                        :user_id, :token_hash, :token_prefix, :created_at, :updated_at, NULL
-                    )
-                    ON CONFLICT(user_id)
-                    DO UPDATE SET
-                        token_hash = EXCLUDED.token_hash,
-                        token_prefix = EXCLUDED.token_prefix,
-                        updated_at = EXCLUDED.updated_at,
-                        created_at = EXCLUDED.created_at,
-                        last_used_at = NULL
-                    """
-                ),
-                {
-                    "user_id": user_id,
-                    "token_hash": token_hash,
-                    "token_prefix": token_prefix,
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
+            row = session.execute(
+                text("SELECT username, phone FROM users WHERE id = :id"),
+                {"id": user_id},
+            ).fetchone()
+        username = row[0] if row else None
+        phone = row[1] if row else None
+        record = create_or_rotate_openclaw_key_for_user(user_id, username=username, phone=phone)
+        record["skill_path"] = _build_openclaw_skill_path(record["key"])
+        return record
     else:
+        raw_key = generate_openclaw_key()
+        token_hash = _hash_openclaw_key(raw_key)
+        token_prefix = _mask_openclaw_key(raw_key)
+        now = datetime.now(timezone.utc)
         _dev_openclaw_keys[user_id] = {
             "token_hash": token_hash,
             "token_prefix": token_prefix,
@@ -399,56 +373,32 @@ def create_or_rotate_openclaw_key(user_id: int) -> dict:
             "last_used_at": None,
         }
 
-    return {
-        "has_key": True,
-        "key": raw_key,
-        "masked_key": token_prefix,
-        "created_at": now.isoformat(),
-        "last_used_at": None,
-        "skill_path": _build_openclaw_skill_path(raw_key),
-    }
+        return {
+            "has_key": True,
+            "key": raw_key,
+            "masked_key": token_prefix,
+            "created_at": now.isoformat(),
+            "last_used_at": None,
+            "skill_path": _build_openclaw_skill_path(raw_key),
+        }
 
 
 def verify_openclaw_api_key(token: str) -> Optional[dict]:
+    if DATABASE_CONFIGURED:
+        payload = verify_openclaw_api_key_db(token)
+        if not payload:
+            return None
+        payload["is_admin"] = _is_admin_identity(
+            int(payload["sub"]) if payload.get("sub") is not None else None,
+            payload.get("phone"),
+            bool(payload.get("is_admin")),
+        )
+        return payload
+
     if not token.startswith("tloc_"):
         return None
     token_hash = _hash_openclaw_key(token)
     now = datetime.now(timezone.utc)
-
-    if DATABASE_CONFIGURED:
-        with get_db_session() as session:
-            row = session.execute(
-                text(
-                    """
-                    SELECT u.id, u.phone, u.username
-                        , u.is_admin
-                    FROM openclaw_api_keys k
-                    JOIN users u ON u.id = k.user_id
-                    WHERE k.token_hash = :token_hash
-                    """
-                ),
-                {"token_hash": token_hash},
-            ).fetchone()
-            if not row:
-                return None
-            session.execute(
-                text(
-                    """
-                    UPDATE openclaw_api_keys
-                    SET last_used_at = :last_used_at, updated_at = :updated_at
-                    WHERE token_hash = :token_hash
-                    """
-                ),
-                {"token_hash": token_hash, "last_used_at": now, "updated_at": now},
-            )
-        return {
-            "sub": str(row[0]),
-            "phone": row[1],
-            "username": row[2],
-            "auth_type": "openclaw_key",
-            "is_admin": _is_admin_identity(int(row[0]), row[1], bool(row[3])),
-        }
-
     for user in _dev_users.values():
         user_id = int(user["id"])
         record = _dev_openclaw_keys.get(user_id)

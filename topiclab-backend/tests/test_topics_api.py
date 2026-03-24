@@ -22,6 +22,8 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "test-secret")
     monkeypatch.setenv("RESONNET_BASE_URL", "http://resonnet.test")
     monkeypatch.setenv("ADMIN_PHONE_NUMBERS", "13800000001")
+    monkeypatch.setenv("ADMIN_PANEL_PASSWORD", "admin-panel-secret")
+    monkeypatch.setenv("TOPICLAB_TESTING", "1")
 
     from app.storage.database import postgres_client, topic_store
     postgres_client.reset_db_state()
@@ -151,6 +153,29 @@ def register_and_login(client, *, phone: str, username: str, password: str = "pa
     )
     assert login.status_code == 200, login.text
     return {"token": login.json()["token"], "user": login.json()["user"]}
+
+
+def register_login_and_openclaw_key(client, *, phone: str, username: str, password: str = "password123") -> dict:
+    auth = register_and_login(client, phone=phone, username=username, password=password)
+    key_resp = client.post(
+        "/api/v1/auth/openclaw-key",
+        headers={"Authorization": f"Bearer {auth['token']}"},
+    )
+    assert key_resp.status_code == 200, key_resp.text
+    payload = key_resp.json()
+    return {
+        **auth,
+        "openclaw_key": payload["key"],
+        "agent_uid": payload["agent_uid"],
+        "openclaw_agent": payload["openclaw_agent"],
+        "key_id": payload["key_id"],
+    }
+
+
+def admin_panel_login(client, password: str = "admin-panel-secret") -> dict:
+    resp = client.post("/admin/auth/login", json={"password": password})
+    assert resp.status_code == 200, resp.text
+    return resp.json()
 
 
 def test_topic_create_list_and_posts(client):
@@ -1082,6 +1107,82 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     assert posts_after_delete.json()["items"] == []
 
 
+def test_openclaw_key_creates_primary_agent_and_home_summary(client):
+    auth = register_login_and_openclaw_key(client, phone="13800009996", username="summary-user")
+
+    home_resp = client.get(
+        "/api/v1/home",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
+    )
+    assert home_resp.status_code == 200, home_resp.text
+    account = home_resp.json()["your_account"]
+    assert account["authenticated"] is True
+    assert account["username"] == "summary-user"
+    assert account["openclaw_agent"]["agent_uid"] == auth["agent_uid"]
+    assert account["openclaw_agent"]["display_name"] == "summary-user's openclaw"
+    assert account["points_balance"] == 0
+
+    me_resp = client.get(
+        "/api/v1/openclaw/agents/me",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
+    )
+    assert me_resp.status_code == 200, me_resp.text
+    payload = me_resp.json()
+    assert payload["agent"]["agent_uid"] == auth["agent_uid"]
+    assert payload["agent"]["is_primary"] is True
+    assert payload["wallet"]["balance"] == 0
+
+
+def test_openclaw_events_and_points_are_recorded_for_core_actions(client):
+    auth = register_login_and_openclaw_key(client, phone="13800009997", username="event-user")
+    raw_key = auth["openclaw_key"]
+
+    topic_resp = client.post(
+        "/api/v1/openclaw/topics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"title": "事件开题", "body": "验证事件和积分"},
+    )
+    assert topic_resp.status_code == 201, topic_resp.text
+    topic_id = topic_resp.json()["id"]
+
+    post_resp = client.post(
+        f"/api/v1/openclaw/topics/{topic_id}/posts",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"body": "验证回帖积分"},
+    )
+    assert post_resp.status_code == 201, post_resp.text
+
+    wallet_resp = client.get(
+        f"/api/v1/openclaw/agents/{auth['agent_uid']}/wallet",
+        headers={"Authorization": f"Bearer {auth['token']}"},
+    )
+    assert wallet_resp.status_code == 200, wallet_resp.text
+    wallet = wallet_resp.json()
+    assert wallet["balance"] == 2
+    assert wallet["lifetime_earned"] == 2
+
+    ledger_resp = client.get(
+        f"/api/v1/openclaw/agents/{auth['agent_uid']}/points/ledger",
+        headers={"Authorization": f"Bearer {auth['token']}"},
+    )
+    assert ledger_resp.status_code == 200, ledger_resp.text
+    ledger_items = ledger_resp.json()["items"]
+    reason_codes = {item["reason_code"] for item in ledger_items}
+    assert "topic.created" in reason_codes
+    assert "post.created" in reason_codes
+
+    admin = admin_panel_login(client)
+    events_resp = client.get(
+        f"/admin/openclaw/agents/{auth['agent_uid']}/events",
+        headers={"Authorization": f"Bearer {admin['token']}"},
+    )
+    assert events_resp.status_code == 200, events_resp.text
+    event_types = {item["event_type"] for item in events_resp.json()["items"]}
+    assert "auth.key_created" in event_types
+    assert "topic.created" in event_types
+    assert "post.created" in event_types
+
+
 def test_openclaw_home_reply_stats_include_openclaw_top_level_posts(client):
     import app.api.openclaw as openclaw_module
 
@@ -1144,6 +1245,59 @@ def test_openclaw_home_reply_stats_include_openclaw_top_level_posts(client):
     assert home_resp.json()["site_stats"]["replies_count"] >= 1
 
 
+def test_admin_openclaw_points_adjust_suspend_and_restore(client):
+    auth = register_login_and_openclaw_key(client, phone="13800009998", username="admin-openclaw-user")
+    admin = admin_panel_login(client)
+
+    adjust_resp = client.post(
+        f"/admin/openclaw/agents/{auth['agent_uid']}/points/adjust",
+        headers={"Authorization": f"Bearer {admin['token']}"},
+        json={"delta": 9, "note": "manual reward"},
+    )
+    assert adjust_resp.status_code == 200, adjust_resp.text
+    assert adjust_resp.json()["wallet"]["balance"] == 9
+    assert adjust_resp.json()["ledger"]["reason_code"] == "admin.adjust"
+
+    suspend_resp = client.post(
+        f"/admin/openclaw/agents/{auth['agent_uid']}/suspend",
+        headers={"Authorization": f"Bearer {admin['token']}"},
+        json={"reason": "policy check"},
+    )
+    assert suspend_resp.status_code == 200, suspend_resp.text
+    assert suspend_resp.json()["agent"]["status"] == "suspended"
+
+    blocked_topic = client.post(
+        "/api/v1/openclaw/topics",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
+        json={"title": "should fail", "body": "suspended"},
+    )
+    assert blocked_topic.status_code == 401, blocked_topic.text
+
+    restore_resp = client.post(
+        f"/admin/openclaw/agents/{auth['agent_uid']}/restore",
+        headers={"Authorization": f"Bearer {admin['token']}"},
+    )
+    assert restore_resp.status_code == 200, restore_resp.text
+    assert restore_resp.json()["agent"]["status"] == "active"
+
+    allowed_topic = client.post(
+        "/api/v1/openclaw/topics",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
+        json={"title": "restored", "body": "allowed again"},
+    )
+    assert allowed_topic.status_code == 201, allowed_topic.text
+
+    events_resp = client.get(
+        f"/admin/openclaw/events?agent_uid={auth['agent_uid']}",
+        headers={"Authorization": f"Bearer {admin['token']}"},
+    )
+    assert events_resp.status_code == 200, events_resp.text
+    event_types = {item["event_type"] for item in events_resp.json()["items"]}
+    assert "admin.points_adjusted" in event_types
+    assert "admin.agent_suspended" in event_types
+    assert "admin.agent_restored" in event_types
+
+
 def test_openclaw_dedicated_routes_require_openclaw_key_reject_jwt(client):
     """OpenClaw dedicated routes reject JWT; only accept tloc_ key."""
     user = register_and_login(client, phone="13800009991", username="jwt-user")
@@ -1167,58 +1321,27 @@ def test_openclaw_invalid_key_rejected_on_general_routes(client):
     assert "OpenClaw" in topic_resp.json().get("detail", "")
 
 
-def test_openclaw_dedicated_routes_allow_anonymous_openclaw(client):
-    """OpenClaw dedicated routes allow anonymous OpenClaw participation without auth."""
+def test_openclaw_dedicated_routes_require_openclaw_key(client):
+    """OpenClaw dedicated routes no longer allow anonymous writes."""
     topic_resp = client.post(
         "/api/v1/openclaw/topics",
         json={"title": "匿名开题", "body": "无需绑定真人用户"},
     )
-    assert topic_resp.status_code == 201, topic_resp.text
-    topic = topic_resp.json()
-    assert topic["creator_name"] == "openclaw"
-    assert topic["creator_auth_type"] == "openclaw_anonymous"
+    assert topic_resp.status_code == 401, topic_resp.text
+    assert "OpenClaw key required" in topic_resp.json().get("detail", "")
 
     post_resp = client.post(
-        f"/api/v1/openclaw/topics/{topic['id']}/posts",
+        "/api/v1/openclaw/topics/topic_x/posts",
         json={"body": "匿名 openclaw 回帖"},
     )
-    assert post_resp.status_code == 201, post_resp.text
-    created_post = post_resp.json()["post"]
-    assert created_post["author"] == "openclaw"
-    assert created_post["owner_user_id"] is None
-    assert created_post["owner_auth_type"] == "openclaw_anonymous"
+    assert post_resp.status_code == 401, post_resp.text
+    assert "OpenClaw key required" in post_resp.json().get("detail", "")
 
 
 def test_openclaw_dedicated_routes_create_topic_and_post(client):
     """OpenClaw dedicated routes create topic/post with OpenClaw key; author derived from user."""
-    from app.storage.database.postgres_client import get_db_session
-
-    phone = f"138{int(time.time() * 1000) % 100000000:08d}"
-    hashed_password = bcrypt.hashpw("password123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    with get_db_session() as session:
-        session.execute(
-            text(
-                """
-                INSERT INTO users (phone, password, username, handle)
-                VALUES (:phone, :password, :username, :handle)
-                """
-            ),
-            {
-                "phone": phone,
-                "password": hashed_password,
-                "username": "dedicated-user",
-                "handle": "user_dedicated_test",
-            },
-        )
-
-    login = client.post("/api/v1/auth/login", json={"phone": phone, "password": "password123"})
-    assert login.status_code == 200, login.text
-    key_resp = client.post(
-        "/api/v1/auth/openclaw-key",
-        headers={"Authorization": f"Bearer {login.json()['token']}"},
-    )
-    assert key_resp.status_code == 200, key_resp.text
-    raw_key = key_resp.json()["key"]
+    auth = register_login_and_openclaw_key(client, phone="13800009992", username="dedicated-user")
+    raw_key = auth["openclaw_key"]
 
     topic_resp = client.post(
         "/api/v1/openclaw/topics",
@@ -1229,6 +1352,8 @@ def test_openclaw_dedicated_routes_create_topic_and_post(client):
     topic = topic_resp.json()
     assert topic["creator_name"] == "dedicated-user's openclaw"
     assert topic["creator_auth_type"] == "openclaw_key"
+    assert topic["creator_openclaw_agent_id"] is not None
+    assert topic["openclaw_agent"]["agent_uid"] == auth["agent_uid"]
     topic_id = topic["id"]
 
     post_resp = client.post(
@@ -1240,13 +1365,17 @@ def test_openclaw_dedicated_routes_create_topic_and_post(client):
     created_post = post_resp.json()["post"]
     assert created_post["author"] == "dedicated-user's openclaw"
     assert created_post["owner_auth_type"] == "openclaw_key"
+    assert created_post["owner_openclaw_agent_id"] == topic["creator_openclaw_agent_id"]
+    assert post_resp.json()["openclaw_agent"]["agent_uid"] == auth["agent_uid"]
 
 
 def test_openclaw_comment_media_upload_returns_markdown_url_for_image(client, monkeypatch):
     import app.api.openclaw_routes as openclaw_routes_module
 
+    auth = register_login_and_openclaw_key(client, phone="13800009993", username="media-image-user")
     topic_resp = client.post(
         "/api/v1/openclaw/topics",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
         json={"title": "上传图片", "body": "测试图片上传"},
     )
     assert topic_resp.status_code == 201, topic_resp.text
@@ -1276,6 +1405,7 @@ def test_openclaw_comment_media_upload_returns_markdown_url_for_image(client, mo
 
     upload_resp = client.post(
         f"/api/v1/openclaw/topics/{topic_id}/media",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
         files={"file": ("comment.png", buf.getvalue(), "image/png")},
     )
     assert upload_resp.status_code == 200, upload_resp.text
@@ -1291,8 +1421,10 @@ def test_openclaw_comment_media_upload_returns_markdown_url_for_image(client, mo
 def test_openclaw_comment_media_upload_returns_markdown_url_for_video(client, monkeypatch):
     import app.api.openclaw_routes as openclaw_routes_module
 
+    auth = register_login_and_openclaw_key(client, phone="13800009994", username="media-video-user")
     topic_resp = client.post(
         "/api/v1/openclaw/topics",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
         json={"title": "上传视频", "body": "测试视频上传"},
     )
     assert topic_resp.status_code == 201, topic_resp.text
@@ -1318,6 +1450,7 @@ def test_openclaw_comment_media_upload_returns_markdown_url_for_video(client, mo
 
     upload_resp = client.post(
         f"/api/v1/openclaw/topics/{topic_id}/media",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
         files={"file": ("clip.mp4", b"fake-video", "video/mp4")},
     )
     assert upload_resp.status_code == 200, upload_resp.text
@@ -1332,9 +1465,11 @@ def test_openclaw_comment_media_upload_requires_existing_topic(client):
     image = Image.new("RGB", (8, 8), color=(0, 0, 0))
     buf = BytesIO()
     image.save(buf, format="PNG")
+    auth = register_login_and_openclaw_key(client, phone="13800009995", username="media-missing-topic-user")
 
     resp = client.post(
         "/api/v1/openclaw/topics/not-found/media",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
         files={"file": ("missing.png", buf.getvalue(), "image/png")},
     )
     assert resp.status_code == 404, resp.text

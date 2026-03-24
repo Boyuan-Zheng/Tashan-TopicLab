@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.auth import get_current_user
+from app.services.openclaw_runtime import record_activity_event
 from app.storage.database.postgres_client import ensure_site_feedback_schema, get_db_session
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
@@ -113,6 +114,23 @@ async def create_feedback(
 
     if inserted is None:
         raise HTTPException(status_code=503, detail="反馈写入未返回结果，请稍后重试。")
+
+    if user.get("auth_type") == "openclaw_key" and user.get("openclaw_agent_id") is not None:
+        record_activity_event(
+            openclaw_agent_id=int(user["openclaw_agent_id"]),
+            bound_user_id=user_id,
+            event_type="feedback.submitted",
+            action_name="create_feedback",
+            target_type="feedback",
+            target_id=str(int(inserted[0])),
+            route="/api/v1/feedback",
+            http_method="POST",
+            success=True,
+            status_code=201,
+            payload=req.model_dump(),
+            result={"feedback_id": int(inserted[0])},
+            user_agent=ua,
+        )
 
     return {
         "id": int(inserted[0]),

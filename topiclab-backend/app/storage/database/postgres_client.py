@@ -60,6 +60,10 @@ _engine = None
 _SessionLocal = None
 
 
+def _is_sqlite_session(session) -> bool:
+    return session.bind.dialect.name == "sqlite"
+
+
 def get_engine():
     """Create or return SQLAlchemy engine."""
     global _engine
@@ -107,8 +111,25 @@ def get_db_session():
 
 def _apply_site_feedback_ddl(session) -> None:
     """Create site_feedback table and indexes (idempotent)."""
+    is_sqlite = _is_sqlite_session(session)
     session.execute(
         text(
+            """
+            CREATE TABLE IF NOT EXISTS site_feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                username VARCHAR(255) NOT NULL,
+                auth_channel VARCHAR(32) NOT NULL DEFAULT 'jwt',
+                scenario TEXT NOT NULL DEFAULT '',
+                body TEXT NOT NULL,
+                steps_to_reproduce TEXT NOT NULL DEFAULT '',
+                page_url TEXT,
+                client_user_agent TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
             """
             CREATE TABLE IF NOT EXISTS site_feedback (
                 id SERIAL PRIMARY KEY,
@@ -125,6 +146,24 @@ def _apply_site_feedback_ddl(session) -> None:
             """
         )
     )
+    if is_sqlite:
+        session.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS idx_site_feedback_user_id
+                ON site_feedback(user_id)
+                """
+            )
+        )
+        session.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS idx_site_feedback_created_at
+                ON site_feedback(created_at DESC)
+                """
+            )
+        )
+        return
     inspector = inspect(session.bind)
     existing_columns = {column["name"] for column in inspector.get_columns("site_feedback")}
     column_migrations = {
@@ -135,7 +174,11 @@ def _apply_site_feedback_ddl(session) -> None:
         "steps_to_reproduce": "ALTER TABLE site_feedback ADD COLUMN steps_to_reproduce TEXT NOT NULL DEFAULT ''",
         "page_url": "ALTER TABLE site_feedback ADD COLUMN page_url TEXT",
         "client_user_agent": "ALTER TABLE site_feedback ADD COLUMN client_user_agent TEXT",
-        "created_at": "ALTER TABLE site_feedback ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "created_at": (
+            "ALTER TABLE site_feedback ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            if is_sqlite
+            else "ALTER TABLE site_feedback ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        ),
     }
     for column_name, ddl in column_migrations.items():
         if column_name not in existing_columns:
@@ -182,6 +225,363 @@ def _apply_site_feedback_ddl(session) -> None:
     )
 
 
+def _create_openclaw_api_keys_v2(session) -> None:
+    is_sqlite = _is_sqlite_session(session)
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS openclaw_api_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                openclaw_agent_id INTEGER NOT NULL REFERENCES openclaw_agents(id) ON DELETE CASCADE,
+                bound_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                token_hash VARCHAR(64) NOT NULL UNIQUE,
+                token_prefix VARCHAR(24) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_used_at TEXT,
+                expires_at TEXT,
+                revoked_at TEXT,
+                revoked_reason TEXT,
+                rotated_from_key_id INTEGER
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS openclaw_api_keys (
+                id SERIAL PRIMARY KEY,
+                openclaw_agent_id INTEGER NOT NULL REFERENCES openclaw_agents(id) ON DELETE CASCADE,
+                bound_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                token_hash VARCHAR(64) NOT NULL UNIQUE,
+                token_prefix VARCHAR(24) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_used_at TIMESTAMPTZ,
+                expires_at TIMESTAMPTZ,
+                revoked_at TIMESTAMPTZ,
+                revoked_reason TEXT,
+                rotated_from_key_id INTEGER
+            )
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_openclaw_api_keys_token_hash
+            ON openclaw_api_keys(token_hash)
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_openclaw_api_keys_agent_status
+            ON openclaw_api_keys(openclaw_agent_id, status)
+            """
+        )
+    )
+
+
+def _apply_openclaw_identity_ddl(session) -> None:
+    is_sqlite = _is_sqlite_session(session)
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS openclaw_agents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_uid VARCHAR(32) NOT NULL UNIQUE,
+                display_name VARCHAR(255) NOT NULL,
+                handle VARCHAR(50) NOT NULL UNIQUE,
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                bound_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+                profile_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_seen_at TEXT
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS openclaw_agents (
+                id SERIAL PRIMARY KEY,
+                agent_uid VARCHAR(32) NOT NULL UNIQUE,
+                display_name VARCHAR(255) NOT NULL,
+                handle VARCHAR(50) NOT NULL UNIQUE,
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                bound_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+                profile_json TEXT NOT NULL DEFAULT '{}',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_seen_at TIMESTAMPTZ
+            )
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_openclaw_agents_bound_user
+            ON openclaw_agents(bound_user_id, is_primary)
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_openclaw_agents_primary_per_user
+            ON openclaw_agents(bound_user_id)
+            WHERE is_primary = TRUE AND bound_user_id IS NOT NULL
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS openclaw_wallets (
+                openclaw_agent_id INTEGER PRIMARY KEY REFERENCES openclaw_agents(id) ON DELETE CASCADE,
+                balance INTEGER NOT NULL DEFAULT 0,
+                lifetime_earned INTEGER NOT NULL DEFAULT 0,
+                lifetime_spent INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS openclaw_wallets (
+                openclaw_agent_id INTEGER PRIMARY KEY REFERENCES openclaw_agents(id) ON DELETE CASCADE,
+                balance INTEGER NOT NULL DEFAULT 0,
+                lifetime_earned INTEGER NOT NULL DEFAULT 0,
+                lifetime_spent INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS openclaw_activity_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_uid VARCHAR(32) NOT NULL UNIQUE,
+                openclaw_agent_id INTEGER REFERENCES openclaw_agents(id) ON DELETE SET NULL,
+                bound_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                session_id VARCHAR(64),
+                request_id VARCHAR(128),
+                event_type VARCHAR(64) NOT NULL,
+                action_name VARCHAR(128) NOT NULL,
+                target_type VARCHAR(64),
+                target_id VARCHAR(255),
+                http_method VARCHAR(16),
+                route VARCHAR(255),
+                success BOOLEAN NOT NULL DEFAULT FALSE,
+                status_code INTEGER,
+                error_code VARCHAR(64),
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                result_json TEXT NOT NULL DEFAULT '{}',
+                client_ip_hash VARCHAR(64),
+                user_agent TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS openclaw_activity_events (
+                id SERIAL PRIMARY KEY,
+                event_uid VARCHAR(32) NOT NULL UNIQUE,
+                openclaw_agent_id INTEGER REFERENCES openclaw_agents(id) ON DELETE SET NULL,
+                bound_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                session_id VARCHAR(64),
+                request_id VARCHAR(128),
+                event_type VARCHAR(64) NOT NULL,
+                action_name VARCHAR(128) NOT NULL,
+                target_type VARCHAR(64),
+                target_id VARCHAR(255),
+                http_method VARCHAR(16),
+                route VARCHAR(255),
+                success BOOLEAN NOT NULL DEFAULT FALSE,
+                status_code INTEGER,
+                error_code VARCHAR(64),
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                result_json TEXT NOT NULL DEFAULT '{}',
+                client_ip_hash VARCHAR(64),
+                user_agent TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_openclaw_activity_events_agent_created
+            ON openclaw_activity_events(openclaw_agent_id, created_at DESC)
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_openclaw_activity_events_event_type
+            ON openclaw_activity_events(event_type, created_at DESC)
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS openclaw_point_ledger (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                openclaw_agent_id INTEGER NOT NULL REFERENCES openclaw_agents(id) ON DELETE CASCADE,
+                delta INTEGER NOT NULL,
+                balance_after INTEGER NOT NULL,
+                reason_code VARCHAR(64) NOT NULL,
+                target_type VARCHAR(64),
+                target_id VARCHAR(255),
+                related_event_id INTEGER REFERENCES openclaw_activity_events(id) ON DELETE SET NULL,
+                operator_type VARCHAR(32) NOT NULL DEFAULT 'system',
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS openclaw_point_ledger (
+                id SERIAL PRIMARY KEY,
+                openclaw_agent_id INTEGER NOT NULL REFERENCES openclaw_agents(id) ON DELETE CASCADE,
+                delta INTEGER NOT NULL,
+                balance_after INTEGER NOT NULL,
+                reason_code VARCHAR(64) NOT NULL,
+                target_type VARCHAR(64),
+                target_id VARCHAR(255),
+                related_event_id INTEGER REFERENCES openclaw_activity_events(id) ON DELETE SET NULL,
+                operator_type VARCHAR(32) NOT NULL DEFAULT 'system',
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_openclaw_point_ledger_agent_created
+            ON openclaw_point_ledger(openclaw_agent_id, created_at DESC)
+            """
+        )
+    )
+    session.execute(
+        text(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_openclaw_point_ledger_event_reason
+            ON openclaw_point_ledger(openclaw_agent_id, reason_code, related_event_id)
+            """
+        )
+    )
+
+    inspector = inspect(session.bind)
+    if inspector.has_table("openclaw_api_keys"):
+        columns = {column["name"] for column in inspector.get_columns("openclaw_api_keys")}
+        is_legacy = "openclaw_agent_id" not in columns or "id" not in columns
+        if is_legacy:
+            legacy_rows = session.execute(
+                text(
+                    """
+                    SELECT user_id, token_hash, token_prefix, created_at, updated_at, last_used_at
+                    FROM openclaw_api_keys
+                    """
+                )
+            ).fetchall()
+            session.execute(text("ALTER TABLE openclaw_api_keys RENAME TO openclaw_api_keys_legacy"))
+            _create_openclaw_api_keys_v2(session)
+            from app.services.openclaw_runtime import ensure_primary_openclaw_agent
+
+            for row in legacy_rows:
+                user_row = session.execute(
+                    text("SELECT username, phone FROM users WHERE id = :id"),
+                    {"id": row.user_id},
+                ).fetchone()
+                username = user_row[0] if user_row else None
+                phone = user_row[1] if user_row else None
+                agent = ensure_primary_openclaw_agent(int(row.user_id), username=username, phone=phone, session=session)
+                session.execute(
+                    text(
+                        """
+                        INSERT INTO openclaw_api_keys (
+                            openclaw_agent_id,
+                            bound_user_id,
+                            token_hash,
+                            token_prefix,
+                            status,
+                            created_at,
+                            updated_at,
+                            last_used_at,
+                            expires_at,
+                            revoked_at,
+                            revoked_reason,
+                            rotated_from_key_id
+                        ) VALUES (
+                            :openclaw_agent_id,
+                            :bound_user_id,
+                            :token_hash,
+                            :token_prefix,
+                            'active',
+                            :created_at,
+                            :updated_at,
+                            :last_used_at,
+                            NULL,
+                            NULL,
+                            NULL,
+                            NULL
+                        )
+                        """
+                    ),
+                    {
+                        "openclaw_agent_id": int(agent["id"]),
+                        "bound_user_id": int(row.user_id),
+                        "token_hash": row.token_hash,
+                        "token_prefix": row.token_prefix,
+                        "created_at": row.created_at,
+                        "updated_at": row.updated_at,
+                        "last_used_at": row.last_used_at,
+                    },
+                )
+            session.execute(text("DROP TABLE IF EXISTS openclaw_api_keys_legacy"))
+        else:
+            column_migrations = {
+                "bound_user_id": "ALTER TABLE openclaw_api_keys ADD COLUMN bound_user_id INTEGER",
+                "status": "ALTER TABLE openclaw_api_keys ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'active'",
+                "expires_at": "ALTER TABLE openclaw_api_keys ADD COLUMN expires_at TEXT" if is_sqlite else "ALTER TABLE openclaw_api_keys ADD COLUMN expires_at TIMESTAMPTZ",
+                "revoked_at": "ALTER TABLE openclaw_api_keys ADD COLUMN revoked_at TEXT" if is_sqlite else "ALTER TABLE openclaw_api_keys ADD COLUMN revoked_at TIMESTAMPTZ",
+                "revoked_reason": "ALTER TABLE openclaw_api_keys ADD COLUMN revoked_reason TEXT",
+                "rotated_from_key_id": "ALTER TABLE openclaw_api_keys ADD COLUMN rotated_from_key_id INTEGER",
+            }
+            for column_name, ddl in column_migrations.items():
+                if column_name not in columns:
+                    session.execute(text(ddl))
+            session.execute(
+                text(
+                    """
+                    UPDATE openclaw_api_keys
+                    SET bound_user_id = COALESCE(bound_user_id, (
+                        SELECT bound_user_id FROM openclaw_agents WHERE id = openclaw_api_keys.openclaw_agent_id
+                    ))
+                    """
+                )
+            )
+            _create_openclaw_api_keys_v2(session)
+    else:
+        _create_openclaw_api_keys_v2(session)
+
+
 def ensure_site_feedback_schema() -> None:
     """Ensure feedback table exists (e.g. after deploy before next full init_auth_tables)."""
     with get_db_session() as session:
@@ -192,7 +592,22 @@ def ensure_site_feedback_schema() -> None:
 def init_auth_tables():
     """Create auth-related tables if they do not exist."""
     with get_db_session() as session:
-        session.execute(text("""
+        is_sqlite = _is_sqlite_session(session)
+        session.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                phone VARCHAR(20) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                username VARCHAR(50),
+                handle VARCHAR(50) NOT NULL UNIQUE,
+                is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 phone VARCHAR(20) NOT NULL UNIQUE,
@@ -202,29 +617,37 @@ def init_auth_tables():
                 is_admin BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
-        """))
-        session.execute(text("""
-            ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE
-        """))
-        session.execute(text("""
-            ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS handle VARCHAR(50)
-        """))
+            """
+        ))
+        inspector = inspect(session.bind)
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        if "is_admin" not in user_columns:
+            session.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE"))
+        if "handle" not in user_columns:
+            session.execute(text("ALTER TABLE users ADD COLUMN handle VARCHAR(50)"))
         session.execute(text("""
             UPDATE users
             SET handle = 'user_' || id
             WHERE handle IS NULL OR handle = ''
         """))
         session.execute(text("""
-            ALTER TABLE users
-            ALTER COLUMN handle SET NOT NULL
-        """))
-        session.execute(text("""
             CREATE UNIQUE INDEX IF NOT EXISTS users_handle_unique
             ON users(handle)
         """))
-        session.execute(text("""
+        session.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS verification_codes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                phone VARCHAR(20) NOT NULL,
+                code VARCHAR(10) NOT NULL,
+                type VARCHAR(20) NOT NULL,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
             CREATE TABLE IF NOT EXISTS verification_codes (
                 id SERIAL PRIMARY KEY,
                 phone VARCHAR(20) NOT NULL,
@@ -233,12 +656,33 @@ def init_auth_tables():
                 expires_at TIMESTAMPTZ NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
-        """))
+            """
+        ))
         session.execute(text("""
             CREATE INDEX IF NOT EXISTS idx_verification_codes_phone_type
             ON verification_codes(phone, type)
         """))
-        session.execute(text("""
+        session.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS digital_twins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                agent_name VARCHAR(100) NOT NULL,
+                display_name VARCHAR(100),
+                expert_name VARCHAR(100),
+                visibility VARCHAR(20) NOT NULL DEFAULT 'private',
+                exposure VARCHAR(20) NOT NULL DEFAULT 'brief',
+                session_id VARCHAR(100),
+                source VARCHAR(50) NOT NULL DEFAULT 'profile_twin',
+                role_content TEXT,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, agent_name)
+            )
+            """
+            if is_sqlite
+            else
+            """
             CREATE TABLE IF NOT EXISTS digital_twins (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -254,29 +698,18 @@ def init_auth_tables():
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 UNIQUE(user_id, agent_name)
             )
-        """))
-        session.execute(text("""
-            ALTER TABLE digital_twins
-            ADD COLUMN IF NOT EXISTS role_content TEXT
-        """))
+            """
+        ))
+        if not is_sqlite:
+            inspector = inspect(session.bind)
+            digital_twin_columns = {column["name"] for column in inspector.get_columns("digital_twins")}
+            if "role_content" not in digital_twin_columns:
+                session.execute(text("ALTER TABLE digital_twins ADD COLUMN role_content TEXT"))
         session.execute(text("""
             CREATE INDEX IF NOT EXISTS idx_digital_twins_user_id
             ON digital_twins(user_id)
         """))
-        session.execute(text("""
-            CREATE TABLE IF NOT EXISTS openclaw_api_keys (
-                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-                token_hash VARCHAR(64) NOT NULL UNIQUE,
-                token_prefix VARCHAR(24) NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                last_used_at TIMESTAMPTZ
-            )
-        """))
-        session.execute(text("""
-            CREATE INDEX IF NOT EXISTS idx_openclaw_api_keys_token_hash
-            ON openclaw_api_keys(token_hash)
-        """))
+        _apply_openclaw_identity_ddl(session)
         _apply_site_feedback_ddl(session)
     logger.info("Auth tables initialized")
 

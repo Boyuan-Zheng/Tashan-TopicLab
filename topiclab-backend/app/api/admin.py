@@ -17,6 +17,15 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.api.auth import JWT_ALGORITHM, JWT_SECRET, security
+from app.services.openclaw_runtime import (
+    admin_adjust_points,
+    get_openclaw_agent_by_uid,
+    list_openclaw_agents,
+    list_openclaw_events,
+    list_openclaw_point_ledger,
+    restore_openclaw_agent,
+    suspend_openclaw_agent,
+)
 from app.storage.database.postgres_client import ensure_site_feedback_schema, get_db_session
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -176,6 +185,15 @@ class AdminFeedbackUpdateRequest(BaseModel):
     body: str | None = Field(default=None, min_length=1, max_length=8000)
     steps_to_reproduce: str | None = Field(default=None, max_length=4000)
     page_url: str | None = Field(default=None, max_length=2048)
+
+
+class AdminOpenClawPointsAdjustRequest(BaseModel):
+    delta: int
+    note: str = Field(default="", max_length=2000)
+
+
+class AdminOpenClawSuspendRequest(BaseModel):
+    reason: str = Field(default="", max_length=2000)
 
 
 def _ensure_mutation_payload(data: dict[str, Any]) -> None:
@@ -571,6 +589,127 @@ async def delete_admin_topic(
             client_ip=x_forwarded_for,
         )
     return {"ok": True, "topic_id": topic_id}
+
+
+@router.get("/openclaw/agents", response_model=PagedResponse)
+async def list_admin_openclaw_agents(
+    q: str | None = None,
+    status: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+    _: dict[str, Any] = Depends(require_admin_panel),
+):
+    return PagedResponse(**list_openclaw_agents(q=q, status=status, limit=limit, offset=offset))
+
+
+@router.get("/openclaw/agents/{agent_uid}")
+async def get_admin_openclaw_agent(
+    agent_uid: str,
+    _: dict[str, Any] = Depends(require_admin_panel),
+):
+    agent = get_openclaw_agent_by_uid(agent_uid)
+    if not agent:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在")
+    return {"agent": agent}
+
+
+@router.get("/openclaw/agents/{agent_uid}/events", response_model=PagedResponse)
+async def get_admin_openclaw_agent_events(
+    agent_uid: str,
+    limit: int = 20,
+    offset: int = 0,
+    _: dict[str, Any] = Depends(require_admin_panel),
+):
+    return PagedResponse(**list_openclaw_events(agent_uid=agent_uid, limit=limit, offset=offset))
+
+
+@router.get("/openclaw/agents/{agent_uid}/points/ledger", response_model=PagedResponse)
+async def get_admin_openclaw_agent_points(
+    agent_uid: str,
+    limit: int = 20,
+    offset: int = 0,
+    _: dict[str, Any] = Depends(require_admin_panel),
+):
+    payload = list_openclaw_point_ledger(agent_uid=agent_uid, limit=limit, offset=offset)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在")
+    return PagedResponse(**payload)
+
+
+@router.post("/openclaw/agents/{agent_uid}/points/adjust")
+async def adjust_admin_openclaw_points(
+    agent_uid: str,
+    req: AdminOpenClawPointsAdjustRequest,
+    x_forwarded_for: str | None = Header(default=None, alias="X-Forwarded-For"),
+    _: dict[str, Any] = Depends(require_admin_panel),
+):
+    payload = admin_adjust_points(agent_uid=agent_uid, delta=req.delta, note=req.note)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在")
+    with get_db_session() as session:
+        _write_audit_log(
+            session=session,
+            action="adjust_points",
+            target_type="openclaw_agent",
+            target_id=agent_uid,
+            detail=f"delta={req.delta};note={req.note[:200]}",
+            client_ip=x_forwarded_for,
+        )
+    return payload
+
+
+@router.post("/openclaw/agents/{agent_uid}/suspend")
+async def suspend_admin_openclaw_agent(
+    agent_uid: str,
+    req: AdminOpenClawSuspendRequest,
+    x_forwarded_for: str | None = Header(default=None, alias="X-Forwarded-For"),
+    _: dict[str, Any] = Depends(require_admin_panel),
+):
+    payload = suspend_openclaw_agent(agent_uid=agent_uid, reason=req.reason)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在")
+    with get_db_session() as session:
+        _write_audit_log(
+            session=session,
+            action="suspend",
+            target_type="openclaw_agent",
+            target_id=agent_uid,
+            detail=f"reason={req.reason[:200]}",
+            client_ip=x_forwarded_for,
+        )
+    return payload
+
+
+@router.post("/openclaw/agents/{agent_uid}/restore")
+async def restore_admin_openclaw_agent(
+    agent_uid: str,
+    x_forwarded_for: str | None = Header(default=None, alias="X-Forwarded-For"),
+    _: dict[str, Any] = Depends(require_admin_panel),
+):
+    payload = restore_openclaw_agent(agent_uid=agent_uid)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="OpenClaw 身份不存在")
+    with get_db_session() as session:
+        _write_audit_log(
+            session=session,
+            action="restore",
+            target_type="openclaw_agent",
+            target_id=agent_uid,
+            detail="",
+            client_ip=x_forwarded_for,
+        )
+    return payload
+
+
+@router.get("/openclaw/events", response_model=PagedResponse)
+async def list_admin_openclaw_events(
+    agent_uid: str | None = None,
+    event_type: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+    _: dict[str, Any] = Depends(require_admin_panel),
+):
+    return PagedResponse(**list_openclaw_events(agent_uid=agent_uid, event_type=event_type, limit=limit, offset=offset))
 
 
 @router.get("/feedback", response_model=PagedResponse)

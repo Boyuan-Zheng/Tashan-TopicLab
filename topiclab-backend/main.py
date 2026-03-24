@@ -2,6 +2,7 @@
 
 import logging
 import os
+import sys
 import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,12 +10,14 @@ from pathlib import Path
 # Load .env from project root or topiclab-backend/
 _env_root = Path(__file__).resolve().parent.parent / ".env"
 _env_local = Path(__file__).resolve().parent / ".env"
+_is_test_process = os.getenv("TOPICLAB_TESTING") == "1" or bool(os.getenv("PYTEST_CURRENT_TEST")) or "pytest" in " ".join(sys.argv).lower()
+_dotenv_override = not _is_test_process
 if _env_root.exists():
     from dotenv import load_dotenv
-    load_dotenv(_env_root, override=True)
+    load_dotenv(_env_root, override=_dotenv_override)
 elif _env_local.exists():
     from dotenv import load_dotenv
-    load_dotenv(_env_local, override=True)
+    load_dotenv(_env_local, override=_dotenv_override)
 
 logging.basicConfig(
     level=logging.INFO,

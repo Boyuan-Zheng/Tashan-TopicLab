@@ -58,6 +58,7 @@ class TopicRecord:
     creator_user_id: int | None
     creator_name: str | None
     creator_auth_type: str | None
+    creator_openclaw_agent_id: int | None
     posts_count: int
     likes_count: int
     favorites_count: int
@@ -155,12 +156,14 @@ def init_topic_tables() -> None:
                 preview_image_synced_at TIMESTAMPTZ,
                 creator_user_id INTEGER,
                 creator_name VARCHAR(255),
-                creator_auth_type VARCHAR(64)
+                creator_auth_type VARCHAR(64),
+                creator_openclaw_agent_id INTEGER
             )
         """))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_user_id INTEGER"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_name VARCHAR(255)"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_auth_type VARCHAR(64)"))
+        session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_openclaw_agent_id INTEGER"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS preview_image_synced_at TIMESTAMPTZ"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS posts_count INTEGER NOT NULL DEFAULT 0"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS likes_count INTEGER NOT NULL DEFAULT 0"))
@@ -221,6 +224,7 @@ def init_topic_tables() -> None:
                 author_type VARCHAR(32) NOT NULL,
                 owner_user_id INTEGER,
                 owner_auth_type VARCHAR(64),
+                owner_openclaw_agent_id INTEGER,
                 delete_token_hash VARCHAR(64),
                 expert_name VARCHAR(255),
                 expert_label VARCHAR(255),
@@ -233,6 +237,7 @@ def init_topic_tables() -> None:
         """))
         session.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS owner_user_id INTEGER"))
         session.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS owner_auth_type VARCHAR(64)"))
+        session.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS owner_openclaw_agent_id INTEGER"))
         session.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS delete_token_hash VARCHAR(64)"))
         session.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS root_post_id VARCHAR(36)"))
         session.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS depth INTEGER NOT NULL DEFAULT 0"))
@@ -586,6 +591,32 @@ def init_topic_tables() -> None:
             SET topics_count = COALESCE(topics_count, 0),
                 source_articles_count = COALESCE(source_articles_count, 0)
         """))
+        session.execute(text("""
+            UPDATE topics
+            SET creator_openclaw_agent_id = (
+                SELECT a.id
+                FROM openclaw_agents a
+                WHERE a.bound_user_id = topics.creator_user_id
+                  AND a.is_primary = TRUE
+                LIMIT 1
+            )
+            WHERE creator_openclaw_agent_id IS NULL
+              AND creator_auth_type = 'openclaw_key'
+              AND creator_user_id IS NOT NULL
+        """))
+        session.execute(text("""
+            UPDATE posts
+            SET owner_openclaw_agent_id = (
+                SELECT a.id
+                FROM openclaw_agents a
+                WHERE a.bound_user_id = posts.owner_user_id
+                  AND a.is_primary = TRUE
+                LIMIT 1
+            )
+            WHERE owner_openclaw_agent_id IS NULL
+              AND owner_auth_type = 'openclaw_key'
+              AND owner_user_id IS NOT NULL
+        """))
 
 
 def _build_topic(row) -> TopicRecord:
@@ -618,6 +649,7 @@ def _build_topic(row) -> TopicRecord:
         creator_user_id=row.creator_user_id,
         creator_name=row.creator_name,
         creator_auth_type=row.creator_auth_type,
+        creator_openclaw_agent_id=getattr(row, "creator_openclaw_agent_id", None),
         posts_count=int(getattr(row, "posts_count", 0) or 0),
         likes_count=int(getattr(row, "likes_count", 0) or 0),
         favorites_count=int(getattr(row, "favorites_count", 0) or 0),
@@ -635,6 +667,7 @@ def create_topic(
     creator_user_id: int | None = None,
     creator_name: str | None = None,
     creator_auth_type: str | None = None,
+    creator_openclaw_agent_id: int | None = None,
     initial_expert_names: list[str] | None = None,
 ) -> dict:
     topic_id = str(uuid.uuid4())
@@ -647,12 +680,12 @@ def create_topic(
                     id, session_id, title, body, category, status, mode, num_rounds,
                     expert_names, discussion_status, created_at, updated_at,
                     moderator_mode_id, moderator_mode_name, preview_image, preview_image_synced_at,
-                    creator_user_id, creator_name, creator_auth_type
+                    creator_user_id, creator_name, creator_auth_type, creator_openclaw_agent_id
                 ) VALUES (
                     :id, :session_id, :title, :body, :category, :status, :mode, :num_rounds,
                     :expert_names, :discussion_status, :created_at, :updated_at,
                     :moderator_mode_id, :moderator_mode_name, :preview_image, :preview_image_synced_at,
-                    :creator_user_id, :creator_name, :creator_auth_type
+                    :creator_user_id, :creator_name, :creator_auth_type, :creator_openclaw_agent_id
                 )
             """),
             {
@@ -678,6 +711,7 @@ def create_topic(
                 "creator_user_id": creator_user_id,
                 "creator_name": creator_name,
                 "creator_auth_type": creator_auth_type,
+                "creator_openclaw_agent_id": creator_openclaw_agent_id,
             },
         )
         session.execute(
@@ -1709,10 +1743,10 @@ def upsert_post(post: dict) -> dict:
         session.execute(
             text("""
                 INSERT INTO posts (
-                    id, topic_id, author, author_type, owner_user_id, owner_auth_type, delete_token_hash, expert_name, expert_label,
+                    id, topic_id, author, author_type, owner_user_id, owner_auth_type, owner_openclaw_agent_id, delete_token_hash, expert_name, expert_label,
                     body, mentions, in_reply_to_id, root_post_id, depth, reply_count, likes_count, shares_count, status, created_at
                 ) VALUES (
-                    :id, :topic_id, :author, :author_type, :owner_user_id, :owner_auth_type, :delete_token_hash, :expert_name, :expert_label,
+                    :id, :topic_id, :author, :author_type, :owner_user_id, :owner_auth_type, :owner_openclaw_agent_id, :delete_token_hash, :expert_name, :expert_label,
                     :body, :mentions, :in_reply_to_id, :root_post_id, :depth, :reply_count, :likes_count, :shares_count, :status, :created_at
                 )
                 ON CONFLICT (id) DO UPDATE SET
@@ -1721,6 +1755,7 @@ def upsert_post(post: dict) -> dict:
                     author_type = EXCLUDED.author_type,
                     owner_user_id = EXCLUDED.owner_user_id,
                     owner_auth_type = EXCLUDED.owner_auth_type,
+                    owner_openclaw_agent_id = EXCLUDED.owner_openclaw_agent_id,
                     delete_token_hash = EXCLUDED.delete_token_hash,
                     expert_name = EXCLUDED.expert_name,
                     expert_label = EXCLUDED.expert_label,
@@ -1742,6 +1777,7 @@ def upsert_post(post: dict) -> dict:
                 "author_type": post["author_type"],
                 "owner_user_id": post.get("owner_user_id"),
                 "owner_auth_type": post.get("owner_auth_type"),
+                "owner_openclaw_agent_id": post.get("owner_openclaw_agent_id"),
                 "delete_token_hash": post.get("delete_token_hash"),
                 "expert_name": post.get("expert_name"),
                 "expert_label": post.get("expert_label"),
@@ -1813,6 +1849,7 @@ def make_post(
     status: str = "completed",
     owner_user_id: int | None = None,
     owner_auth_type: str | None = None,
+    owner_openclaw_agent_id: int | None = None,
     delete_token_hash: str | None = None,
 ) -> dict:
     import re
@@ -1825,6 +1862,7 @@ def make_post(
         "author_type": author_type,
         "owner_user_id": owner_user_id,
         "owner_auth_type": owner_auth_type,
+        "owner_openclaw_agent_id": owner_openclaw_agent_id,
         "delete_token_hash": delete_token_hash,
         "expert_name": expert_name,
         "expert_label": expert_label,
@@ -2199,6 +2237,7 @@ def topic_record_to_dict(record: TopicRecord, *, lightweight: bool = False) -> d
         "creator_user_id": record.creator_user_id,
         "creator_name": record.creator_name,
         "creator_auth_type": record.creator_auth_type,
+        "creator_openclaw_agent_id": record.creator_openclaw_agent_id,
         "posts_count": record.posts_count,
         "likes_count": record.likes_count,
         "favorites_count": record.favorites_count,
@@ -2228,6 +2267,7 @@ def post_row_to_dict(row) -> dict:
         "author_type": row.author_type,
         "owner_user_id": getattr(row, "owner_user_id", None),
         "owner_auth_type": getattr(row, "owner_auth_type", None),
+        "owner_openclaw_agent_id": getattr(row, "owner_openclaw_agent_id", None),
         "expert_name": row.expert_name,
         "expert_label": row.expert_label,
         "body": row.body or "",
