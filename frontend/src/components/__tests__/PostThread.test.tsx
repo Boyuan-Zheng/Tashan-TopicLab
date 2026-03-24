@@ -1,9 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PostThread from '../PostThread'
 
 function renderPost(body: string) {
-  render(
+  const result = render(
     <PostThread
       posts={[
         {
@@ -22,53 +22,92 @@ function renderPost(body: string) {
       ]}
     />
   )
+
+  return {
+    ...result,
+    renderRichBody: () => {
+      fireEvent.click(result.container.querySelector('.markdown-content') as HTMLElement)
+    },
+  }
 }
 
 describe('PostThread', () => {
-  it('renders inline latex formula in markdown body', () => {
-    renderPost('欧拉公式：$e^{i\\pi} + 1 = 0$')
-
-    const mathSpan = document.querySelector('.katex')
-    expect(mathSpan).toBeTruthy()
-    expect(screen.getByText('欧拉公式：')).toBeInTheDocument()
+  beforeEach(() => {
+    class MockIntersectionObserver {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    }
+    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver as any)
   })
 
-  it('renders a discussion image with a topic asset url', () => {
-    renderPost('![学术示意图](shared/generated_images/round2_concept_map.png)')
+  it('renders inline latex formula in markdown body', async () => {
+    const { renderRichBody, container } = renderPost('欧拉公式：$e^{i\\pi} + 1 = 0$')
 
-    const img = screen.getByRole('img', { name: '学术示意图' })
+    renderRichBody()
+
+    await waitFor(() => {
+      expect(container.querySelector('.katex')).toBeTruthy()
+    })
+    expect(screen.getByText(/欧拉公式/)).toBeInTheDocument()
+  })
+
+  it('renders a discussion image with a topic asset url', async () => {
+    const { renderRichBody } = renderPost('![学术示意图](shared/generated_images/round2_concept_map.png)')
+
+    renderRichBody()
+
+    const img = await screen.findByRole('img', { name: '学术示意图' })
     expect(img.getAttribute('src')).toMatch(
       /\/api\/topics\/topic-1\/assets\/generated_images\/round2_concept_map\.png\?q=82&fm=webp$/
     )
   })
 
-  it('keeps api asset urls as renderable topic urls', () => {
-    renderPost('![生成图](/api/topics/topic-1/assets/generated_images/existing.png)')
+  it('keeps api asset urls as renderable topic urls', async () => {
+    const { renderRichBody } = renderPost('![生成图](/api/topics/topic-1/assets/generated_images/existing.png)')
 
-    const img = screen.getByRole('img', { name: '生成图' })
+    renderRichBody()
+
+    const img = await screen.findByRole('img', { name: '生成图' })
     expect(img.getAttribute('src')).toMatch(
       /\/api\/topics\/topic-1\/assets\/generated_images\/existing\.png\?q=82&fm=webp$/
     )
   })
 
-  it('passes through external image urls unchanged', () => {
-    renderPost('![外部图](https://example.com/figure.png)')
+  it('passes through external image urls unchanged', async () => {
+    const { renderRichBody } = renderPost('![外部图](https://example.com/figure.png)')
 
-    const img = screen.getByRole('img', { name: '外部图' })
+    renderRichBody()
+
+    const img = await screen.findByRole('img', { name: '外部图' })
     expect(img.getAttribute('src')).toBe('https://example.com/figure.png')
   })
 
-  it('keeps unrelated relative image paths unchanged', () => {
-    renderPost('![相对图](images/local-figure.png)')
+  it('renders external video urls as playable video elements', async () => {
+    const { renderRichBody } = renderPost('![演示视频](https://example.com/demo.mp4)')
 
-    const img = screen.getByRole('img', { name: '相对图' })
+    renderRichBody()
+
+    const video = await screen.findByLabelText('演示视频')
+    expect(video.tagName.toLowerCase()).toBe('video')
+    expect(video.getAttribute('src')).toBe('https://example.com/demo.mp4')
+  })
+
+  it('keeps unrelated relative image paths unchanged', async () => {
+    const { renderRichBody } = renderPost('![相对图](images/local-figure.png)')
+
+    renderRichBody()
+
+    const img = await screen.findByRole('img', { name: '相对图' })
     expect(img.getAttribute('src')).toBe('images/local-figure.png')
   })
 
-  it('normalizes parent-relative generated image paths to topic asset url', () => {
-    renderPost('![架构图](../generated_images/architecture_layers.svg)')
+  it('normalizes parent-relative generated image paths to topic asset url', async () => {
+    const { renderRichBody } = renderPost('![架构图](../generated_images/architecture_layers.svg)')
 
-    const img = screen.getByRole('img', { name: '架构图' })
+    renderRichBody()
+
+    const img = await screen.findByRole('img', { name: '架构图' })
     expect(img.getAttribute('src')).toMatch(
       /\/api\/topics\/topic-1\/assets\/generated_images\/architecture_layers\.svg$/
     )

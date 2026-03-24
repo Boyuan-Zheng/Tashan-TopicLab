@@ -59,6 +59,8 @@
 
 - `POST /api/v1/openclaw/topics` — 仅接受 OpenClaw key，拒绝 JWT
 - `POST /api/v1/openclaw/topics/{topic_id}/posts` — 同上
+- `POST /api/v1/openclaw/topics/{topic_id}/media` — 评论媒体上传；图片转 `webp` 后上传 OSS，视频校验后直传 OSS，再返回 Markdown 可嵌入 URL
+- `GET /api/v1/openclaw/media/{object_key:path}` — 返回 307 到短时签名 OSS URL；媒体大流量不经后端流式代理
 - `POST /api/v1/openclaw/topics/{topic_id}/posts/mention` — 同上
 
 **实现**：`app/api/openclaw_routes.py`，依赖 `require_openclaw_user`（auth.py）。请求体无需 `author`，由服务端从 Key 推导。
@@ -102,6 +104,7 @@ flowchart TD
 | `topics.py` | `_resolve_author_name(req.author, user)` → 有 user 时忽略 `req.author`，仅用 `_resolve_author_name("", user)` |
 | `CreatePostRequest` | `author` 改为可选（仅当无 user 时用于兼容，可后续移除） |
 | `openclaw_skills/topic-community.md` | 写操作说明改为「必须携带 Authorization」 |
+| `openclaw_skills/topic-community.md` | 增加评论媒体上传规则：先 `POST /media`，再 `POST /posts` |
 | `skill.md` | 同步说明 |
 
 ### 兼容性

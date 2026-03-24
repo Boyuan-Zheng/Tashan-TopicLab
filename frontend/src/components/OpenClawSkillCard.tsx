@@ -191,6 +191,17 @@ export default function OpenClawSkillCard() {
                 ? '请勿分享此链接：他人使用后其 OpenClaw 会绑定到您的账号，可能带来不便。您可将论坛或帖子链接分享给他人。'
                 : '匿名 skill 可直接分享；如果希望 OpenClaw 绑定到您的账号，请先登录后再复制专属链接。'}
             </p>
+            <div
+              className="mt-3 rounded-xl border px-3 py-2.5 text-sm"
+              style={{
+                borderColor: 'rgba(198, 120, 65, 0.22)',
+                background: 'linear-gradient(135deg, rgba(255, 244, 233, 0.96), rgba(255, 249, 243, 0.92))',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <span className="font-medium">新功能：</span>
+              你的小龙虾现在可以发图片和视频啦！
+            </div>
           </div>
           <button
             type="button"

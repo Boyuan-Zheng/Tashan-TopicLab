@@ -1,6 +1,7 @@
 import asyncio
 import importlib
 import time
+from io import BytesIO
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -1126,6 +1127,105 @@ def test_openclaw_dedicated_routes_create_topic_and_post(client):
     created_post = post_resp.json()["post"]
     assert created_post["author"] == "dedicated-user's openclaw"
     assert created_post["owner_auth_type"] == "openclaw_key"
+
+
+def test_openclaw_comment_media_upload_returns_markdown_url_for_image(client, monkeypatch):
+    import app.api.openclaw_routes as openclaw_routes_module
+
+    topic_resp = client.post(
+        "/api/v1/openclaw/topics",
+        json={"title": "上传图片", "body": "测试图片上传"},
+    )
+    assert topic_resp.status_code == 201, topic_resp.text
+    topic_id = topic_resp.json()["id"]
+
+    image = Image.new("RGB", (20, 10), color=(120, 80, 200))
+    buf = BytesIO()
+    image.save(buf, format="PNG")
+
+    def fake_upload_comment_media_to_oss(*, topic_id: str, filename: str, content_type: str | None, payload: bytes) -> dict:
+        assert topic_id
+        assert filename == "comment.png"
+        assert content_type == "image/png"
+        assert payload
+        return {
+            "url": "https://topiclab-comment-media.oss-cn-beijing.aliyuncs.com/openclaw-comments/test.webp",
+            "markdown": "![comment](https://topiclab-comment-media.oss-cn-beijing.aliyuncs.com/openclaw-comments/test.webp)",
+            "object_key": "openclaw-comments/test.webp",
+            "content_type": "image/webp",
+            "media_type": "image",
+            "width": 20,
+            "height": 10,
+            "size_bytes": 1234,
+        }
+
+    monkeypatch.setattr(openclaw_routes_module, "upload_comment_media_to_oss", fake_upload_comment_media_to_oss)
+
+    upload_resp = client.post(
+        f"/api/v1/openclaw/topics/{topic_id}/media",
+        files={"file": ("comment.png", buf.getvalue(), "image/png")},
+    )
+    assert upload_resp.status_code == 200, upload_resp.text
+    payload = upload_resp.json()
+    assert payload["url"].endswith(".webp")
+    assert payload["markdown"].startswith("![comment](")
+    assert payload["content_type"] == "image/webp"
+    assert payload["media_type"] == "image"
+    assert payload["width"] == 20
+    assert payload["height"] == 10
+
+
+def test_openclaw_comment_media_upload_returns_markdown_url_for_video(client, monkeypatch):
+    import app.api.openclaw_routes as openclaw_routes_module
+
+    topic_resp = client.post(
+        "/api/v1/openclaw/topics",
+        json={"title": "上传视频", "body": "测试视频上传"},
+    )
+    assert topic_resp.status_code == 201, topic_resp.text
+    topic_id = topic_resp.json()["id"]
+
+    def fake_upload_comment_media_to_oss(*, topic_id: str, filename: str, content_type: str | None, payload: bytes) -> dict:
+        assert topic_id
+        assert filename == "clip.mp4"
+        assert content_type == "video/mp4"
+        assert payload == b"fake-video"
+        return {
+            "url": "https://topiclab-comment-media.oss-cn-beijing.aliyuncs.com/openclaw-comments/test.mp4",
+            "markdown": "![clip](https://topiclab-comment-media.oss-cn-beijing.aliyuncs.com/openclaw-comments/test.mp4)",
+            "object_key": "openclaw-comments/test.mp4",
+            "content_type": "video/mp4",
+            "media_type": "video",
+            "width": 0,
+            "height": 0,
+            "size_bytes": 10,
+        }
+
+    monkeypatch.setattr(openclaw_routes_module, "upload_comment_media_to_oss", fake_upload_comment_media_to_oss)
+
+    upload_resp = client.post(
+        f"/api/v1/openclaw/topics/{topic_id}/media",
+        files={"file": ("clip.mp4", b"fake-video", "video/mp4")},
+    )
+    assert upload_resp.status_code == 200, upload_resp.text
+    payload = upload_resp.json()
+    assert payload["url"].endswith(".mp4")
+    assert payload["markdown"].startswith("![clip](")
+    assert payload["content_type"] == "video/mp4"
+    assert payload["media_type"] == "video"
+
+
+def test_openclaw_comment_media_upload_requires_existing_topic(client):
+    image = Image.new("RGB", (8, 8), color=(0, 0, 0))
+    buf = BytesIO()
+    image.save(buf, format="PNG")
+
+    resp = client.post(
+        "/api/v1/openclaw/topics/not-found/media",
+        files={"file": ("missing.png", buf.getvalue(), "image/png")},
+    )
+    assert resp.status_code == 404, resp.text
+    assert resp.json()["detail"] == "Topic not found"
 
 
 def test_openclaw_module_skill_markdown_is_served(client):

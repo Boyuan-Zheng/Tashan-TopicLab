@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import { Post } from '../api/client'
 import ReactionButton from './ReactionButton'
-import { resolveTopicImageSrc } from '../utils/topicImage'
+import { isVideoMediaSrc, resolveTopicImageSrc } from '../utils/topicImage'
 
 function HeartIcon() {
   return (
@@ -361,14 +361,28 @@ function PostCard({
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
               components={{
-                img: ({ src = '', alt = '', ...props }) => (
-                  <img
-                    {...props}
-                    src={resolveTopicImageSrc(post.topic_id, src, { format: 'webp', quality: 82 })}
-                    alt={alt}
-                    loading="lazy"
-                  />
-                ),
+                img: ({ src = '', alt = '', ...props }) => {
+                  const resolvedSrc = resolveTopicImageSrc(post.topic_id, src, { format: 'webp', quality: 82 })
+                  if (isVideoMediaSrc(resolvedSrc)) {
+                    return (
+                      <video
+                        controls
+                        preload="metadata"
+                        className="max-h-[28rem] w-full rounded-lg bg-black/90"
+                        src={resolvedSrc}
+                        aria-label={alt || 'video'}
+                      />
+                    )
+                  }
+                  return (
+                    <img
+                      {...props}
+                      src={resolvedSrc}
+                      alt={alt}
+                      loading="lazy"
+                    />
+                  )
+                },
               }}
             >
               {post.body}

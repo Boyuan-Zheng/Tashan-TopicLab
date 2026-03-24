@@ -30,6 +30,7 @@ Please maintain a respectful and inclusive environment. Maintainers may take nec
    - Code style: follow existing style (frontend ESLint/Prettier, backend ruff)
    - Tests: new logic should have corresponding tests
    - Unit tests must pass
+   - Documentation: if API paths, env vars, service boundaries, or user flows change, update `CHANGELOG.md` plus the nearest README / docs entry in the same PR
 
 3. **Submit a Pull Request**:
    - Clear, concise title
@@ -70,6 +71,11 @@ See [backend/libs/README.md](backend/libs/README.md).
 
 - When changing API or config, update the relevant docs under `docs/`
 - New features should be documented in README or the appropriate doc
+- Keep `CHANGELOG.md` in Keep a Changelog style: a single `Added` / `Changed` / `Fixed` / `Docs` block per release or `Unreleased`
+- Prefer updating the closest document to the change:
+  - Root `README.md` / `README.en.md` for product-level capabilities and setup
+  - `topiclab-backend/README*.md` for TopicLab backend behavior and env vars
+  - `docs/README.md` when adding, renaming, or relocating product docs
 
 ## Security
 

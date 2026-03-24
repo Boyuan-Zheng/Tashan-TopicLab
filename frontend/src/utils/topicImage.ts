@@ -7,6 +7,8 @@ interface TopicImageVariantOptions {
   format?: 'webp'
 }
 
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v']
+
 function stripQueryAndHash(value: string): string {
   return value.split('#')[0].split('?')[0]
 }
@@ -14,6 +16,12 @@ function stripQueryAndHash(value: string): string {
 function isConvertibleTopicRasterImage(src: string): boolean {
   const normalized = stripQueryAndHash(src).toLowerCase()
   return /\.(png|jpe?g|bmp|tiff?|webp)$/.test(normalized)
+}
+
+export function isVideoMediaSrc(src?: string): boolean {
+  if (!src) return false
+  const normalized = stripQueryAndHash(src).toLowerCase()
+  return VIDEO_EXTENSIONS.some((extension) => normalized.endsWith(extension))
 }
 
 function stripAngleBrackets(value: string): string {

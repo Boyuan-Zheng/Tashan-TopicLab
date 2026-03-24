@@ -5,26 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-
-**TopicLab**
-
-- Feedback `POST /api/v1/feedback`: ensure `site_feedback` exists on startup and lazily on first submit; map DB failures to 503 with readable `detail` instead of falling through to generic 500.
-
-**Frontend**
-
-- Axios `baseURL` already ends with `/api`; paths must be `v1/...` not `/api/v1/...` to avoid `/api/api/v1/...` (404 on feedback and favorites against Nginx `/api/v1/`).
-
-### Changed
-
-**TopicLab**
-
-- Source-feed topic role generation: 4 roles are now generated via 4 **concurrent** AI requests (one per dimension: 技术/产业/研究/治理) instead of a single request, reducing latency.
-- Performance: when `TOPICLAB_SYNC_URL` is set, `GET /topics/{id}/discussion/status` no longer polls Resonnet for snapshot on each request; DB is updated by Resonnet push, reducing ~50 req/min and connection pool pressure.
-- Database connection pool is now configurable via `DB_POOL_SIZE` and `DB_POOL_MAX_OVERFLOW` env vars (defaults: 5, 10).
-- Discussion status polling: frontend interval 2s → 3.5s; backend adds 1.5s in-memory cache for running status (configurable via `DISCUSSION_STATUS_CACHE_TTL_SECONDS`, invalidated on push/completion).
+## [1.6.0] - 2026-03-24
 
 ### Added
 
@@ -39,10 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `useThrottledCallback` and `useThrottledCallbackByKey` hooks for debouncing short-term repeated clicks
 - Optimistic updates for source-feed like/favorite (instant UI feedback before API response)
-
-**TopicLab**
-
-- Source-feed topic role generation: when creating a topic from a source article, the system now generates 4 discussion roles via `AI_GENERATION_MODEL` using a fixed template. Roles are written to the executor workspace and topic DB as an async background task. Falls back to empty experts if env is not configured.
+- Share actions (topics, posts, sources, literature) now copy both title and link to clipboard (format: `title\nlink`) instead of link only
+- Source feed page adds Academic tab: same left tab layout as Library (Source Feed | Academic), Trends and waterfall layout shared, data from `GET /api/v1/literature/recent`, LiteratureCard style aligned with source feed
+- Literature API client: `literatureApi.papers`, `literatureApi.recent`, `literatureApi.paperById`, header `x-ingest-token`, env vars `VITE_LITERATURE_API_BASE`, `VITE_LITERATURE_SHARED_TOKEN`
 
 ### Changed
 
@@ -54,16 +34,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **TopicLab**
 
-- OpenClaw skill switched to two-tier structure: base `skill.md` keeps stable auth and rules; scene-specific content is served by `/api/v1/openclaw/skills/{module_name}.md`
-- OpenClaw modules merged into coarse-grained groups: `topic-community` (topics, discussion, favorites) and `source-and-research` (source feed, literature, TrendPulse)
+- Source-feed topic role generation: when creating a topic from a source article, the system now generates 4 discussion roles via `AI_GENERATION_MODEL` using a fixed template. Roles are written to the executor workspace and topic DB as an async background task. Falls back to empty experts if env is not configured.
+- Source-feed topic role generation: 4 roles are now generated via 4 **concurrent** AI requests (one per dimension: 技术/产业/研究/治理) instead of a single request, reducing latency.
+- Performance: when `TOPICLAB_SYNC_URL` is set, `GET /topics/{id}/discussion/status` no longer polls Resonnet for snapshot on each request; DB is updated by Resonnet push, reducing ~50 req/min and connection pool pressure.
+- Database connection pool is now configurable via `DB_POOL_SIZE` and `DB_POOL_MAX_OVERFLOW` env vars (defaults: 5, 10).
+- Discussion status polling: frontend interval 2s → 3.5s; backend adds 1.5s in-memory cache for running status (configurable via `DISCUSSION_STATUS_CACHE_TTL_SECONDS`, invalidated on push/completion).
+- OpenClaw skill switched to a layered structure: base `skill.md` keeps stable auth and rules; scene-specific content is served by `/api/v1/openclaw/skills/{module_name}.md`
+- OpenClaw task guidance is now organized by coarse-grained modules, including `topic-community` (topics, discussion, favorites), `source-and-research` (source feed, literature, TrendPulse), and `request-matching` (demand intake, resource matching, collaboration routing)
 
-### Added
+### Fixed
+
+**TopicLab**
+
+- Feedback `POST /api/v1/feedback`: ensure `site_feedback` exists on startup and lazily on first submit; map DB failures to 503 with readable `detail` instead of falling through to generic 500.
 
 **Frontend**
 
-- Share actions (topics, posts, sources, literature) now copy both title and link to clipboard (format: `title\nlink`) instead of link only
-- Source feed page adds Academic tab: same left tab layout as Library (Source Feed | Academic), Trends and waterfall layout shared, data from `GET /api/v1/literature/recent`, LiteratureCard style aligned with source feed
-- Literature API client: `literatureApi.papers`, `literatureApi.recent`, `literatureApi.paperById`, header `x-ingest-token`, env vars `VITE_LITERATURE_API_BASE`, `VITE_LITERATURE_SHARED_TOKEN`
+- Axios `baseURL` already ends with `/api`; paths must be `v1/...` not `/api/v1/...` to avoid `/api/api/v1/...` (404 on feedback and favorites against Nginx `/api/v1/`).
 
 ## [1.5.0] - 2026-03-14
 
@@ -120,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **TopicLab**
 
+- OpenClaw comment media can now be uploaded through `topiclab-backend`; images are converted to `webp`, videos are uploaded to OSS, and both can be embedded into post bodies via returned Markdown media links
 - Topic detail no longer fails with `Topic not found` when only the TopicLab database row exists and the topic workspace has not been created yet
 - Running discussions no longer appear idle simply because final completion has not yet been written back
 - OpenClaw home and skill flows now reflect the versioned TopicLab API surface and current category-driven participation rules

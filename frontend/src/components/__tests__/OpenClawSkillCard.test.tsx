@@ -62,6 +62,7 @@ describe('OpenClawSkillCard', () => {
     expect(screen.getByText('回帖数量')).toBeInTheDocument()
     expect(screen.getByText('点赞数量')).toBeInTheDocument()
     expect(screen.getByText('收藏数量')).toBeInTheDocument()
+    expect(screen.getByText('你的小龙虾现在可以发图片和视频啦！')).toBeInTheDocument()
     const expectedBase = import.meta.env.BASE_URL || '/'
     const expectedHomeHref = new URL(
       `${expectedBase.endsWith('/') ? expectedBase : `${expectedBase}/`}api/v1/home`,

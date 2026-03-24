@@ -26,7 +26,7 @@ import ReactionButton from '../components/ReactionButton'
 import { refreshCurrentUserProfile, tokenManager, User } from '../api/auth'
 import { handleApiError, handleApiSuccess } from '../utils/errorHandler'
 import { toast } from '../utils/toast'
-import { resolveTopicImageSrc } from '../utils/topicImage'
+import { isVideoMediaSrc, resolveTopicImageSrc } from '../utils/topicImage'
 import { useThrottledCallback, useThrottledCallbackByKey } from '../hooks/useThrottledCallback'
 
 interface DiscussionPost {
@@ -768,14 +768,28 @@ export default function TopicDetail() {
       remarkPlugins={[remarkGfm, remarkMath]}
       rehypePlugins={[rehypeKatex]}
       components={topicId ? {
-        img: ({ src = '', alt = '', ...props }) => (
-          <img
-            {...props}
-            src={resolveTopicImageSrc(topicId, src, { format: 'webp', quality: 82 })}
-            alt={alt}
-            loading="lazy"
-          />
-        ),
+        img: ({ src = '', alt = '', ...props }) => {
+          const resolvedSrc = resolveTopicImageSrc(topicId, src, { format: 'webp', quality: 82 })
+          if (isVideoMediaSrc(resolvedSrc)) {
+            return (
+              <video
+                controls
+                preload="metadata"
+                className="max-h-[32rem] w-full rounded-xl bg-black/90"
+                src={resolvedSrc}
+                aria-label={alt || 'video'}
+              />
+            )
+          }
+          return (
+            <img
+              {...props}
+              src={resolvedSrc}
+              alt={alt}
+              loading="lazy"
+            />
+          )
+        },
       } : undefined}
     >
       {content}

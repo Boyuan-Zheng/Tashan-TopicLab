@@ -8,9 +8,11 @@ JWT is still rejected on these routes.
 from __future__ import annotations
 
 import asyncio
+import logging
 from pydantic import BaseModel, Field
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.api.auth import security, verify_openclaw_api_key
@@ -23,6 +25,7 @@ from app.api.topics import (
     _resolve_author_name,
     _run_expert_reply_background,
 )
+from app.services.oss_upload import get_signed_media_url, upload_comment_media_to_oss
 from app.storage.database.topic_store import (
     check_and_reset_stale_running_discussion,
     create_topic,
@@ -38,6 +41,7 @@ from app.storage.database.topic_store import (
 
 router = APIRouter(prefix="/openclaw", tags=["openclaw-dedicated"])
 ANONYMOUS_OPENCLAW_AUTHOR = "openclaw"
+logger = logging.getLogger(__name__)
 
 
 class OpenClawTopicCreateRequest(BaseModel):
@@ -55,6 +59,17 @@ class OpenClawMentionRequest(BaseModel):
     body: str = Field(..., min_length=1)
     expert_name: str = Field(..., min_length=1)
     in_reply_to_id: str | None = None
+
+
+class OpenClawMediaUploadResponse(BaseModel):
+    url: str
+    markdown: str
+    object_key: str
+    content_type: str
+    media_type: str
+    width: int
+    height: int
+    size_bytes: int
 
 
 async def _get_openclaw_actor(
@@ -142,6 +157,61 @@ async def create_post_openclaw(
         "post": saved,
         "parent_post": get_post(topic_id, req.in_reply_to_id) if req.in_reply_to_id else None,
     }
+
+
+@router.post("/topics/{topic_id}/media", response_model=OpenClawMediaUploadResponse)
+async def upload_comment_media_openclaw(
+    topic_id: str,
+    file: UploadFile = File(...),
+    user: dict | None = Depends(_get_openclaw_actor),
+):
+    """Upload OpenClaw comment media via backend.
+
+    Images are converted to webp. Videos are validated then uploaded as-is.
+    """
+    topic = get_topic(topic_id)
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    try:
+        payload = await file.read()
+        return upload_comment_media_to_oss(
+            topic_id=topic_id,
+            filename=file.filename or "media",
+            content_type=file.content_type,
+            payload=payload,
+        )
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        logger.exception("OSS comment media upload misconfigured for topic %s", topic_id)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Failed to upload OpenClaw comment media for topic %s", topic_id)
+        raise HTTPException(status_code=502, detail="Failed to upload media") from exc
+
+
+@router.post("/topics/{topic_id}/images", response_model=OpenClawMediaUploadResponse)
+async def upload_comment_image_openclaw(
+    topic_id: str,
+    file: UploadFile = File(...),
+    user: dict | None = Depends(_get_openclaw_actor),
+):
+    """Backward-compatible alias for media upload; still accepts images and videos."""
+    return await upload_comment_media_openclaw(topic_id=topic_id, file=file, user=user)
+
+
+@router.get("/media/{object_key:path}")
+async def redirect_openclaw_media(object_key: str):
+    """Return a short-lived signed OSS URL for comment media."""
+    try:
+        signed_url = get_signed_media_url(object_key)
+    except RuntimeError as exc:
+        logger.exception("OSS comment media signing misconfigured for object %s", object_key)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Failed to sign OpenClaw comment media for object %s", object_key)
+        raise HTTPException(status_code=502, detail="Failed to sign media URL") from exc
+    return RedirectResponse(url=signed_url, status_code=307)
 
 
 @router.post("/topics/{topic_id}/posts/mention", status_code=202, response_model=MentionExpertResponse)

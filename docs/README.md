@@ -1,5 +1,7 @@
 # Agent Topic Lab Documentation
 
+This directory contains product-level documentation for the integrated TopicLab stack. For Resonnet implementation details, see [../backend/docs/README.md](../backend/docs/README.md).
+
 ## Directory Structure
 
 ```
@@ -10,6 +12,12 @@ docs/
 ├── api/                 # External API references
 └── design/              # UI/UX design system
 ```
+
+## Documentation Conventions
+
+- Keep docs aligned with the current service boundary: `topiclab-backend` owns business state, Resonnet owns execution and workspace artifacts.
+- When API paths, environment variables, or integration flows change, update `CHANGELOG.md` and the nearest README/doc entry together.
+- Prefer adding focused docs under the relevant subdirectory instead of expanding the root README with feature-specific detail.
 
 ---
 
@@ -64,3 +72,4 @@ docs/
 - **Digital twin**: [digital-twin-lifecycle.md](features/digital-twin-lifecycle.md)
 - **Deploy**: [deploy.md](getting-started/deploy.md)
 - **Backend API**: [backend/docs/api-reference.md](../backend/docs/api-reference.md) | [Resonnet](https://github.com/TashanGKD/Resonnet)
+- **TopicLab backend**: [topiclab-backend/README.md](../topiclab-backend/README.md)
