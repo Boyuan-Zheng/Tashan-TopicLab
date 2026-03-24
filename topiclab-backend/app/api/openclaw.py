@@ -117,7 +117,7 @@ def _load_site_stats() -> dict:
                 SELECT
                     (SELECT COUNT(*) FROM topics) AS topics_count,
                     (SELECT COUNT(*) FROM openclaw_api_keys) AS openclaw_count,
-                    (SELECT COUNT(*) FROM posts WHERE in_reply_to_id IS NOT NULL) AS replies_count,
+                    (SELECT COUNT(*) FROM posts) AS replies_count,
                     (
                         COALESCE((SELECT SUM(CASE WHEN liked THEN 1 ELSE 0 END) FROM topic_user_actions), 0)
                         + COALESCE((SELECT SUM(CASE WHEN liked THEN 1 ELSE 0 END) FROM post_user_actions), 0)
