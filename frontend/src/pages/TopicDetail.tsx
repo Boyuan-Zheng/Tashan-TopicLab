@@ -522,10 +522,12 @@ export default function TopicDetail() {
     e.preventDefault()
     if (!id || !postText.trim() || !currentUser) return
 
-    const mentionMatch = postText.match(/@(\w+)/)
+    const submittedText = postText
+    const replyTarget = replyingTo
+    const mentionMatch = submittedText.match(/@(\w+)/)
     const mentionedName = mentionMatch?.[1]
     const mentionedExpert = topicExperts.find(e => e.name === mentionedName)
-    const inReplyToId = replyingTo?.id ?? null
+    const inReplyToId = replyTarget?.id ?? null
     const authorName = getUserDisplayName(currentUser)
     const now = new Date().toISOString()
     const tempUserPostId = `temp-${crypto.randomUUID()}`
@@ -540,19 +542,21 @@ export default function TopicDetail() {
       owner_auth_type: null,
       expert_name: null,
       expert_label: null,
-      body: postText,
+      body: submittedText,
       mentions: [],
       in_reply_to_id: inReplyToId,
       root_post_id: inReplyToId ?? tempUserPostId,
-      depth: replyingTo ? (replyingTo.depth ?? 0) + 1 : 0,
+      depth: replyTarget ? (replyTarget.depth ?? 0) + 1 : 0,
       reply_count: 0,
-      status: 'pending',
+      status: 'completed',
       created_at: now,
       interaction: { likes_count: 0, shares_count: 0, liked: false },
     }
 
     setSubmitting(true)
+      setPostText('')
       setSubmitError('')
+      setReplyingTo(null)
       try {
         if (mentionedExpert) {
         tempReplyId = `temp-${crypto.randomUUID()}`
@@ -580,7 +584,7 @@ export default function TopicDetail() {
         setTopic(prev => prev ? { ...prev, posts_count: (prev.posts_count ?? 0) + 2 } : prev)
         const res = await postsApi.mention(id, {
           author: authorName,
-          body: postText,
+          body: submittedText,
           expert_name: mentionedExpert.name,
           in_reply_to_id: inReplyToId,
         })
@@ -600,7 +604,7 @@ export default function TopicDetail() {
         setTopic(prev => prev ? { ...prev, posts_count: (prev.posts_count ?? 0) + 1 } : prev)
         const res = await postsApi.create(id, {
           author: authorName,
-          body: postText,
+          body: submittedText,
           in_reply_to_id: inReplyToId,
         })
         setPosts(prev => {
@@ -614,13 +618,13 @@ export default function TopicDetail() {
         }))
         handleApiSuccess('发送成功')
       }
-      setPostText('')
       setSubmitError('')
-      setReplyingTo(null)
     } catch (err) {
       setPosts(prev => prev.filter(item => item.id !== tempUserPostId && item.id !== tempReplyId))
       setTopic(prev => prev ? { ...prev, posts_count: Math.max(0, (prev.posts_count ?? 0) - (mentionedExpert ? 2 : 1)) } : prev)
       const message = handleApiError(err, '发送失败')
+      setPostText(submittedText)
+      setReplyingTo(replyTarget)
       setSubmitError(message)
     } finally {
       setSubmitting(false)
@@ -826,7 +830,8 @@ export default function TopicDetail() {
 
   const isDiscussionMode = topic.mode === 'discussion' || topic.mode === 'both'
   const canMentionExperts = topic.discussion_status !== 'pending' && topic.discussion_status !== 'running' && topicExperts.length > 0
-  const shouldShowReplyDock = topic.status === 'open' && replyingTo !== null
+  const shouldUseReplyDock = viewportWidth < 1024
+  const shouldShowReplyDock = topic.status === 'open' && replyingTo !== null && shouldUseReplyDock
   const closeReplyDock = () => setReplyingTo(null)
   const categoryMeta = getTopicCategoryMeta(topic.category)
   const creatorMeta = topic.creator_name
@@ -1096,12 +1101,115 @@ export default function TopicDetail() {
             {topic.status === 'open' ? (
               <div className="mt-6 pt-4 border-t border-gray-100">
                 {replyingTo ? (
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                    <div className="min-w-0">
-                      <span className="font-medium text-gray-900">正在回复 {composerReplyName}</span>
-                      <span className="ml-1 text-gray-500">输入框已从底部弹出</span>
+                  shouldUseReplyDock ? (
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                      <div className="min-w-0">
+                        <span className="font-medium text-gray-900">正在回复 {composerReplyName}</span>
+                        <span className="ml-1 text-gray-500">输入框已从底部弹出</span>
+                      </div>
                     </div>
-                  </div>
+                  ) : currentUser ? (
+                    <form
+                      onSubmit={handleSubmitPost}
+                      className="ml-auto w-full max-w-[42rem] rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm"
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">当前账号：{currentUserName}</span>
+                          <span className="rounded-full bg-black px-2.5 py-1 text-white">正在回复：{composerReplyName}</span>
+                          {topic.discussion_status === 'running' && (
+                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">AI 讨论进行中，@专家回复需等待讨论完成</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={closeReplyDock}
+                          className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                          aria-label="关闭回复窗口"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600">
+                        <div className="min-w-0">
+                          <span className="font-medium text-gray-900">回复 {composerReplyName}</span>
+                          {composerReplyPreview ? (
+                            <span className="ml-1 text-gray-500">
+                              · {composerReplyPreview}{replyingTo.body.length > composerReplyPreview.length ? '...' : ''}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
+                        <div className="flex items-end gap-3">
+                          <div className="min-w-0 flex-1">
+                            <MentionTextarea
+                              value={postText}
+                              onChange={(value) => {
+                                setPostText(value)
+                                if (submitError) setSubmitError('')
+                              }}
+                              experts={canMentionExperts ? topicExperts : []}
+                              disabled={submitting}
+                              textareaRef={composerTextareaRef}
+                              placeholder={
+                                topic.discussion_status === 'running'
+                                  ? '在这里继续讨论… 普通跟贴可直接发送，@专家回复需等待讨论完成'
+                                  : canMentionExperts
+                                    ? '在这里继续讨论… 回复角色时会自动补上 @'
+                                    : '在这里继续讨论… 先完成一次 AI 讨论后才能 @ 追问角色'
+                              }
+                              textareaClassName="w-full bg-transparent px-1 py-1 text-sm font-serif text-gray-800 focus:outline-none resize-none"
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className="mb-1 shrink-0 rounded-xl bg-black px-4 py-2 text-sm font-serif text-white transition-colors hover:bg-gray-900 disabled:opacity-50"
+                            disabled={submitting || !postText.trim()}
+                          >
+                            {submitting ? '发送中...' : '发送'}
+                          </button>
+                        </div>
+                        <p className="mt-2 text-xs text-gray-400">
+                          {topic.discussion_status === 'running'
+                            ? 'AI 讨论进行中，普通跟贴可直接发送，@专家回复需等待讨论完成。'
+                            : (canMentionExperts ? '输入 @ 可直接追问角色，回复角色时会自动带上 @。' : '输入内容后即可发布跟贴；完成一次 AI 讨论后才开放 @追问角色。')}
+                        </p>
+                        {submitError ? (
+                          <p className="mt-2 text-xs text-red-600">{submitError}</p>
+                        ) : null}
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="ml-auto w-full max-w-[42rem] rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-black">登录后即可发帖和回帖</p>
+                          <p className="mt-1 text-xs text-gray-500">回复角色时会自动补上 @，并以你的账号名发布。</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to="/register"
+                            state={{ from: location.pathname }}
+                            className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:border-gray-300 hover:text-black"
+                          >
+                            注册
+                          </Link>
+                          <Link
+                            to="/login"
+                            state={{ from: location.pathname }}
+                            className="rounded-xl bg-black px-4 py-2 text-sm text-white hover:bg-gray-900"
+                          >
+                            登录后回帖
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  )
                 ) : currentUser ? (
                   <form
                     onSubmit={handleSubmitPost}

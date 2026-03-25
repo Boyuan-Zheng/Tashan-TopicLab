@@ -363,6 +363,118 @@ describe('TopicDetail', () => {
     expect(screen.getByLabelText('mention-textarea')).toHaveValue('@agent_a ')
   })
 
+  it('renders inline reply composer on desktop instead of bottom-dock hint', async () => {
+    localStorage.setItem('auth_token', 'token-1')
+    localStorage.setItem('auth_user', JSON.stringify({
+      id: 7,
+      phone: '13800138000',
+      username: '测试用户',
+      created_at: '2026-03-12T00:00:00Z',
+    }))
+    mockedPostsApiList.mockResolvedValueOnce({
+      data: {
+        items: [
+          {
+            id: 'post-1',
+            topic_id: 'topic-1',
+            author: 'agent_a',
+            author_type: 'agent',
+            expert_name: 'agent_a',
+            expert_label: 'Agent A',
+            body: '这是角色回复',
+            mentions: [],
+            in_reply_to_id: null,
+            status: 'completed',
+            created_at: '2026-03-12T01:00:00Z',
+          },
+        ],
+        next_cursor: null,
+      },
+    } as any)
+    mockedTopicExpertsApiList.mockResolvedValueOnce({
+      data: [
+        {
+          name: 'agent_a',
+          label: 'Agent A',
+          description: 'test',
+          source: 'preset',
+          role_file: 'agents/agent_a/role.md',
+          added_at: '2026-03-12T00:00:00Z',
+        },
+      ],
+    } as any)
+
+    render(
+      <MemoryRouter initialEntries={['/topics/topic-1']}>
+        <Routes>
+          <Route path="/topics/:id" element={<TopicDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: '回复 Agent A' }))
+
+    expect(screen.getByText('正在回复：Agent A')).toBeInTheDocument()
+    expect(screen.queryByText('输入框已从底部弹出')).not.toBeInTheDocument()
+  })
+
+  it('keeps bottom-dock hint on narrow screens when replying', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 768 })
+    window.dispatchEvent(new Event('resize'))
+    localStorage.setItem('auth_token', 'token-1')
+    localStorage.setItem('auth_user', JSON.stringify({
+      id: 7,
+      phone: '13800138000',
+      username: '测试用户',
+      created_at: '2026-03-12T00:00:00Z',
+    }))
+    mockedPostsApiList.mockResolvedValueOnce({
+      data: {
+        items: [
+          {
+            id: 'post-1',
+            topic_id: 'topic-1',
+            author: 'agent_a',
+            author_type: 'agent',
+            expert_name: 'agent_a',
+            expert_label: 'Agent A',
+            body: '这是角色回复',
+            mentions: [],
+            in_reply_to_id: null,
+            status: 'completed',
+            created_at: '2026-03-12T01:00:00Z',
+          },
+        ],
+        next_cursor: null,
+      },
+    } as any)
+    mockedTopicExpertsApiList.mockResolvedValueOnce({
+      data: [
+        {
+          name: 'agent_a',
+          label: 'Agent A',
+          description: 'test',
+          source: 'preset',
+          role_file: 'agents/agent_a/role.md',
+          added_at: '2026-03-12T00:00:00Z',
+        },
+      ],
+    } as any)
+
+    render(
+      <MemoryRouter initialEntries={['/topics/topic-1']}>
+        <Routes>
+          <Route path="/topics/:id" element={<TopicDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: '回复 Agent A' }))
+
+    expect(screen.getByText('输入框已从底部弹出')).toBeInTheDocument()
+    expect(screen.getByText('正在回复：Agent A')).toBeInTheDocument()
+  })
+
   it('shows moderation rejection under the composer', async () => {
     localStorage.setItem('auth_token', 'token-1')
     localStorage.setItem('auth_user', JSON.stringify({
@@ -408,5 +520,57 @@ describe('TopicDetail', () => {
     expect(
       (await screen.findAllByText('内容审核未通过，请调整后再发布：包含攻击性表达；请改为就事论事')).length,
     ).toBeGreaterThan(0)
+  })
+
+  it('shows optimistic user reply body instead of pending spinner while request is in flight', async () => {
+    localStorage.setItem('auth_token', 'token-1')
+    localStorage.setItem('auth_user', JSON.stringify({
+      id: 7,
+      phone: '13800138000',
+      username: '测试用户',
+      created_at: '2026-03-12T00:00:00Z',
+    }))
+    mockedPostsApiCreate.mockImplementationOnce(
+      () => new Promise(() => {}) as any,
+    )
+
+    render(
+      <MemoryRouter initialEntries={['/topics/topic-1']}>
+        <Routes>
+          <Route path="/topics/:id" element={<TopicDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(await screen.findByLabelText('mention-textarea'), { target: { value: '这是我的真实回复' } })
+    fireEvent.click(screen.getAllByRole('button', { name: '发送' }).find((button) => !button.hasAttribute('disabled'))!)
+
+    expect(screen.getByLabelText('mention-textarea')).toHaveValue('')
+    expect((await screen.findAllByText('这是我的真实回复')).length).toBe(1)
+    expect(screen.queryByText('思考中...')).not.toBeInTheDocument()
+  })
+
+  it('restores input text after send failure', async () => {
+    localStorage.setItem('auth_token', 'token-1')
+    localStorage.setItem('auth_user', JSON.stringify({
+      id: 7,
+      phone: '13800138000',
+      username: '测试用户',
+      created_at: '2026-03-12T00:00:00Z',
+    }))
+    mockedPostsApiCreate.mockRejectedValueOnce(new Error('network failed'))
+
+    render(
+      <MemoryRouter initialEntries={['/topics/topic-1']}>
+        <Routes>
+          <Route path="/topics/:id" element={<TopicDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(await screen.findByLabelText('mention-textarea'), { target: { value: '发送失败后应恢复' } })
+    fireEvent.click(screen.getAllByRole('button', { name: '发送' }).find((button) => !button.hasAttribute('disabled'))!)
+
+    expect(await screen.findByLabelText('mention-textarea')).toHaveValue('发送失败后应恢复')
   })
 })
