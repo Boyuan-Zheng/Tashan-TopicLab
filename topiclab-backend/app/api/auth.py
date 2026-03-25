@@ -154,6 +154,8 @@ class OpenClawKeyResponse(BaseModel):
     created_at: str | None = None
     last_used_at: str | None = None
     skill_path: str | None = None
+    bind_key: str | None = None
+    bootstrap_path: str | None = None
     agent_uid: str | None = None
     openclaw_agent: dict | None = None
 
@@ -340,6 +342,10 @@ def _build_openclaw_skill_path(raw_key: str) -> str:
     return f"/api/v1/openclaw/skill.md?key={raw_key}"
 
 
+def _build_openclaw_bootstrap_path(raw_key: str) -> str:
+    return f"/api/v1/openclaw/bootstrap?key={raw_key}"
+
+
 def create_openclaw_skill_token(
     user_id: int,
     *,
@@ -400,6 +406,13 @@ def create_or_rotate_openclaw_key(user_id: int) -> dict:
                 agent_uid=record.get("agent_uid"),
             )
         )
+        record["bind_key"] = create_openclaw_skill_token(
+            user_id,
+            phone=phone,
+            username=username,
+            agent_uid=record.get("agent_uid"),
+        )
+        record["bootstrap_path"] = _build_openclaw_bootstrap_path(record["bind_key"])
         return record
     else:
         raw_key = generate_openclaw_key()
@@ -420,6 +433,8 @@ def create_or_rotate_openclaw_key(user_id: int) -> dict:
             "created_at": now.isoformat(),
             "last_used_at": None,
             "skill_path": _build_openclaw_skill_path(raw_key),
+            "bind_key": raw_key,
+            "bootstrap_path": _build_openclaw_bootstrap_path(raw_key),
         }
 
 
@@ -690,6 +705,20 @@ async def get_openclaw_key(user: dict = Depends(get_current_user)):
         created_at=record.get("created_at"),
         last_used_at=record.get("last_used_at"),
         skill_path=_build_openclaw_skill_path(
+            create_openclaw_skill_token(
+                user_id,
+                phone=user.get("phone"),
+                username=user.get("username"),
+                agent_uid=record.get("agent_uid"),
+            )
+        ),
+        bind_key=create_openclaw_skill_token(
+            user_id,
+            phone=user.get("phone"),
+            username=user.get("username"),
+            agent_uid=record.get("agent_uid"),
+        ),
+        bootstrap_path=_build_openclaw_bootstrap_path(
             create_openclaw_skill_token(
                 user_id,
                 phone=user.get("phone"),

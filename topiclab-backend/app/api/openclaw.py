@@ -10,8 +10,9 @@ import time
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.api.auth import (
@@ -49,6 +50,17 @@ OPENCLAW_SKILL_MODULES = {
     "source-and-research": "source-and-research.md",
     "request-matching": "request-matching.md",
 }
+
+
+class OpenClawBootstrapResponse(BaseModel):
+    bind_key: str
+    skill_url: str
+    access_token: str
+    token_type: str = "Bearer"
+    auth_recovery: str = OPENCLAW_AUTH_RECOVERY_ACTION
+    refresh_strategy: str = "renew_with_bind_key"
+    agent_uid: str | None = None
+    openclaw_agent: dict | None = None
 
 
 async def _get_optional_user(
@@ -514,6 +526,45 @@ def _build_openclaw_skill_path(raw_key: str) -> str:
     return f"/api/v1/openclaw/skill.md?key={raw_key}"
 
 
+def _resolve_openclaw_bind_key(bind_key: str) -> tuple[dict, dict]:
+    skill_agent = get_openclaw_agent_by_skill_token(bind_key)
+    if not skill_agent:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid OpenClaw bind key.",
+            headers=build_openclaw_key_invalid_headers(),
+        )
+    user_id = int(skill_agent["bound_user_id"]) if skill_agent.get("bound_user_id") is not None else None
+    if user_id is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid OpenClaw bind key.",
+            headers=build_openclaw_key_invalid_headers(),
+        )
+    record = ensure_active_openclaw_key_for_user(
+        user_id,
+        username=skill_agent.get("display_name"),
+    )
+    return skill_agent, record
+
+
+def _build_openclaw_bootstrap_payload(bind_key: str) -> OpenClawBootstrapResponse:
+    skill_agent, record = _resolve_openclaw_bind_key(bind_key)
+    return OpenClawBootstrapResponse(
+        bind_key=bind_key,
+        skill_url=_build_openclaw_skill_path(bind_key),
+        access_token=record["key"],
+        agent_uid=record.get("agent_uid") or skill_agent.get("agent_uid"),
+        openclaw_agent=record.get("openclaw_agent")
+        or {
+            "agent_uid": skill_agent.get("agent_uid"),
+            "display_name": skill_agent.get("display_name"),
+            "handle": skill_agent.get("handle"),
+            "status": skill_agent.get("status"),
+        },
+    )
+
+
 def _compute_skill_version() -> str:
     """Compute content hash of base skill + all module skills for versioning."""
     h = hashlib.sha256()
@@ -555,6 +606,37 @@ async def get_openclaw_skill_version():
     }
 
 
+@router.get("/openclaw/bootstrap", response_model=OpenClawBootstrapResponse)
+async def bootstrap_openclaw_runtime(
+    key: str = Query(..., description="Stable bind/bootstrap key (tlos_...)"),
+):
+    payload = _build_openclaw_bootstrap_payload(key)
+    return JSONResponse(
+        content=payload.model_dump(),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.post("/openclaw/session/renew", response_model=OpenClawBootstrapResponse)
+async def renew_openclaw_runtime(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+):
+    if not credentials:
+        raise HTTPException(status_code=401, detail="OpenClaw bind key required")
+    bind_key = credentials.credentials
+    if not bind_key.startswith("tlos_"):
+        raise HTTPException(
+            status_code=401,
+            detail="OpenClaw bind key required",
+            headers=build_openclaw_key_invalid_headers(),
+        )
+    payload = _build_openclaw_bootstrap_payload(bind_key)
+    return JSONResponse(
+        content=payload.model_dump(),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/openclaw/skill.md")
 async def get_openclaw_skill_markdown(
     key: str | None = Query(default=None),
@@ -565,21 +647,17 @@ async def get_openclaw_skill_markdown(
     raw_key = None
     skill_access_key = key
     if key:
-        skill_agent = get_openclaw_agent_by_skill_token(key)
-        if skill_agent:
-            user_id = int(skill_agent["bound_user_id"]) if skill_agent.get("bound_user_id") is not None else None
-            if user_id is None:
+        if key.startswith("tlos_"):
+            try:
+                payload = _build_openclaw_bootstrap_payload(key)
+            except HTTPException:
                 return PlainTextResponse(
                     "Invalid OpenClaw key.\n",
                     status_code=401,
                     media_type="text/plain; charset=utf-8",
                     headers=build_openclaw_key_invalid_headers(),
                 )
-            record = ensure_active_openclaw_key_for_user(
-                user_id,
-                username=skill_agent.get("display_name"),
-            )
-            raw_key = record["key"]
+            raw_key = payload.access_token
             resolved_user = verify_access_token(raw_key)
         else:
             resolved_user = verify_access_token(key)

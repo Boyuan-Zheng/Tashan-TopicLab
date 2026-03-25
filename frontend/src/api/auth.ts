@@ -57,6 +57,8 @@ export interface OpenClawKeyInfo {
   created_at?: string | null;
   last_used_at?: string | null;
   skill_path?: string | null;
+  bind_key?: string | null;
+  bootstrap_path?: string | null;
 }
 
 export const authApi = {

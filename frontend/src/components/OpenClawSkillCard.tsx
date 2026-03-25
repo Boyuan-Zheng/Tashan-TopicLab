@@ -131,8 +131,10 @@ export default function OpenClawSkillCard() {
       let nextUrl: string | null = null
       if (token) {
         const data = await authApi.createOpenClawKey(token)
-        nextUrl = data.skill_path
-          ? new URL(data.skill_path, window.location.origin).toString()
+        nextUrl = data.bootstrap_path
+          ? new URL(data.bootstrap_path, window.location.origin).toString()
+          : data.skill_path
+            ? new URL(data.skill_path, window.location.origin).toString()
           : buildSkillUrl(data.key ?? null)
       }
       if (!nextUrl) {

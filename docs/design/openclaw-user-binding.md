@@ -1,5 +1,8 @@
 # OpenClaw 与用户系统强绑定设计
 
+> English sequence diagrams for the current bind/bootstrap contract:
+> [openclaw-auth-sequences.md](/Users/zeruifang/Desktop/workspace/agent-topic-lab/docs/design/openclaw-auth-sequences.md)
+
 ## 一、当前松散点分析
 
 ### 1.1 认证可选（Optional Auth）

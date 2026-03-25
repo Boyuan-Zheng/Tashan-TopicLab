@@ -112,6 +112,8 @@ describe('OpenClawSkillCard', () => {
     mockedCreateOpenClawKey.mockResolvedValue({
       has_key: true,
       key: 'tloc_test_personal_key',
+      bind_key: 'tlos_test_bind_key',
+      bootstrap_path: '/api/v1/openclaw/bootstrap?key=tlos_test_bind_key',
       masked_key: 'tloc_tes..._key',
       created_at: '2026-03-14T00:00:00Z',
       last_used_at: null,
@@ -137,6 +139,8 @@ describe('OpenClawSkillCard', () => {
     mockedCreateOpenClawKey.mockResolvedValue({
       has_key: true,
       key: 'tloc_test_personal_key',
+      bind_key: 'tlos_test_bind_key',
+      bootstrap_path: '/api/v1/openclaw/bootstrap?key=tlos_test_bind_key',
       masked_key: 'tloc_tes..._key',
       created_at: '2026-03-14T00:00:00Z',
       last_used_at: null,
@@ -156,7 +160,7 @@ describe('OpenClawSkillCard', () => {
 
     const expectedBase = import.meta.env.BASE_URL || '/'
     const expectedSkillHref = new URL(
-      `${expectedBase.endsWith('/') ? expectedBase : `${expectedBase}/`}api/v1/openclaw/skill.md?key=tloc_test_personal_key`,
+      `${expectedBase.endsWith('/') ? expectedBase : `${expectedBase}/`}api/v1/openclaw/bootstrap?key=tlos_test_bind_key`,
       window.location.origin,
     ).toString()
 
@@ -171,6 +175,8 @@ describe('OpenClawSkillCard', () => {
     mockedCreateOpenClawKey.mockResolvedValue({
       has_key: true,
       key: 'tloc_test_personal_key',
+      bind_key: 'tlos_test_bind_key',
+      bootstrap_path: '/api/v1/openclaw/bootstrap?key=tlos_test_bind_key',
       masked_key: 'tloc_tes..._key',
       created_at: '2026-03-14T00:00:00Z',
       last_used_at: null,
@@ -198,7 +204,7 @@ describe('OpenClawSkillCard', () => {
 
     const expectedBase = import.meta.env.BASE_URL || '/'
     const expectedSkillHref = new URL(
-      `${expectedBase.endsWith('/') ? expectedBase : `${expectedBase}/`}api/v1/openclaw/skill.md?key=tloc_test_personal_key`,
+      `${expectedBase.endsWith('/') ? expectedBase : `${expectedBase}/`}api/v1/openclaw/bootstrap?key=tlos_test_bind_key`,
       window.location.origin,
     ).toString()
 

@@ -166,6 +166,8 @@ def register_login_and_openclaw_key(client, *, phone: str, username: str, passwo
     return {
         **auth,
         "openclaw_key": payload["key"],
+        "bind_key": payload["bind_key"],
+        "bootstrap_path": payload["bootstrap_path"],
         "skill_path": payload["skill_path"],
         "agent_uid": payload["agent_uid"],
         "openclaw_agent": payload["openclaw_agent"],
@@ -1046,9 +1048,13 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     assert key_resp.status_code == 200, key_resp.text
     key_payload = key_resp.json()
     raw_key = key_payload["key"]
+    bind_key = key_payload["bind_key"]
     assert raw_key.startswith("tloc_")
+    assert bind_key.startswith("tlos_")
     assert "/api/v1/openclaw/skill.md?key=" in key_payload["skill_path"]
+    assert "/api/v1/openclaw/bootstrap?key=" in key_payload["bootstrap_path"]
     assert raw_key not in key_payload["skill_path"]
+    assert raw_key not in key_payload["bootstrap_path"]
 
     skill_resp = client.get(key_payload["skill_path"])
     assert skill_resp.status_code == 200, skill_resp.text
@@ -1103,10 +1109,43 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     )
     assert delete_resp.status_code == 200, delete_resp.text
     assert delete_resp.json()["ok"] is True
-
     posts_after_delete = client.get(f"/api/v1/topics/{topic_id}/posts")
     assert posts_after_delete.status_code == 200, posts_after_delete.text
     assert posts_after_delete.json()["items"] == []
+
+
+def test_openclaw_bootstrap_and_renew_return_runtime_key(client):
+    auth = register_login_and_openclaw_key(client, phone="13800009990", username="bootstrap-user")
+
+    bootstrap_resp = client.get(auth["bootstrap_path"])
+    assert bootstrap_resp.status_code == 200, bootstrap_resp.text
+    bootstrap_payload = bootstrap_resp.json()
+    assert bootstrap_payload["bind_key"] == auth["bind_key"]
+    assert bootstrap_payload["access_token"] == auth["openclaw_key"]
+    assert bootstrap_payload["skill_url"] == auth["skill_path"]
+    assert bootstrap_payload["refresh_strategy"] == "renew_with_bind_key"
+    assert bootstrap_resp.headers["Cache-Control"] == "no-store"
+
+    renew_resp = client.post(
+        "/api/v1/openclaw/session/renew",
+        headers={"Authorization": f"Bearer {auth['bind_key']}"},
+    )
+    assert renew_resp.status_code == 200, renew_resp.text
+    renew_payload = renew_resp.json()
+    assert renew_payload["bind_key"] == auth["bind_key"]
+    assert renew_payload["access_token"] == auth["openclaw_key"]
+    assert renew_payload["skill_url"] == auth["skill_path"]
+
+
+def test_openclaw_renew_rejects_runtime_key(client):
+    auth = register_login_and_openclaw_key(client, phone="13800009991", username="renew-guard-user")
+
+    renew_resp = client.post(
+        "/api/v1/openclaw/session/renew",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
+    )
+    assert renew_resp.status_code == 401, renew_resp.text
+    assert renew_resp.headers.get("X-OpenClaw-Auth-Recovery") == "reload_skill_url"
 
 
 def test_openclaw_key_creates_primary_agent_and_home_summary(client):

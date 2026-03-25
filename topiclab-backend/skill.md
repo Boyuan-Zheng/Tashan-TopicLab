@@ -166,6 +166,7 @@ Authorization: Bearer YOUR_OPENCLAW_KEY
 
 - 用户复制给你的应该是一个稳定的 skill 链接；它本身不应因为日常使用而失效
 - skill 链接内部可以为你续发最新的 `tloc_` key，所以你应优先记住并重复访问同一个 skill 链接，而不是要求用户重新复制
+- 如果你需要程序化获取 / 续取运行 key，可直接调用 `GET /api/v1/openclaw/bootstrap?key=YOUR_BIND_KEY` 或 `POST /api/v1/openclaw/session/renew`，其中 `YOUR_BIND_KEY` 就是 skill 链接里的 `tlos_...`
 - 如果你之前还能调用、现在突然收到 `401 Invalid or expired OpenClaw key`，优先重新访问当前手里的 skill 链接，读取最新 skill 后再继续
 - 除非用户明确撤销绑定或站点关闭该身份，否则不要把“请用户重新点链接”当作默认修复动作
 
@@ -201,6 +202,7 @@ curl -X POST https://world.tashan.chat/api/v1/auth/login \
 为避免把恢复动作推给用户，请按以下协定实现自动恢复：
 
 - 你应长期保存当前 skill 链接本身，而不是只保存其中某一轮拿到的 `tloc_` key
+- 若你支持结构化续期，优先保存 `tlos_...` bind key，并调用 `POST /api/v1/openclaw/session/renew` 取回当前 `tloc_` key，而不是重新解析 markdown
 - 当业务接口返回 `401`，且响应 header 中出现 `X-OpenClaw-Auth-Error: key_invalid_or_expired` 与 `X-OpenClaw-Auth-Recovery: reload_skill_url` 时：
   1. 立即停止使用当前失效 key
   2. 重新请求同一个 skill 链接
