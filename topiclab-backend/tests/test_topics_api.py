@@ -553,31 +553,26 @@ def test_source_feed_articles_forwards_gqy_source_type_to_upstream(client, monke
     assert seen_params[0].get("source_type") == "gqy"
 
 
-def test_discussion_and_mention_complete_via_executor(client):
+def test_discussion_and_mention_complete_via_executor(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.api.topics.moderate_post_content",
+        lambda body, scenario: asyncio.sleep(
+            0,
+            result=ModerationDecision(
+                approved=True,
+                reason="ok",
+                suggestion="",
+                category="safe",
+            ),
+        ),
+    )
+
     topic = client.post("/topics", json={"title": "执行测试", "body": "验证异步任务"}).json()
     topic_id = topic["id"]
 
     experts = client.get(f"/topics/{topic_id}/experts")
     assert experts.status_code == 200, experts.text
     assert experts.json()[0]["name"] == "physicist"
-
-    mention = client.post(
-        f"/topics/{topic_id}/posts/mention",
-        json={"author": "alice", "body": "@physicist 请回答", "expert_name": "physicist"},
-    )
-    assert mention.status_code == 202, mention.text
-    reply_id = mention.json()["reply_post_id"]
-
-    deadline = time.time() + 3
-    latest = None
-    while time.time() < deadline:
-        latest = client.get(f"/topics/{topic_id}/posts/mention/{reply_id}")
-        assert latest.status_code == 200
-        if latest.json()["status"] == "completed":
-            break
-        time.sleep(0.1)
-    assert latest is not None
-    assert latest.json()["body"] == "这是专家回复"
 
     start = client.post(
         f"/topics/{topic_id}/discussion",
@@ -596,6 +591,24 @@ def test_discussion_and_mention_complete_via_executor(client):
         time.sleep(0.1)
     assert latest_status is not None
     assert latest_status.json()["result"]["discussion_summary"].startswith("总结")
+
+    mention = client.post(
+        f"/topics/{topic_id}/posts/mention",
+        json={"author": "alice", "body": "@physicist 请回答", "expert_name": "physicist"},
+    )
+    assert mention.status_code == 202, mention.text
+    reply_id = mention.json()["reply_post_id"]
+
+    deadline = time.time() + 3
+    latest = None
+    while time.time() < deadline:
+        latest = client.get(f"/topics/{topic_id}/posts/mention/{reply_id}")
+        assert latest.status_code == 200
+        if latest.json()["status"] == "completed":
+            break
+        time.sleep(0.1)
+    assert latest is not None
+    assert latest.json()["body"] == "这是专家回复"
 
 
 def test_post_delete_permissions_and_subtree_cascade(client):
@@ -825,9 +838,18 @@ def test_discussion_timeout_failsafe_allows_mention(client):
     from sqlalchemy import text
 
     from app.storage.database.postgres_client import get_db_session
+    from app.storage.database.topic_store import set_discussion_status
 
     topic = client.post("/topics", json={"title": "超时测试", "body": "测试"}).json()
     topic_id = topic["id"]
+    set_discussion_status(
+        topic_id,
+        "completed",
+        turns_count=1,
+        completed_at=datetime.now(timezone.utc).isoformat(),
+        discussion_summary="已完成一次讨论",
+        discussion_history="## Round 1\n\n已完成",
+    )
     # Set topic and run to "running" with old updated_at (simulate stuck discussion)
     old_time = (datetime.now(timezone.utc) - timedelta(minutes=46)).isoformat()
     with get_db_session() as session:
@@ -1058,8 +1080,9 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
 
     skill_resp = client.get(key_payload["skill_path"])
     assert skill_resp.status_code == 200, skill_resp.text
-    assert "OpenClaw 绑定 Key" in skill_resp.text
+    assert "当前 Runtime Key（业务请求 Bearer）" in skill_resp.text
     assert raw_key in skill_resp.text
+    assert "不要把 skill 链接里的 `?key=` 参数直接当成业务接口 Bearer Token 使用" in skill_resp.text
     assert "/api/v1/openclaw/skills/{module_name}.md" in skill_resp.text
     assert "/api/v1/openclaw/skills/topic-community.md" in skill_resp.text
     assert "/api/v1/openclaw/skills/source-and-research.md" in skill_resp.text
@@ -1412,6 +1435,46 @@ def test_openclaw_dedicated_routes_create_topic_and_post(client):
     assert post_resp.json()["openclaw_agent"]["agent_uid"] == auth["agent_uid"]
 
 
+def test_mention_requires_completed_discussion_on_general_and_openclaw_routes(client):
+    from app.storage.database.topic_store import set_discussion_status
+
+    auth = register_login_and_openclaw_key(client, phone="13800009989", username="mention-guard-user")
+
+    topic = client.post("/topics", json={"title": "需要先完成 discussion", "body": "验证 @mention 前置条件"}).json()
+    topic_id = topic["id"]
+
+    general_resp = client.post(
+        f"/topics/{topic_id}/posts/mention",
+        json={"author": "alice", "body": "@physicist 请回答", "expert_name": "physicist"},
+    )
+    assert general_resp.status_code == 409, general_resp.text
+    assert "complete at least once" in general_resp.json()["detail"]
+
+    dedicated_resp = client.post(
+        f"/api/v1/openclaw/topics/{topic_id}/posts/mention",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
+        json={"body": "@physicist 请回答", "expert_name": "physicist"},
+    )
+    assert dedicated_resp.status_code == 409, dedicated_resp.text
+    assert "complete at least once" in dedicated_resp.json()["detail"]
+
+    set_discussion_status(
+        topic_id,
+        "completed",
+        turns_count=1,
+        completed_at=datetime.now(timezone.utc).isoformat(),
+        discussion_summary="讨论完成",
+        discussion_history="## Round 1\n\n讨论完成",
+    )
+
+    allowed_resp = client.post(
+        f"/api/v1/openclaw/topics/{topic_id}/posts/mention",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
+        json={"body": "@physicist 现在可以回答", "expert_name": "physicist"},
+    )
+    assert allowed_resp.status_code == 202, allowed_resp.text
+
+
 def test_openclaw_comment_media_upload_returns_markdown_url_for_image(client, monkeypatch):
     import app.api.openclaw_routes as openclaw_routes_module
 
@@ -1459,6 +1522,52 @@ def test_openclaw_comment_media_upload_returns_markdown_url_for_image(client, mo
     assert payload["media_type"] == "image"
     assert payload["width"] == 20
     assert payload["height"] == 10
+
+
+def test_openclaw_comment_image_alias_forwards_to_media_upload(client, monkeypatch):
+    import app.api.openclaw_routes as openclaw_routes_module
+
+    auth = register_login_and_openclaw_key(client, phone="13800009988", username="media-alias-user")
+    topic_resp = client.post(
+        "/api/v1/openclaw/topics",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
+        json={"title": "上传图片别名", "body": "测试 /images 别名"},
+    )
+    assert topic_resp.status_code == 201, topic_resp.text
+    topic_id = topic_resp.json()["id"]
+
+    image = Image.new("RGB", (16, 12), color=(10, 20, 30))
+    buf = BytesIO()
+    image.save(buf, format="PNG")
+
+    def fake_upload_comment_media_to_oss(*, topic_id: str, filename: str, content_type: str | None, payload: bytes) -> dict:
+        assert topic_id
+        assert filename == "alias.png"
+        assert content_type == "image/png"
+        assert payload
+        return {
+            "url": "/api/v1/openclaw/media/openclaw-comments/test.webp",
+            "markdown": "![alias](/api/v1/openclaw/media/openclaw-comments/test.webp)",
+            "object_key": "openclaw-comments/test.webp",
+            "content_type": "image/webp",
+            "media_type": "image",
+            "width": 16,
+            "height": 12,
+            "size_bytes": 321,
+        }
+
+    monkeypatch.setattr(openclaw_routes_module, "upload_comment_media_to_oss", fake_upload_comment_media_to_oss)
+
+    upload_resp = client.post(
+        f"/api/v1/openclaw/topics/{topic_id}/images",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
+        files={"file": ("alias.png", buf.getvalue(), "image/png")},
+    )
+    assert upload_resp.status_code == 200, upload_resp.text
+    payload = upload_resp.json()
+    assert payload["media_type"] == "image"
+    assert payload["width"] == 16
+    assert payload["height"] == 12
 
 
 def test_openclaw_comment_media_upload_returns_markdown_url_for_video(client, monkeypatch):
@@ -1577,6 +1686,20 @@ def test_openclaw_skill_invalid_key_returns_recovery_hint(client):
     assert "重新拉取你当前持有的 skill 链接" not in resp.text
     assert resp.headers.get("X-OpenClaw-Auth-Error") == "key_invalid_or_expired"
     assert resp.headers.get("X-OpenClaw-Auth-Recovery") == "reload_skill_url"
+
+
+def test_openclaw_home_and_topic_search_reject_invalid_runtime_key(client):
+    home_resp = client.get("/api/v1/home", headers={"Authorization": "Bearer tloc_invalid_key_12345"})
+    assert home_resp.status_code == 401, home_resp.text
+    assert "OpenClaw" in home_resp.json()["detail"]
+    assert home_resp.headers.get("X-OpenClaw-Auth-Error") == "key_invalid_or_expired"
+    assert home_resp.headers.get("X-OpenClaw-Auth-Recovery") == "reload_skill_url"
+
+    search_resp = client.get("/api/v1/openclaw/topics?q=agent", headers={"Authorization": "Bearer tloc_invalid_key_12345"})
+    assert search_resp.status_code == 401, search_resp.text
+    assert "OpenClaw" in search_resp.json()["detail"]
+    assert search_resp.headers.get("X-OpenClaw-Auth-Error") == "key_invalid_or_expired"
+    assert search_resp.headers.get("X-OpenClaw-Auth-Recovery") == "reload_skill_url"
 
 
 def test_openclaw_skill_link_is_stable_and_reusable(client):

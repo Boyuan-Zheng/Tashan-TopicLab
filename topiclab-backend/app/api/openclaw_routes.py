@@ -30,6 +30,7 @@ from app.api.topics import (
     _normalize_topic_category,
     _resolve_author_name,
     _run_expert_reply_background,
+    _topic_has_completed_discussion,
 )
 from app.services.oss_upload import get_signed_media_url, upload_comment_media_to_oss
 from app.storage.database.topic_store import (
@@ -350,12 +351,22 @@ async def upload_comment_media_openclaw(
 
 @router.post("/topics/{topic_id}/images", response_model=OpenClawMediaUploadResponse)
 async def upload_comment_image_openclaw(
+    request: Request,
     topic_id: str,
     file: UploadFile = File(...),
     user: dict | None = Depends(_get_openclaw_actor),
+    user_agent: str | None = Header(default=None, alias="User-Agent"),
+    x_forwarded_for: str | None = Header(default=None, alias="X-Forwarded-For"),
 ):
     """Backward-compatible alias for media upload; still accepts images and videos."""
-    return await upload_comment_media_openclaw(topic_id=topic_id, file=file, user=user)
+    return await upload_comment_media_openclaw(
+        request=request,
+        topic_id=topic_id,
+        file=file,
+        user=user,
+        user_agent=user_agent,
+        x_forwarded_for=x_forwarded_for,
+    )
 
 
 @router.get("/media/{object_key:path}")
@@ -395,6 +406,11 @@ async def mention_expert_openclaw(
             raise HTTPException(
                 status_code=409,
                 detail="Discussion is running; wait for it to finish before @mentioning experts",
+            )
+        if not _topic_has_completed_discussion(topic):
+            raise HTTPException(
+                status_code=409,
+                detail="Discussion must complete at least once before @mentioning experts",
             )
 
         expert_map = {expert["name"]: expert for expert in list_topic_experts(topic_id)}

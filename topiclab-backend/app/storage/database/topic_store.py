@@ -50,6 +50,7 @@ class TopicRecord:
     num_rounds: int
     expert_names: list[str]
     discussion_status: str
+    discussion_completed_once: bool
     created_at: str
     updated_at: str
     moderator_mode_id: str | None
@@ -118,6 +119,15 @@ def _cache_set(key: tuple[object, ...], value) -> None:
     _read_cache[key] = (time.time() + READ_CACHE_TTL_SECONDS, copy.deepcopy(value))
 
 
+def _sqlite_has_column(session, table_name: str, column_name: str) -> bool:
+    rows = session.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+    for row in rows:
+        name = row[1] if len(row) > 1 else None
+        if name == column_name:
+            return True
+    return False
+
+
 def _invalidate_read_cache(*, topic_id: str | None = None, invalidate_topic_lists: bool = False) -> None:
     keys_to_delete: list[tuple[object, ...]] = []
     for key in list(_read_cache.keys()):
@@ -147,6 +157,7 @@ def _init_topic_tables_sqlite(session) -> None:
             num_rounds INTEGER NOT NULL DEFAULT 5,
             expert_names TEXT NOT NULL DEFAULT '[]',
             discussion_status VARCHAR(32) NOT NULL DEFAULT 'pending',
+            discussion_completed_once BOOLEAN NOT NULL DEFAULT FALSE,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             moderator_mode_id VARCHAR(64),
@@ -451,6 +462,8 @@ def _init_topic_tables_sqlite(session) -> None:
     ]
     for statement in statements:
         session.execute(text(statement))
+    if not _sqlite_has_column(session, "topics", "discussion_completed_once"):
+        session.execute(text("ALTER TABLE topics ADD COLUMN discussion_completed_once BOOLEAN NOT NULL DEFAULT FALSE"))
 
 
 def init_topic_tables() -> None:
@@ -471,6 +484,7 @@ def init_topic_tables() -> None:
                 num_rounds INTEGER NOT NULL DEFAULT 5,
                 expert_names TEXT NOT NULL DEFAULT '[]',
                 discussion_status VARCHAR(32) NOT NULL DEFAULT 'pending',
+                discussion_completed_once BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 moderator_mode_id VARCHAR(64),
@@ -487,6 +501,7 @@ def init_topic_tables() -> None:
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_name VARCHAR(255)"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_auth_type VARCHAR(64)"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS creator_openclaw_agent_id INTEGER"))
+        session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS discussion_completed_once BOOLEAN NOT NULL DEFAULT FALSE"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS preview_image_synced_at TIMESTAMPTZ"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS posts_count INTEGER NOT NULL DEFAULT 0"))
         session.execute(text("ALTER TABLE topics ADD COLUMN IF NOT EXISTS likes_count INTEGER NOT NULL DEFAULT 0"))
@@ -964,6 +979,7 @@ def _build_topic(row) -> TopicRecord:
         num_rounds=row.num_rounds,
         expert_names=_json_loads(row.expert_names, []),
         discussion_status=row.discussion_status,
+        discussion_completed_once=bool(getattr(row, "discussion_completed_once", False)),
         created_at=_to_iso(row.created_at),
         updated_at=_to_iso(row.updated_at),
         moderator_mode_id=row.moderator_mode_id,
@@ -1001,12 +1017,12 @@ def create_topic(
             text("""
                 INSERT INTO topics (
                     id, session_id, title, body, category, status, mode, num_rounds,
-                    expert_names, discussion_status, created_at, updated_at,
+                    expert_names, discussion_status, discussion_completed_once, created_at, updated_at,
                     moderator_mode_id, moderator_mode_name, preview_image, preview_image_synced_at,
                     creator_user_id, creator_name, creator_auth_type, creator_openclaw_agent_id
                 ) VALUES (
                     :id, :session_id, :title, :body, :category, :status, :mode, :num_rounds,
-                    :expert_names, :discussion_status, :created_at, :updated_at,
+                    :expert_names, :discussion_status, :discussion_completed_once, :created_at, :updated_at,
                     :moderator_mode_id, :moderator_mode_name, :preview_image, :preview_image_synced_at,
                     :creator_user_id, :creator_name, :creator_auth_type, :creator_openclaw_agent_id
                 )
@@ -1025,6 +1041,7 @@ def create_topic(
                     ensure_ascii=False,
                 ),
                 "discussion_status": "pending",
+                "discussion_completed_once": False,
                 "created_at": now,
                 "updated_at": now,
                 "moderator_mode_id": "standard",
@@ -1699,10 +1716,20 @@ def set_discussion_status(topic_id: str, status: str, *, turns_count: int | None
         topic_result = session.execute(
             text("""
                 UPDATE topics
-                SET discussion_status = :status, updated_at = :updated_at
+                SET discussion_status = :status,
+                    discussion_completed_once = CASE
+                        WHEN :mark_completed THEN TRUE
+                        ELSE discussion_completed_once
+                    END,
+                    updated_at = :updated_at
                 WHERE id = :topic_id
             """),
-            {"topic_id": topic_id, "status": status, "updated_at": now},
+            {
+                "topic_id": topic_id,
+                "status": status,
+                "mark_completed": status == "completed",
+                "updated_at": now,
+            },
         )
         if topic_result.rowcount == 0:
             return None
@@ -1772,8 +1799,8 @@ def check_and_reset_stale_running_discussion(
     run_updated_at = getattr(row, "run_updated_at", None)
     if run_updated_at is None:
         run_updated_at = now
-    if run_updated_at.tzinfo is None:
-        run_updated_at = run_updated_at.replace(tzinfo=timezone.utc)
+    else:
+        run_updated_at = _to_utc_datetime(run_updated_at) or now
     if run_updated_at > cutoff:
         return False
     set_discussion_status(topic_id, "failed")

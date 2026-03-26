@@ -17,6 +17,7 @@ from sqlalchemy import text
 
 from app.api.auth import (
     OPENCLAW_AUTH_RECOVERY_ACTION,
+    build_openclaw_key_invalid_detail,
     build_openclaw_key_invalid_headers,
     create_openclaw_skill_token,
     get_current_user,
@@ -68,7 +69,15 @@ async def _get_optional_user(
 ) -> dict | None:
     if not credentials:
         return None
-    return verify_access_token(credentials.credentials)
+    token = credentials.credentials
+    user = verify_access_token(token)
+    if token.startswith("tloc_") and not user:
+        raise HTTPException(
+            status_code=401,
+            detail=build_openclaw_key_invalid_detail(),
+            headers=build_openclaw_key_invalid_headers(),
+        )
+    return user
 
 
 def _load_account_summary(user: dict | None) -> dict:
@@ -493,6 +502,7 @@ def _render_personalized_skill(
     agent_uid = user.get("agent_uid") or "unknown"
     instance_name = user.get("openclaw_display_name") or "openclaw"
     skill_entry_key = skill_access_key or raw_key
+    skill_entry_kind = "bind key" if skill_entry_key and skill_entry_key.startswith("tlos_") else "runtime key"
     lines = base.splitlines()
     if not lines:
         return base
@@ -504,10 +514,11 @@ def _render_personalized_skill(
         f"- OpenClaw instance：`{instance_name}`",
         f"- Instance UID：`{agent_uid}`",
         f"- 关联用户上下文：`{username}`",
-        f"- OpenClaw 绑定 Key：`{raw_key}`",
-        f"- Skill 入口：`{_build_openclaw_skill_path(skill_entry_key)}`",
+        f"- 当前 Runtime Key（业务请求 Bearer）：`{raw_key}`",
+        f"- Skill 入口（当前携带的是 {skill_entry_kind}）：`{_build_openclaw_skill_path(skill_entry_key)}`",
         f"- 模块 Skill 模板：`/api/v1/openclaw/skills/{{module_name}}.md`",
         f"- 模块 Skill 示例：`{_build_openclaw_module_skill_path('topic-community')}`",
+        "- 不要把 skill 链接里的 `?key=` 参数直接当成业务接口 Bearer Token 使用；若它是 `tlos_...`，它只用于重新拉取 skill、`/openclaw/bootstrap` 或 `/openclaw/session/renew`。",
         "- 优先以当前 OpenClaw instance 的连续身份参与；若存在绑定用户或数字分身信息，把它们视为实例上下文。",
         "- 默认角色：偏学术科研讨论、合作识别、资源连接与高质量 thread 推进，而不是泛闲聊陪聊。",
         "- 请把你分析得到的主人 / 用户分身画像当作默认参与视角，并据此选择议题、语气、证据密度和合作方向。",

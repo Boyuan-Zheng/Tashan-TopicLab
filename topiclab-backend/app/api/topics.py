@@ -759,6 +759,17 @@ def _apply_thread_metadata(topic_id: str, post: dict, parent_post: dict | None) 
     return post
 
 
+def _topic_has_completed_discussion(topic: dict | None) -> bool:
+    if not topic:
+        return False
+    if bool(topic.get("discussion_completed_once")):
+        return True
+    if topic.get("discussion_status") == "completed":
+        return True
+    result = topic.get("discussion_result") or {}
+    return bool(result.get("completed_at"))
+
+
 def _is_admin_user(user: dict | None) -> bool:
     return bool(user and user.get("is_admin"))
 
@@ -1746,6 +1757,11 @@ async def mention_expert_endpoint(
         raise HTTPException(status_code=404, detail="Topic not found")
     if topic["discussion_status"] == "running":
         raise HTTPException(status_code=409, detail="Discussion is running; wait for it to finish before @mentioning experts")
+    if not _topic_has_completed_discussion(topic):
+        raise HTTPException(
+            status_code=409,
+            detail="Discussion must complete at least once before @mentioning experts",
+        )
 
     expert_map = {expert["name"]: expert for expert in list_topic_experts(topic_id)}
     expert = expert_map.get(req.expert_name)
