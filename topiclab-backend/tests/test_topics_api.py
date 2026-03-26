@@ -1876,6 +1876,74 @@ def test_favorite_category_items_and_recent_favorites_are_paged(client):
     assert [item["id"] for item in summary.json()["source_articles"]] == [101]
 
 
+def test_openclaw_bound_user_shares_favorites_with_jwt(client):
+    auth = register_login_and_openclaw_key(client, phone="13800000021", username="favorite-sync-user")
+    jwt_headers = {"Authorization": f"Bearer {auth['token']}"}
+    openclaw_headers = {"Authorization": f"Bearer {auth['openclaw_key']}"}
+
+    topic = client.post("/topics", json={"title": "共享收藏", "body": "验证 JWT 与 OpenClaw 收藏一致"}, headers=jwt_headers).json()
+    topic_id = topic["id"]
+
+    article_payload = {
+        "enabled": True,
+        "title": "共享信源",
+        "source_feed_name": "同步源",
+        "source_type": "rss",
+        "url": "https://example.com/shared-favorite",
+        "pic_url": None,
+        "description": "用于验证 OpenClaw 与用户收藏同步",
+        "publish_time": "2026-03-14T00:00:00+00:00",
+        "created_at": "2026-03-14T00:00:00+00:00",
+    }
+
+    favorite_topic = client.post(f"/topics/{topic_id}/favorite", json={"enabled": True}, headers=jwt_headers)
+    assert favorite_topic.status_code == 200, favorite_topic.text
+    favorite_article = client.post("/source-feed/articles/201/favorite", json=article_payload, headers=jwt_headers)
+    assert favorite_article.status_code == 200, favorite_article.text
+
+    category_resp = client.post(
+        "/api/v1/me/favorite-categories",
+        json={"name": f"同步分类-{int(time.time() * 1000)}", "description": "JWT 和 OpenClaw 共用"},
+        headers=jwt_headers,
+    )
+    assert category_resp.status_code == 201, category_resp.text
+    category_id = category_resp.json()["id"]
+    assert client.post(f"/api/v1/me/favorite-categories/{category_id}/topics/{topic_id}", headers=jwt_headers).status_code == 200
+    assert client.post(f"/api/v1/me/favorite-categories/{category_id}/source-articles/201", headers=jwt_headers).status_code == 200
+
+    openclaw_topic = client.get(f"/topics/{topic_id}", headers=openclaw_headers)
+    assert openclaw_topic.status_code == 200, openclaw_topic.text
+    assert openclaw_topic.json()["interaction"]["favorited"] is True
+
+    openclaw_favorites = client.get("/api/v1/me/favorites", headers=openclaw_headers)
+    assert openclaw_favorites.status_code == 200, openclaw_favorites.text
+    assert [item["id"] for item in openclaw_favorites.json()["topics"]] == [topic_id]
+    assert [item["id"] for item in openclaw_favorites.json()["source_articles"]] == [201]
+    assert openclaw_favorites.json()["categories"][0]["topics_count"] == 1
+    assert openclaw_favorites.json()["categories"][0]["source_articles_count"] == 1
+
+    openclaw_summary = client.get(f"/api/v1/me/favorite-categories/{category_id}/summary-payload", headers=openclaw_headers)
+    assert openclaw_summary.status_code == 200, openclaw_summary.text
+    assert [item["id"] for item in openclaw_summary.json()["topics"]] == [topic_id]
+    assert [item["id"] for item in openclaw_summary.json()["source_articles"]] == [201]
+
+    unfavorite_topic = client.post(f"/topics/{topic_id}/favorite", json={"enabled": False}, headers=openclaw_headers)
+    assert unfavorite_topic.status_code == 200, unfavorite_topic.text
+    unfavorite_article = client.post(
+        "/source-feed/articles/201/favorite",
+        json={**article_payload, "enabled": False},
+        headers=openclaw_headers,
+    )
+    assert unfavorite_article.status_code == 200, unfavorite_article.text
+
+    jwt_favorites = client.get("/api/v1/me/favorites", headers=jwt_headers)
+    assert jwt_favorites.status_code == 200, jwt_favorites.text
+    assert jwt_favorites.json()["topics"] == []
+    assert jwt_favorites.json()["source_articles"] == []
+    assert jwt_favorites.json()["categories"][0]["topics_count"] == 0
+    assert jwt_favorites.json()["categories"][0]["source_articles_count"] == 0
+
+
 def test_write_time_interaction_counters_are_returned_directly(client):
     user = register_and_login(client, phone="13800000012", username="counter-user")
     headers = {"Authorization": f"Bearer {user['token']}"}

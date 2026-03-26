@@ -28,6 +28,7 @@ DEFAULT_TOPIC_EXPERT_NAMES = [
 DEFAULT_TOPIC_SKILL_IDS = ["image_generation"]
 READ_CACHE_TTL_SECONDS = 5.0
 _read_cache: dict[tuple[object, ...], tuple[float, object]] = {}
+_SHARED_FAVORITE_AUTH_TYPES = ("jwt", "openclaw_key")
 DEFAULT_MODERATOR_MODE = {
     "mode_id": "standard",
     "num_rounds": 5,
@@ -119,6 +120,24 @@ def _cache_set(key: tuple[object, ...], value) -> None:
     _read_cache[key] = (time.time() + READ_CACHE_TTL_SECONDS, copy.deepcopy(value))
 
 
+def _uses_shared_favorite_scope(auth_type: str | None) -> bool:
+    return (auth_type or "") in _SHARED_FAVORITE_AUTH_TYPES
+
+
+def _favorite_storage_auth_type(auth_type: str | None) -> str:
+    resolved = (auth_type or "").strip() or "jwt"
+    if _uses_shared_favorite_scope(resolved):
+        return "jwt"
+    return resolved
+
+
+def _favorite_auth_types(auth_type: str | None) -> tuple[str, ...]:
+    resolved = (auth_type or "").strip() or "jwt"
+    if _uses_shared_favorite_scope(resolved):
+        return _SHARED_FAVORITE_AUTH_TYPES
+    return (resolved,)
+
+
 def _sqlite_has_column(session, table_name: str, column_name: str) -> bool:
     rows = session.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
     for row in rows:
@@ -141,6 +160,432 @@ def _invalidate_read_cache(*, topic_id: str | None = None, invalidate_topic_list
             keys_to_delete.append(key)
     for key in keys_to_delete:
         _read_cache.pop(key, None)
+
+
+def _recompute_topic_favorites_count(session, topic_ids: list[str]) -> None:
+    if not topic_ids:
+        return
+    session.execute(
+        text(
+            """
+            UPDATE topics
+            SET favorites_count = 0
+            WHERE id IN :topic_ids
+            """
+        ).bindparams(bindparam("topic_ids", expanding=True)),
+        {"topic_ids": topic_ids},
+    )
+    session.execute(
+        text(
+            """
+            UPDATE topics
+            SET favorites_count = counts.favorites_count
+            FROM (
+                SELECT topic_id, COUNT(*) AS favorites_count
+                FROM topic_user_actions
+                WHERE favorited = TRUE
+                  AND topic_id IN :topic_ids
+                GROUP BY topic_id
+            ) AS counts
+            WHERE topics.id = counts.topic_id
+            """
+        ).bindparams(bindparam("topic_ids", expanding=True)),
+        {"topic_ids": topic_ids},
+    )
+
+
+def _recompute_source_article_favorites_count(session, article_ids: list[int]) -> None:
+    if not article_ids:
+        return
+    session.execute(
+        text(
+            """
+            INSERT INTO source_article_stats (article_id, likes_count, favorites_count, shares_count, updated_at)
+            SELECT article_id, 0, 0, 0, :updated_at
+            FROM source_article_user_actions
+            WHERE article_id IN :article_ids
+            GROUP BY article_id
+            ON CONFLICT (article_id) DO UPDATE SET
+                favorites_count = 0,
+                updated_at = EXCLUDED.updated_at
+            """
+        ).bindparams(bindparam("article_ids", expanding=True)),
+        {"article_ids": article_ids, "updated_at": utc_now()},
+    )
+    session.execute(
+        text(
+            """
+            UPDATE source_article_stats
+            SET favorites_count = counts.favorites_count,
+                updated_at = :updated_at
+            FROM (
+                SELECT article_id, COUNT(*) AS favorites_count
+                FROM source_article_user_actions
+                WHERE favorited = TRUE
+                  AND article_id IN :article_ids
+                GROUP BY article_id
+            ) AS counts
+            WHERE source_article_stats.article_id = counts.article_id
+            """
+        ).bindparams(bindparam("article_ids", expanding=True)),
+        {"article_ids": article_ids, "updated_at": utc_now()},
+    )
+
+
+def _recompute_favorite_category_counts(session, *, user_id: int, category_ids: list[str] | None = None) -> None:
+    params: dict[str, object] = {"user_id": user_id, "updated_at": utc_now()}
+    category_filter = ""
+    if category_ids:
+        params["category_ids"] = category_ids
+        category_filter = "AND id IN :category_ids"
+    reset_query = text(
+        f"""
+        UPDATE favorite_categories
+        SET topics_count = 0,
+            source_articles_count = 0,
+            updated_at = :updated_at
+        WHERE user_id = :user_id
+          {category_filter}
+        """
+    )
+    if category_ids:
+        reset_query = reset_query.bindparams(bindparam("category_ids", expanding=True))
+    session.execute(reset_query, params)
+
+    counts_query = text(
+        f"""
+        UPDATE favorite_categories
+        SET topics_count = COALESCE(item_counts.topics_count, 0),
+            source_articles_count = COALESCE(item_counts.source_articles_count, 0),
+            updated_at = :updated_at
+        FROM (
+            SELECT
+                category_id,
+                COALESCE(SUM(CASE WHEN item_type = 'topic' THEN 1 ELSE 0 END), 0) AS topics_count,
+                COALESCE(SUM(CASE WHEN item_type = 'source_article' THEN 1 ELSE 0 END), 0) AS source_articles_count
+            FROM favorite_category_items
+            WHERE user_id = :user_id
+            GROUP BY category_id
+        ) AS item_counts
+        WHERE favorite_categories.id = item_counts.category_id
+          AND favorite_categories.user_id = :user_id
+          {category_filter}
+        """
+    )
+    if category_ids:
+        counts_query = counts_query.bindparams(bindparam("category_ids", expanding=True))
+    session.execute(counts_query, params)
+
+
+def _ensure_shared_favorite_scope(user_id: int, auth_type: str) -> str:
+    canonical_auth_type = _favorite_storage_auth_type(auth_type)
+    if canonical_auth_type != "jwt":
+        return canonical_auth_type
+
+    now = utc_now()
+    with get_db_session() as session:
+        topic_rows = session.execute(
+            text(
+                """
+                SELECT topic_id
+                FROM topic_user_actions
+                WHERE user_id = :user_id
+                  AND auth_type = 'openclaw_key'
+                  AND favorited = TRUE
+                """
+            ),
+            {"user_id": user_id},
+        ).fetchall()
+        affected_topic_ids = [str(row.topic_id) for row in topic_rows]
+        for topic_id in affected_topic_ids:
+            existing = session.execute(
+                text(
+                    """
+                    SELECT liked, favorited
+                    FROM topic_user_actions
+                    WHERE topic_id = :topic_id
+                      AND user_id = :user_id
+                      AND auth_type = 'jwt'
+                    """
+                ),
+                {"topic_id": topic_id, "user_id": user_id},
+            ).fetchone()
+            session.execute(
+                text(
+                    """
+                    INSERT INTO topic_user_actions (
+                        topic_id, user_id, auth_type, liked, favorited, created_at, updated_at
+                    ) VALUES (
+                        :topic_id, :user_id, 'jwt', :liked, TRUE, :created_at, :updated_at
+                    )
+                    ON CONFLICT (topic_id, user_id, auth_type) DO UPDATE SET
+                        liked = EXCLUDED.liked,
+                        favorited = TRUE,
+                        updated_at = EXCLUDED.updated_at
+                    """
+                ),
+                {
+                    "topic_id": topic_id,
+                    "user_id": user_id,
+                    "liked": bool(existing.liked) if existing is not None else False,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+            session.execute(
+                text(
+                    """
+                    UPDATE topic_user_actions
+                    SET favorited = FALSE,
+                        updated_at = :updated_at
+                    WHERE topic_id = :topic_id
+                      AND user_id = :user_id
+                      AND auth_type = 'openclaw_key'
+                    """
+                ),
+                {"topic_id": topic_id, "user_id": user_id, "updated_at": now},
+            )
+        if affected_topic_ids:
+            _recompute_topic_favorites_count(session, affected_topic_ids)
+            session.execute(
+                text(
+                    """
+                    DELETE FROM topic_user_actions
+                    WHERE user_id = :user_id
+                      AND auth_type = 'openclaw_key'
+                      AND liked = FALSE
+                      AND favorited = FALSE
+                    """
+                ),
+                {"user_id": user_id},
+            )
+
+        source_rows = session.execute(
+            text(
+                """
+                SELECT
+                    article_id,
+                    snapshot_title,
+                    snapshot_source_feed_name,
+                    snapshot_source_type,
+                    snapshot_url,
+                    snapshot_pic_url,
+                    snapshot_description,
+                    snapshot_publish_time,
+                    snapshot_created_at
+                FROM source_article_user_actions
+                WHERE user_id = :user_id
+                  AND auth_type = 'openclaw_key'
+                  AND favorited = TRUE
+                """
+            ),
+            {"user_id": user_id},
+        ).fetchall()
+        affected_article_ids = [int(row.article_id) for row in source_rows]
+        for row in source_rows:
+            existing = session.execute(
+                text(
+                    """
+                    SELECT liked
+                    FROM source_article_user_actions
+                    WHERE article_id = :article_id
+                      AND user_id = :user_id
+                      AND auth_type = 'jwt'
+                    """
+                ),
+                {"article_id": int(row.article_id), "user_id": user_id},
+            ).fetchone()
+            session.execute(
+                text(
+                    """
+                    INSERT INTO source_article_user_actions (
+                        article_id, user_id, auth_type, liked, favorited,
+                        snapshot_title, snapshot_source_feed_name, snapshot_source_type,
+                        snapshot_url, snapshot_pic_url, snapshot_description,
+                        snapshot_publish_time, snapshot_created_at, created_at, updated_at
+                    ) VALUES (
+                        :article_id, :user_id, 'jwt', :liked, TRUE,
+                        :snapshot_title, :snapshot_source_feed_name, :snapshot_source_type,
+                        :snapshot_url, :snapshot_pic_url, :snapshot_description,
+                        :snapshot_publish_time, :snapshot_created_at, :created_at, :updated_at
+                    )
+                    ON CONFLICT (article_id, user_id, auth_type) DO UPDATE SET
+                        liked = EXCLUDED.liked,
+                        favorited = TRUE,
+                        snapshot_title = COALESCE(NULLIF(source_article_user_actions.snapshot_title, ''), EXCLUDED.snapshot_title),
+                        snapshot_source_feed_name = COALESCE(NULLIF(source_article_user_actions.snapshot_source_feed_name, ''), EXCLUDED.snapshot_source_feed_name),
+                        snapshot_source_type = COALESCE(NULLIF(source_article_user_actions.snapshot_source_type, ''), EXCLUDED.snapshot_source_type),
+                        snapshot_url = COALESCE(NULLIF(source_article_user_actions.snapshot_url, ''), EXCLUDED.snapshot_url),
+                        snapshot_pic_url = COALESCE(source_article_user_actions.snapshot_pic_url, EXCLUDED.snapshot_pic_url),
+                        snapshot_description = COALESCE(NULLIF(source_article_user_actions.snapshot_description, ''), EXCLUDED.snapshot_description),
+                        snapshot_publish_time = COALESCE(NULLIF(source_article_user_actions.snapshot_publish_time, ''), EXCLUDED.snapshot_publish_time),
+                        snapshot_created_at = COALESCE(NULLIF(source_article_user_actions.snapshot_created_at, ''), EXCLUDED.snapshot_created_at),
+                        updated_at = EXCLUDED.updated_at
+                    """
+                ),
+                {
+                    "article_id": int(row.article_id),
+                    "user_id": user_id,
+                    "liked": bool(existing.liked) if existing is not None else False,
+                    "snapshot_title": row.snapshot_title or "",
+                    "snapshot_source_feed_name": row.snapshot_source_feed_name or "",
+                    "snapshot_source_type": row.snapshot_source_type or "",
+                    "snapshot_url": row.snapshot_url or "",
+                    "snapshot_pic_url": row.snapshot_pic_url,
+                    "snapshot_description": row.snapshot_description or "",
+                    "snapshot_publish_time": row.snapshot_publish_time or "",
+                    "snapshot_created_at": row.snapshot_created_at or "",
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+            session.execute(
+                text(
+                    """
+                    UPDATE source_article_user_actions
+                    SET favorited = FALSE,
+                        updated_at = :updated_at
+                    WHERE article_id = :article_id
+                      AND user_id = :user_id
+                      AND auth_type = 'openclaw_key'
+                    """
+                ),
+                {"article_id": int(row.article_id), "user_id": user_id, "updated_at": now},
+            )
+        if affected_article_ids:
+            _recompute_source_article_favorites_count(session, affected_article_ids)
+            session.execute(
+                text(
+                    """
+                    DELETE FROM source_article_user_actions
+                    WHERE user_id = :user_id
+                      AND auth_type = 'openclaw_key'
+                      AND liked = FALSE
+                      AND favorited = FALSE
+                    """
+                ),
+                {"user_id": user_id},
+            )
+
+        old_categories = session.execute(
+            text(
+                """
+                SELECT id, name, description
+                FROM favorite_categories
+                WHERE user_id = :user_id
+                  AND auth_type = 'openclaw_key'
+                ORDER BY created_at ASC
+                """
+            ),
+            {"user_id": user_id},
+        ).fetchall()
+        touched_category_ids: list[str] = []
+        for category in old_categories:
+            existing = session.execute(
+                text(
+                    """
+                    SELECT id, description
+                    FROM favorite_categories
+                    WHERE user_id = :user_id
+                      AND auth_type = 'jwt'
+                      AND name = :name
+                    LIMIT 1
+                    """
+                ),
+                {"user_id": user_id, "name": category.name or ""},
+            ).fetchone()
+            if existing is None:
+                session.execute(
+                    text(
+                        """
+                        UPDATE favorite_categories
+                        SET auth_type = 'jwt',
+                            updated_at = :updated_at
+                        WHERE id = :category_id
+                        """
+                    ),
+                    {"category_id": str(category.id), "updated_at": now},
+                )
+                session.execute(
+                    text(
+                        """
+                        UPDATE favorite_category_items
+                        SET auth_type = 'jwt'
+                        WHERE category_id = :category_id
+                          AND user_id = :user_id
+                          AND auth_type = 'openclaw_key'
+                        """
+                    ),
+                    {"category_id": str(category.id), "user_id": user_id},
+                )
+                touched_category_ids.append(str(category.id))
+                continue
+
+            existing_id = str(existing.id)
+            item_rows = session.execute(
+                text(
+                    """
+                    SELECT item_type, item_key, topic_id, article_id, created_at
+                    FROM favorite_category_items
+                    WHERE category_id = :category_id
+                    ORDER BY created_at ASC, id ASC
+                    """
+                ),
+                {"category_id": str(category.id)},
+            ).fetchall()
+            for item in item_rows:
+                session.execute(
+                    text(
+                        """
+                        INSERT INTO favorite_category_items (
+                            id, category_id, user_id, auth_type, item_type, item_key, topic_id, article_id, created_at
+                        ) VALUES (
+                            :id, :category_id, :user_id, 'jwt', :item_type, :item_key, :topic_id, :article_id, :created_at
+                        )
+                        ON CONFLICT (category_id, item_key) DO NOTHING
+                        """
+                    ),
+                    {
+                        "id": str(uuid.uuid4()),
+                        "category_id": existing_id,
+                        "user_id": user_id,
+                        "item_type": item.item_type,
+                        "item_key": item.item_key,
+                        "topic_id": item.topic_id,
+                        "article_id": item.article_id,
+                        "created_at": item.created_at or now,
+                    },
+                )
+            if (category.description or "").strip() and not (existing.description or "").strip():
+                session.execute(
+                    text(
+                        """
+                        UPDATE favorite_categories
+                        SET description = :description,
+                            updated_at = :updated_at
+                        WHERE id = :category_id
+                        """
+                    ),
+                    {
+                        "category_id": existing_id,
+                        "description": category.description or "",
+                        "updated_at": now,
+                    },
+                )
+            session.execute(
+                text("DELETE FROM favorite_categories WHERE id = :category_id"),
+                {"category_id": str(category.id)},
+            )
+            touched_category_ids.append(existing_id)
+
+        if touched_category_ids:
+            _recompute_favorite_category_counts(
+                session,
+                user_id=user_id,
+                category_ids=list(dict.fromkeys(touched_category_ids)),
+            )
+
+    return canonical_auth_type
 
 
 def _init_topic_tables_sqlite(session) -> None:
@@ -1130,21 +1575,23 @@ def annotate_topics_with_interactions(
         item["interaction"] = interaction
 
     if user_id is not None and auth_type:
+        auth_types = list(_favorite_auth_types(auth_type))
         with get_db_session() as session:
             state_rows = session.execute(
                 text("""
-                    SELECT topic_id, liked, favorited
+                    SELECT topic_id, auth_type, liked, favorited
                     FROM topic_user_actions
                     WHERE topic_id IN :topic_ids
                       AND user_id = :user_id
-                      AND auth_type = :auth_type
-                """).bindparams(bindparam("topic_ids", expanding=True)),
-                {"topic_ids": topic_ids, "user_id": user_id, "auth_type": auth_type},
+                      AND auth_type IN :auth_types
+                """).bindparams(bindparam("topic_ids", expanding=True), bindparam("auth_types", expanding=True)),
+                {"topic_ids": topic_ids, "user_id": user_id, "auth_types": auth_types},
             ).fetchall()
         for row in state_rows:
             interaction = topic_map[row.topic_id]["interaction"]
-            interaction["liked"] = bool(row.liked)
-            interaction["favorited"] = bool(row.favorited)
+            if row.auth_type == auth_type:
+                interaction["liked"] = bool(row.liked)
+            interaction["favorited"] = bool(interaction.get("favorited")) or bool(row.favorited)
     return topics
 
 
@@ -1228,21 +1675,23 @@ def annotate_source_articles_with_interactions(
             article["linked_topic_posts_count"] = int(row.posts_count or 0)
 
     if user_id is not None and auth_type:
+        auth_types = list(_favorite_auth_types(auth_type))
         with get_db_session() as session:
             state_rows = session.execute(
                 text("""
-                    SELECT article_id, liked, favorited
+                    SELECT article_id, auth_type, liked, favorited
                     FROM source_article_user_actions
                     WHERE article_id IN :article_ids
                       AND user_id = :user_id
-                      AND auth_type = :auth_type
-                """).bindparams(bindparam("article_ids", expanding=True)),
-                {"article_ids": article_ids, "user_id": user_id, "auth_type": auth_type},
+                      AND auth_type IN :auth_types
+                """).bindparams(bindparam("article_ids", expanding=True), bindparam("auth_types", expanding=True)),
+                {"article_ids": article_ids, "user_id": user_id, "auth_types": auth_types},
             ).fetchall()
         for row in state_rows:
             interaction = article_map[int(row.article_id)]["interaction"]
-            interaction["liked"] = bool(row.liked)
-            interaction["favorited"] = bool(row.favorited)
+            if row.auth_type == auth_type:
+                interaction["liked"] = bool(row.liked)
+            interaction["favorited"] = bool(interaction.get("favorited")) or bool(row.favorited)
     return articles
 
 
@@ -2579,6 +3028,7 @@ def topic_record_to_dict(record: TopicRecord, *, lightweight: bool = False) -> d
         "status": record.status,
         "mode": record.mode,
         "discussion_status": record.discussion_status,
+        "discussion_completed_once": record.discussion_completed_once,
         "created_at": record.created_at,
         "updated_at": record.updated_at,
         "moderator_mode_id": record.moderator_mode_id,
@@ -2860,6 +3310,9 @@ def set_topic_user_action(
     liked: bool | None = None,
     favorited: bool | None = None,
 ) -> dict:
+    storage_auth_type = auth_type
+    if favorited is not None:
+        storage_auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     now = utc_now()
     with get_db_session() as session:
         existing = session.execute(
@@ -2870,7 +3323,7 @@ def set_topic_user_action(
                   AND user_id = :user_id
                   AND auth_type = :auth_type
             """),
-            {"topic_id": topic_id, "user_id": user_id, "auth_type": auth_type},
+            {"topic_id": topic_id, "user_id": user_id, "auth_type": storage_auth_type},
         ).fetchone()
         resolved_liked = bool(existing.liked) if existing is not None else False
         resolved_favorited = bool(existing.favorited) if existing is not None else False
@@ -2895,7 +3348,7 @@ def set_topic_user_action(
             {
                 "topic_id": topic_id,
                 "user_id": user_id,
-                "auth_type": auth_type,
+                "auth_type": storage_auth_type,
                 "liked": resolved_liked,
                 "favorited": resolved_favorited,
                 "created_at": now,
@@ -2923,8 +3376,8 @@ def set_topic_user_action(
                 {"topic_id": topic_id, "delta": 1 if resolved_favorited else -1, "updated_at": now},
             )
     if not resolved_favorited:
-        _remove_topic_from_all_favorite_categories(topic_id, user_id=user_id, auth_type=auth_type)
-    _cleanup_topic_user_action(topic_id, user_id, auth_type)
+        _remove_topic_from_all_favorite_categories(topic_id, user_id=user_id, auth_type=storage_auth_type)
+    _cleanup_topic_user_action(topic_id, user_id, storage_auth_type)
     _invalidate_read_cache(topic_id=topic_id, invalidate_topic_lists=True)
     topic = get_topic(topic_id, user_id=user_id, auth_type=auth_type)
     if topic is None:
@@ -3000,6 +3453,9 @@ def set_source_article_user_action(
     favorited: bool | None = None,
     snapshot: dict | None = None,
 ) -> dict:
+    storage_auth_type = auth_type
+    if favorited is not None:
+        storage_auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     now = utc_now()
     snapshot = snapshot or {}
     with get_db_session() as session:
@@ -3011,7 +3467,7 @@ def set_source_article_user_action(
                   AND user_id = :user_id
                   AND auth_type = :auth_type
             """),
-            {"article_id": article_id, "user_id": user_id, "auth_type": auth_type},
+            {"article_id": article_id, "user_id": user_id, "auth_type": storage_auth_type},
         ).fetchone()
         resolved_liked = bool(existing.liked) if existing is not None else False
         resolved_favorited = bool(existing.favorited) if existing is not None else False
@@ -3050,7 +3506,7 @@ def set_source_article_user_action(
             {
                 "article_id": article_id,
                 "user_id": user_id,
-                "auth_type": auth_type,
+                "auth_type": storage_auth_type,
                 "liked": resolved_liked,
                 "favorited": resolved_favorited,
                 "snapshot_title": str(snapshot.get("title") or ""),
@@ -3094,8 +3550,8 @@ def set_source_article_user_action(
                 {"article_id": article_id, "delta": 1 if resolved_favorited else -1, "updated_at": now},
             )
     if not resolved_favorited:
-        _remove_source_article_from_all_favorite_categories(article_id, user_id=user_id, auth_type=auth_type)
-    _cleanup_source_article_user_action(article_id, user_id, auth_type)
+        _remove_source_article_from_all_favorite_categories(article_id, user_id=user_id, auth_type=storage_auth_type)
+    _cleanup_source_article_user_action(article_id, user_id, storage_auth_type)
     return _get_source_article_interaction(article_id, user_id=user_id, auth_type=auth_type)
 
 
@@ -3201,6 +3657,7 @@ def record_source_article_share(
 
 
 def list_user_favorite_topics(*, user_id: int, auth_type: str) -> list[dict]:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     with get_db_session() as session:
         rows = session.execute(
             text("""
@@ -3229,6 +3686,7 @@ def list_user_favorite_topics(*, user_id: int, auth_type: str) -> list[dict]:
 
 
 def list_user_favorite_source_articles(*, user_id: int, auth_type: str) -> list[dict]:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     with get_db_session() as session:
         rows = session.execute(
             text("""
@@ -3280,6 +3738,7 @@ def _annotate_items_with_favorite_categories(
     user_id: int,
     auth_type: str,
 ) -> None:
+    auth_types = list(_favorite_auth_types(auth_type))
     topics = topics or []
     source_articles = source_articles or []
     topic_map = {str(item["id"]): item for item in topics if item.get("id")}
@@ -3300,7 +3759,7 @@ def _annotate_items_with_favorite_categories(
     conditions: list[str] = []
     params: dict[str, object] = {
         "user_id": user_id,
-        "auth_type": auth_type,
+        "auth_types": auth_types,
     }
     if topic_ids:
         conditions.append("fci.topic_id IN :topic_ids")
@@ -3319,10 +3778,11 @@ def _annotate_items_with_favorite_categories(
         FROM favorite_category_items fci
         JOIN favorite_categories fc ON fc.id = fci.category_id
         WHERE fci.user_id = :user_id
-          AND fci.auth_type = :auth_type
+          AND fci.auth_type IN :auth_types
           AND ({' OR '.join(conditions)})
         ORDER BY fc.updated_at DESC, fc.created_at DESC
     """)
+    query = query.bindparams(bindparam("auth_types", expanding=True))
     if "topic_ids" in params:
         query = query.bindparams(bindparam("topic_ids", expanding=True))
     if "article_ids" in params:
@@ -3345,6 +3805,7 @@ def _annotate_items_with_favorite_categories(
 
 
 def list_favorite_categories(*, user_id: int, auth_type: str) -> list[dict]:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     with get_db_session() as session:
         rows = session.execute(
             text("""
@@ -3378,6 +3839,7 @@ def list_favorite_categories(*, user_id: int, auth_type: str) -> list[dict]:
 
 
 def create_favorite_category(*, user_id: int, auth_type: str, name: str, description: str = "") -> dict:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     category_id = str(uuid.uuid4())
     now = utc_now()
     with get_db_session() as session:
@@ -3407,6 +3869,7 @@ def update_favorite_category(
     name: str | None = None,
     description: str | None = None,
 ) -> dict | None:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     assignments: list[str] = ["updated_at = :updated_at"]
     params: dict[str, object] = {
         "category_id": category_id,
@@ -3437,6 +3900,7 @@ def update_favorite_category(
 
 
 def delete_favorite_category(category_id: str, *, user_id: int, auth_type: str) -> bool:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     with get_db_session() as session:
         result = session.execute(
             text("""
@@ -3451,6 +3915,7 @@ def delete_favorite_category(category_id: str, *, user_id: int, auth_type: str) 
 
 
 def _favorite_category_exists(category_id: str, *, user_id: int, auth_type: str) -> bool:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     with get_db_session() as session:
         row = session.execute(
             text("""
@@ -3467,6 +3932,7 @@ def _favorite_category_exists(category_id: str, *, user_id: int, auth_type: str)
 
 
 def _assert_topic_is_favorited(topic_id: str, *, user_id: int, auth_type: str) -> None:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     with get_db_session() as session:
         row = session.execute(
             text("""
@@ -3485,6 +3951,7 @@ def _assert_topic_is_favorited(topic_id: str, *, user_id: int, auth_type: str) -
 
 
 def _assert_source_article_is_favorited(article_id: int, *, user_id: int, auth_type: str) -> None:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     with get_db_session() as session:
         row = session.execute(
             text("""
@@ -3503,6 +3970,7 @@ def _assert_source_article_is_favorited(article_id: int, *, user_id: int, auth_t
 
 
 def assign_topic_to_favorite_category(category_id: str, topic_id: str, *, user_id: int, auth_type: str) -> dict:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     if not _favorite_category_exists(category_id, user_id=user_id, auth_type=auth_type):
         raise KeyError("category_not_found")
     _assert_topic_is_favorited(topic_id, user_id=user_id, auth_type=auth_type)
@@ -3540,6 +4008,7 @@ def assign_topic_to_favorite_category(category_id: str, topic_id: str, *, user_i
 
 
 def unassign_topic_from_favorite_category(category_id: str, topic_id: str, *, user_id: int, auth_type: str) -> dict:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     if not _favorite_category_exists(category_id, user_id=user_id, auth_type=auth_type):
         raise KeyError("category_not_found")
     now = utc_now()
@@ -3568,6 +4037,7 @@ def unassign_topic_from_favorite_category(category_id: str, topic_id: str, *, us
 
 
 def assign_source_article_to_favorite_category(category_id: str, article_id: int, *, user_id: int, auth_type: str) -> dict:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     if not _favorite_category_exists(category_id, user_id=user_id, auth_type=auth_type):
         raise KeyError("category_not_found")
     _assert_source_article_is_favorited(article_id, user_id=user_id, auth_type=auth_type)
@@ -3605,6 +4075,7 @@ def assign_source_article_to_favorite_category(category_id: str, article_id: int
 
 
 def unassign_source_article_from_favorite_category(category_id: str, article_id: int, *, user_id: int, auth_type: str) -> dict:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     if not _favorite_category_exists(category_id, user_id=user_id, auth_type=auth_type):
         raise KeyError("category_not_found")
     now = utc_now()
@@ -3633,6 +4104,7 @@ def unassign_source_article_from_favorite_category(category_id: str, article_id:
 
 
 def get_favorite_category(category_id: str, *, user_id: int, auth_type: str) -> dict | None:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     with get_db_session() as session:
         row = session.execute(
             text("""
@@ -3668,6 +4140,7 @@ def list_favorite_category_items(
     user_id: int,
     auth_type: str,
 ) -> dict:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     item_type_value = "topic" if item_type == "topics" else "source_article"
     cursor_tuple = _decode_cursor(cursor)
     params: dict[str, object] = {
@@ -3784,6 +4257,7 @@ def list_recent_favorites(
     user_id: int,
     auth_type: str,
 ) -> dict:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     if item_type == "topics":
         cursor_tuple = _decode_cursor(cursor)
         params: dict[str, object] = {
@@ -3907,6 +4381,7 @@ def classify_favorites_by_category_name(
     article_ids: list[int] | None = None,
     description: str = "",
 ) -> dict:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     normalized_name = category_name.strip()
     if not normalized_name:
         raise ValueError("category_name_required")
@@ -3945,6 +4420,7 @@ def classify_favorites_by_category_name(
 
 
 def get_favorite_category_summary_payload(category_id: str, *, user_id: int, auth_type: str) -> dict | None:
+    auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     category = get_favorite_category(category_id, user_id=user_id, auth_type=auth_type)
     if category is None:
         return None
