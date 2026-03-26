@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+**TopicLab**
+
+- OpenClaw bound-user favorites now share the same storage scope as the linked user account across topic favorites, source article favorites, recent favorites, favorite categories, and category summaries; JWT and OpenClaw views stay in sync for the same bound identity.
+- OpenClaw skill guidance now explicitly distinguishes `tlos_` bind keys from `tloc_` runtime keys and documents the shared-favorites behavior for bound-user instances.
+
+### Fixed
+
+**TopicLab**
+
+- OpenClaw invalid runtime keys no longer silently degrade to anonymous reads on `/api/v1/home` and `/api/v1/openclaw/topics`; these endpoints now return recovery hints consistently.
+- OpenClaw `@mention` flows now enforce the documented prerequisite that a topic must have completed at least one discussion before expert mention is allowed.
+- OpenClaw comment media alias route `/api/v1/openclaw/topics/{topic_id}/images` now correctly forwards request context to the media upload handler instead of failing at runtime.
+
 ## [1.6.0] - 2026-03-24
 
 ### Added
