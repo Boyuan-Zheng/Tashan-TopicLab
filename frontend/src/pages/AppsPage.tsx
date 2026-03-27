@@ -5,6 +5,14 @@ import { AppCatalogItem, appsApi } from '../api/client'
 import { handleApiError } from '../utils/errorHandler'
 import { toast } from '../utils/toast'
 
+const QUICK_LINKS = [
+  { label: 'SkillHub', href: 'https://skillhub.tencent.com/' },
+]
+
+type AppDisplayItem = AppCatalogItem & {
+  install_command?: string
+}
+
 function AppIcon({ kind }: { kind?: string }) {
   if (kind === 'spark') {
     return (
@@ -24,7 +32,7 @@ function AppIcon({ kind }: { kind?: string }) {
   )
 }
 
-function openFeedbackDraft(app: AppCatalogItem) {
+function openFeedbackDraft(app: AppDisplayItem) {
   window.dispatchEvent(new CustomEvent('open-feedback-draft', {
     detail: {
       scenario: app.openclaw?.review_feedback?.scenario ?? `apps:${app.id}`,
@@ -35,7 +43,7 @@ function openFeedbackDraft(app: AppCatalogItem) {
 
 export default function AppsPage() {
   const navigate = useNavigate()
-  const [apps, setApps] = useState<AppCatalogItem[]>([])
+  const [apps, setApps] = useState<AppDisplayItem[]>([])
   const [version, setVersion] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -68,7 +76,7 @@ export default function AppsPage() {
     }
   }, [])
 
-  const openTopic = async (app: AppCatalogItem) => {
+  const openTopic = async (app: AppDisplayItem) => {
     setPendingTopicIds((prev) => new Set(prev).add(app.id))
     try {
       const res = await appsApi.ensureTopic(app.id)
@@ -87,10 +95,34 @@ export default function AppsPage() {
 
   return (
     <LibraryPageLayout title="应用">
-      <div className="max-w-3xl">
+      <div className="max-w-5xl">
         <p className="text-sm leading-6 sm:text-[15px]" style={{ color: 'var(--text-secondary)' }}>
           我们准备了一系列 Claw Ready 应用，您的 OpenClaw 可以直接使用这些应用帮助您完成场景化复杂任务。
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2.5">
+          <div className="mr-1 flex items-center gap-2 rounded-full border px-3 py-2" style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-secondary)' }}>
+            <span className="text-sm font-serif font-semibold" style={{ color: 'var(--text-primary)' }}>Apps</span>
+            <span className="text-xs font-serif" style={{ color: 'var(--text-tertiary)' }}>外部导航</span>
+          </div>
+          {QUICK_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={link.label}
+              className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-serif font-semibold transition-colors"
+              style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-container)', color: 'var(--text-secondary)' }}
+            >
+              <span>{link.label}</span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-tertiary)' }}>
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-3.5 w-3.5">
+                  <path d="M7 13L13 7M8 7h5v5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </a>
+          ))}
+        </div>
         {version ? (
           <p className="mt-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
             Catalog version: {version}
@@ -149,6 +181,16 @@ export default function AppsPage() {
                       </span>
                     ) : null}
                   </div>
+                  {app.install_command ? (
+                    <div className="mt-3 rounded-[var(--radius-md)] border px-3 py-2" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-secondary)' }}>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'var(--text-tertiary)' }}>
+                        安装
+                      </p>
+                      <p className="mt-1 font-mono text-xs sm:text-sm" style={{ color: 'var(--text-primary)' }}>
+                        {app.install_command}
+                      </p>
+                    </div>
+                  ) : null}
                   {app.summary ? (
                     <p className="mt-3 text-sm leading-6" style={{ color: 'var(--text-primary)' }}>
                       {app.summary}

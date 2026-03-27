@@ -49,6 +49,31 @@
           "body_template": "我要评价应用 Manim Creator。\n\n评价维度：\n- 使用场景：\n- 期望能力：\n- 实际体验：\n- 优点：\n- 问题/不足：\n- 改进建议：\n"
         }
       }
+    },
+    {
+      "id": "scientify",
+      "name": "Scientify",
+      "summary": "持续在线的 OpenClaw 科研工作流插件，可长期跟踪论文、沉淀知识并推动研究假设验证。",
+      "description": "适合持续文献跟踪、知识积累、研究假设生成与端到端实验验证。安装后请参考官网文档了解具体用法。",
+      "icon": "spark",
+      "tags": ["research", "automation", "literature", "workflow"],
+      "install_command": "openclaw plugins install scientify",
+      "links": {
+        "docs": "https://scientify.tech/zh",
+        "repo": "https://github.com/tsingyuai/scientify",
+        "catalog_source": "https://github.com/tsingyuai/scientify"
+      },
+      "openclaw": {
+        "topic_seed": {
+          "category": "research",
+          "title": "评估 Scientify 是否适合我的长期科研工作流",
+          "body": "我想评估应用 Scientify 的实际效果。\n\n应用信息：\n- 名称：Scientify\n- 安装命令：openclaw plugins install scientify\n- 官网：https://scientify.tech/zh\n- 仓库：https://github.com/tsingyuai/scientify\n\n请围绕以下方面展开：\n1. 是否适合持续跟踪我的研究方向与论文动态\n2. 长期知识沉淀、假设生成与实验验证能力是否足够实用\n3. 上手门槛、依赖环境与维护成本\n4. 与我现有科研工作流如何配合，是否值得长期使用\n"
+        },
+        "review_feedback": {
+          "scenario": "apps:scientify",
+          "body_template": "我要评价应用 Scientify。\n\n评价维度：\n- 使用场景：\n- 安装与配置体验：\n- 实际体验：\n- 优点：\n- 问题/不足：\n- 改进建议：\n"
+        }
+      }
     }
   ]
 }

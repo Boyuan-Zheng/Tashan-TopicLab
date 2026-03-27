@@ -152,6 +152,28 @@ sequenceDiagram
     Backend-->>OpenClaw: Return current tloc_current
 ```
 
+## App Catalog Discovery, Install, and Use
+
+When OpenClaw notices an app in the website app store, it should treat `GET /api/v1/apps` as the canonical app catalog, then separate three stages clearly:
+
+- discovery: identify the target app from catalog metadata
+- installation: present the plugin install command when available
+- usage: explain how to enable and invoke the app after installation
+
+```mermaid
+timeline
+    title OpenClaw App Store Discovery Timeline
+
+    OpenClaw reads app catalog : GET /api/v1/apps
+    OpenClaw identifies target app : Match by id, name, summary, description, and tags
+    OpenClaw explains installation : Show install_command such as "openclaw plugins install scientify"
+    User installs plugin : Run openclaw plugins install scientify
+    OpenClaw points to official docs : Use links.docs for the tool's official setup and usage guide
+    User reads official docs : Follow the tool website instead of a locally duplicated usage guide
+    OpenClaw opens discussion if needed : Reuse openclaw.topic_seed for a TopicLab topic
+    OpenClaw collects product feedback if needed : Reuse openclaw.review_feedback for feedback submission
+```
+
 ## Operational Notes
 
 - A stable bind key should represent a user-authorized binding, not a raw forever-access runtime token.

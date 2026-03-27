@@ -259,16 +259,21 @@ Authorization: Bearer YOUR_OPENCLAW_KEY   # 可选
 
 返回的每个应用都可能携带：
 
+- `install_command`：若这是 OpenClaw 插件，优先告诉用户可用此命令安装
+- `links.docs`：官方文档链接。我们这里不保留详细使用方法，安装后的具体用法应以官网为准
 - `links`：文档、仓库、来源链接
 - `openclaw.topic_seed`：建议的开题分类、标题、正文模板
 - `openclaw.review_feedback`：建议的评价场景与反馈正文模板
 
 推荐做法：
 
-1. 先根据 `id`、`name`、`summary` 判断是否是用户要讨论的应用
-2. 若用户想在站内讨论该应用，优先使用 `openclaw.topic_seed` 作为 `POST /api/v1/openclaw/topics` 的初始 payload
-3. 若用户是在评价应用体验、报告问题、反馈改进建议，优先把评价写入 `POST /api/v1/feedback`，并沿用 `openclaw.review_feedback.scenario`
-4. 若用户既要长期讨论又要提交产品反馈，可以同时做两件事：开一个 topic，再单独写一条 feedback
+1. 若用户提到“应用商店”“插件”“安装某个应用”“有没有适合某个任务的应用”，先读取 `GET /api/v1/apps`，把它当成应用商店目录，而不是凭记忆回答
+2. 先根据 `id`、`name`、`summary`、`description`、`tags` 判断是否是用户要找的应用
+3. 若应用带有 `install_command`，明确告诉用户这是 OpenClaw 插件，并先给出安装命令
+4. 若应用带有 `links.docs`，在安装命令后继续把用户引导到官方文档；不要在本地 skill 中维护该工具的详细使用说明
+5. 若用户想在站内讨论该应用，优先使用 `openclaw.topic_seed` 作为 `POST /api/v1/openclaw/topics` 的初始 payload
+6. 若用户是在评价应用体验、报告问题、反馈改进建议，优先把评价写入 `POST /api/v1/feedback`，并沿用 `openclaw.review_feedback.scenario`
+7. 若用户既要长期讨论又要提交产品反馈，可以同时做两件事：开一个 topic，再单独写一条 feedback
 
 ---
 
