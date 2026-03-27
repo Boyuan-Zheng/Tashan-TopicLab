@@ -3407,6 +3407,7 @@ def _remove_topic_from_all_favorite_categories(topic_id: str, *, user_id: int, a
             """),
             {"topic_id": topic_id, "user_id": user_id, "auth_type": auth_type},
         ).fetchall()
+        category_ids = [str(row.category_id) for row in category_rows if row.category_id]
         session.execute(
             text("""
                 DELETE FROM favorite_category_items
@@ -3427,6 +3428,12 @@ def _remove_topic_from_all_favorite_categories(topic_id: str, *, user_id: int, a
                 """),
                 {"category_id": row.category_id, "updated_at": utc_now()},
             )
+        _delete_empty_favorite_categories(
+            session=session,
+            user_id=user_id,
+            auth_type=auth_type,
+            category_ids=category_ids,
+        )
 
 
 def _remove_source_article_from_all_favorite_categories(article_id: int, *, user_id: int, auth_type: str) -> None:
@@ -3442,6 +3449,7 @@ def _remove_source_article_from_all_favorite_categories(article_id: int, *, user
             """),
             {"article_id": article_id, "user_id": user_id, "auth_type": auth_type},
         ).fetchall()
+        category_ids = [str(row.category_id) for row in category_rows if row.category_id]
         session.execute(
             text("""
                 DELETE FROM favorite_category_items
@@ -3462,6 +3470,12 @@ def _remove_source_article_from_all_favorite_categories(article_id: int, *, user
                 """),
                 {"category_id": row.category_id, "updated_at": utc_now()},
             )
+        _delete_empty_favorite_categories(
+            session=session,
+            user_id=user_id,
+            auth_type=auth_type,
+            category_ids=category_ids,
+        )
 
 
 def _get_source_article_interaction(article_id: int, *, user_id: int | None = None, auth_type: str | None = None) -> dict:
@@ -4231,6 +4245,43 @@ def delete_favorite_category(category_id: str, *, user_id: int, auth_type: str) 
     return bool(result.rowcount)
 
 
+def _delete_empty_favorite_categories(
+    *,
+    session,
+    user_id: int,
+    auth_type: str,
+    category_ids: list[str] | None = None,
+) -> None:
+    if category_ids is not None and not category_ids:
+        return
+    params: dict[str, object] = {
+        "user_id": user_id,
+        "auth_type": auth_type,
+    }
+    stmt = text(
+        """
+        DELETE FROM favorite_categories
+        WHERE user_id = :user_id
+          AND auth_type = :auth_type
+          AND topics_count <= 0
+          AND source_articles_count <= 0
+        """
+    )
+    if category_ids is not None:
+        params["category_ids"] = category_ids
+        stmt = text(
+            """
+            DELETE FROM favorite_categories
+            WHERE user_id = :user_id
+              AND auth_type = :auth_type
+              AND topics_count <= 0
+              AND source_articles_count <= 0
+              AND id IN :category_ids
+            """
+        ).bindparams(bindparam("category_ids", expanding=True))
+    session.execute(stmt, params)
+
+
 def _favorite_category_exists(category_id: str, *, user_id: int, auth_type: str) -> bool:
     auth_type = _ensure_shared_favorite_scope(user_id, auth_type)
     with get_db_session() as session:
@@ -4350,6 +4401,12 @@ def unassign_topic_from_favorite_category(category_id: str, topic_id: str, *, us
             """),
             {"category_id": category_id, "updated_at": now, "delta": int(result.rowcount or 0)},
         )
+        _delete_empty_favorite_categories(
+            session=session,
+            user_id=user_id,
+            auth_type=auth_type,
+            category_ids=[category_id],
+        )
     return get_favorite_category(category_id, user_id=user_id, auth_type=auth_type)
 
 
@@ -4416,6 +4473,12 @@ def unassign_source_article_from_favorite_category(category_id: str, article_id:
                 WHERE id = :category_id
             """),
             {"category_id": category_id, "updated_at": now, "delta": int(result.rowcount or 0)},
+        )
+        _delete_empty_favorite_categories(
+            session=session,
+            user_id=user_id,
+            auth_type=auth_type,
+            category_ids=[category_id],
         )
     return get_favorite_category(category_id, user_id=user_id, auth_type=auth_type)
 

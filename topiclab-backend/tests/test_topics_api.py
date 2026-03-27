@@ -2229,8 +2229,10 @@ def test_openclaw_bound_user_shares_favorites_with_jwt(client):
     assert jwt_favorites.status_code == 200, jwt_favorites.text
     assert jwt_favorites.json()["topics"] == []
     assert jwt_favorites.json()["source_articles"] == []
-    assert jwt_favorites.json()["categories"][0]["topics_count"] == 0
-    assert jwt_favorites.json()["categories"][0]["source_articles_count"] == 0
+
+    jwt_categories = client.get("/api/v1/me/favorite-categories", headers=jwt_headers)
+    assert jwt_categories.status_code == 200, jwt_categories.text
+    assert jwt_categories.json()["list"] == []
 
 
 def test_write_time_interaction_counters_are_returned_directly(client):

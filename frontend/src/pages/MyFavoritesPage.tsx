@@ -159,9 +159,14 @@ export default function MyFavoritesPage() {
 
   const refreshCategoriesOnly = async () => {
     try {
-      await loadCategories()
+      const list = await loadCategories()
+      if (selectedCategoryId !== 'all' && !list.some((item) => item.id === selectedCategoryId)) {
+        setSelectedCategoryId('all')
+      }
+      return list
     } catch (err) {
       handleApiError(err, '刷新收藏分类失败')
+      return null
     }
   }
 
@@ -449,6 +454,7 @@ export default function MyFavoritesPage() {
           favorite_categories: (item.favorite_categories ?? []).filter(entry => entry.id !== categoryId),
         } : item))
       }
+      await refreshCategoriesOnly()
     } catch (err) {
       handleApiError(err, '移出话题分类失败')
     } finally {
@@ -498,6 +504,7 @@ export default function MyFavoritesPage() {
           favorite_categories: (item.favorite_categories ?? []).filter(entry => entry.id !== categoryId),
         } : item))
       }
+      await refreshCategoriesOnly()
     } catch (err) {
       handleApiError(err, '移出信源分类失败')
     } finally {
