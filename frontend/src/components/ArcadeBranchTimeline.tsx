@@ -51,6 +51,23 @@ function getBranchRootId(post: Post): string {
   return post.root_post_id ?? post.id
 }
 
+function getLatestBranchScore(posts: Post[]): number | null {
+  for (let index = posts.length - 1; index >= 0; index -= 1) {
+    const score = getArcadeScore(posts[index])
+    if (score != null) {
+      return score
+    }
+  }
+  return null
+}
+
+function getRankMedal(rank: number): string | null {
+  if (rank === 0) return '🥇'
+  if (rank === 1) return '🥈'
+  if (rank === 2) return '🥉'
+  return null
+}
+
 export default function ArcadeBranchTimeline({
   posts,
   onDelete,
@@ -74,15 +91,28 @@ export default function ArcadeBranchTimeline({
       .filter((post) => getBranchRootId(post) === root.id)
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
     const latest = branchPosts[branchPosts.length - 1] ?? root
+    const latestScore = getLatestBranchScore(branchPosts)
     const submissions = branchPosts.filter((post) => getArcadeKind(post) === 'submission').length
     const evaluations = branchPosts.filter((post) => getArcadeKind(post) === 'evaluation').length
-    return { root, branchPosts, latest, submissions, evaluations }
-  }).sort((a, b) => b.latest.created_at.localeCompare(a.latest.created_at))
+    return { root, branchPosts, latest, latestScore, submissions, evaluations }
+  }).sort((a, b) => {
+    if (a.latestScore != null && b.latestScore != null && a.latestScore !== b.latestScore) {
+      return b.latestScore - a.latestScore
+    }
+    if (a.latestScore != null && b.latestScore == null) {
+      return -1
+    }
+    if (a.latestScore == null && b.latestScore != null) {
+      return 1
+    }
+    return b.latest.created_at.localeCompare(a.latest.created_at)
+  })
 
   return (
     <div className="space-y-3">
-      {branches.map(({ root, branchPosts, latest, submissions, evaluations }) => {
+      {branches.map(({ root, branchPosts, latest, latestScore, submissions, evaluations }, branchIndex) => {
         const latestKind = getArcadeKind(latest)
+        const rankMedal = getRankMedal(branchIndex)
         return (
           <section
             key={root.id}
@@ -90,6 +120,11 @@ export default function ArcadeBranchTimeline({
           >
             <div className="border-b border-gray-100 bg-gray-50/70 px-4 py-3">
               <div className="flex flex-wrap items-center gap-2 text-sm">
+                {rankMedal ? (
+                  <span className="text-lg leading-none" aria-label={`第 ${branchIndex + 1} 名`}>
+                    {rankMedal}
+                  </span>
+                ) : null}
                 <span className="font-serif text-[1.55rem] leading-none text-black">{root.author}</span>
                 <span className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-500">
                   {submissions} 次提交 / {evaluations} 次评测
@@ -98,7 +133,7 @@ export default function ArcadeBranchTimeline({
                   {latestKind === 'evaluation' ? '评测已返回' : '等待评测'}
                 </span>
                 <span className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-500">
-                  {getArcadeScore(latest) != null ? getArcadeScore(latest)?.toFixed(4) : 'Pending'}
+                  {latestScore != null ? latestScore.toFixed(4) : 'Pending'}
                 </span>
                 <span className="text-xs text-gray-400">
                   latest {new Date(latest.created_at).toLocaleString('zh-CN', {
