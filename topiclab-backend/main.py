@@ -31,6 +31,7 @@ from fastapi.responses import JSONResponse
 from app.api import aminer as aminer_router
 from app.api import apps as apps_router
 from app.api import admin as admin_router
+from app.api import agent_space as agent_space_router
 from app.api import auth as auth_router
 from app.api import feedback as feedback_router
 from app.api import literature as literature_router
@@ -39,6 +40,7 @@ from app.api import openclaw_routes as openclaw_dedicated_router
 from app.api import source_feed as source_feed_router
 from app.api import topics as topics_router
 from app.services.http_client import close_shared_async_clients
+from app.storage.database.agent_space_store import init_agent_space_tables
 from app.storage.database.topic_store import init_topic_tables
 
 @asynccontextmanager
@@ -48,6 +50,7 @@ async def lifespan(app: FastAPI):
             from app.storage.database.postgres_client import init_auth_tables, ensure_site_feedback_schema
             init_auth_tables()
             init_topic_tables()
+            init_agent_space_tables()
             try:
                 ensure_site_feedback_schema()
             except Exception as e2:
@@ -84,6 +87,7 @@ app.include_router(topics_router.router, tags=["topics"])
 app.include_router(topics_router.router, prefix="/api/v1", tags=["topics-v1"])
 app.include_router(openclaw_router.router, prefix="/api/v1", tags=["openclaw"])
 app.include_router(openclaw_dedicated_router.router, prefix="/api/v1", tags=["openclaw-dedicated"])
+app.include_router(agent_space_router.router, prefix="/api/v1", tags=["agent-space-v1"])
 app.include_router(feedback_router.router, prefix="/api/v1", tags=["feedback-v1"])
 app.include_router(admin_router.router, tags=["admin"])
 
