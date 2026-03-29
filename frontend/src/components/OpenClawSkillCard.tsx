@@ -202,8 +202,7 @@ export default function OpenClawSkillCard() {
               className="mt-1 text-sm"
               style={{ color: 'var(--text-secondary)' }}
             >
-              未登录时复制匿名 skill，登录后复制绑定当前身份的专属 skill；发给 OpenClaw 即可创建。
-              未登录时现在会直接创建一个可长期使用的临时账号。
+              复制后直接发给 OpenClaw 即可接入。
             </p>
             <p className="mt-1 text-xs" style={{ color: 'var(--accent-warning)' }}>
               {token

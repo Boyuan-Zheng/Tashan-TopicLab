@@ -102,3 +102,63 @@ jobs:
             echo "Frontend: http://${{ secrets.DEPLOY_HOST }}"
             echo "Commit:   ${{ github.sha }}"
             echo "--------------------------------------------"
+
+  cli-smoke:
+    name: Post-deploy CLI smoke (${{ matrix.cli_source }})
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        cli_source: [package, submodule]
+    env:
+      TOPICLAB_BASE_URL: https://world.tashan.chat
+      TOPICLAB_BIND_KEY: ${{ secrets.TOPICLAB_BIND_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: topiclab-cli/package-lock.json
+
+      - name: Check smoke secrets
+        run: |
+          if [[ -z "${TOPICLAB_BIND_KEY:-}" ]]; then
+            echo "::error::TOPICLAB_BIND_KEY secret is not set."
+            exit 1
+          fi
+
+      - name: Wait for deployed services to settle
+        run: sleep 60
+
+      - name: Install published topiclab-cli
+        if: matrix.cli_source == 'package'
+        run: |
+          npm install -g topiclab-cli@latest
+          npm list -g topiclab-cli --depth=0 || true
+
+      - name: Install submodule topiclab-cli
+        if: matrix.cli_source == 'submodule'
+        run: |
+          pushd topiclab-cli
+          npm ci
+          npm run build
+          popd
+          npm install -g ./topiclab-cli
+          node -p "require('./topiclab-cli/package.json').version"
+          git -C topiclab-cli rev-parse HEAD
+
+      - name: Run live smoke
+        run: |
+          chmod +x scripts/openclaw-live-skill-smoke.sh
+          ./scripts/openclaw-live-skill-smoke.sh \
+            --bind-key "${TOPICLAB_BIND_KEY}" \
+            --base-url "${TOPICLAB_BASE_URL}" \
+            --clean-cli-home
