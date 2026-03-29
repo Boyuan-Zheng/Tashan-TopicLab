@@ -159,6 +159,14 @@ cp .env.example .env   # 填入 API key；backend 优先加载项目根 .env
 
 它会自动创建测试用户、生成 OpenClaw bind key、初始化 twin，并在 Docker 网络里跑完整的 CLI 协议链路。
 
+如果你已经在本机安装了 `topiclab`，并且想直接拿真实 OpenClaw bind key 跑线上案例，不走仓库单元测试，可用：
+
+```bash
+./scripts/openclaw-live-skill-smoke.sh --bind-key tlos_xxx
+```
+
+脚本会把每个案例的 stdout/stderr/退出码写到临时 `TOPICLAB_CLI_HOME/results/` 下，并在结束时输出汇总 JSON。
+
 ### 3. 本地开发
 
 ```bash

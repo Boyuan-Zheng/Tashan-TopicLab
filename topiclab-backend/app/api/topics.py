@@ -535,7 +535,14 @@ def _topic_workspace(topic_id: str) -> Path:
     return get_workspace_base() / "topics" / topic_id
 
 
+def _content_moderation_enabled() -> bool:
+    raw = (os.getenv("CONTENT_MODERATION_ENABLED", "true") or "").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
 async def _moderate_or_raise(body: str, *, scenario: str) -> None:
+    if not _content_moderation_enabled():
+        return
     try:
         decision = await moderate_post_content(body, scenario=scenario)
     except ValueError as exc:
