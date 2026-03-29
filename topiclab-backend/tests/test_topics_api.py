@@ -1421,9 +1421,6 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     assert "当前 Runtime Key（业务请求 Bearer）" in skill_resp.text
     assert raw_key in skill_resp.text
     assert "不要把 skill 链接里的 `?key=` 参数直接当成业务接口 Bearer Token 使用" in skill_resp.text
-    assert "/api/v1/openclaw/skills/{module_name}.md" in skill_resp.text
-    assert "/api/v1/openclaw/skills/topic-community.md" in skill_resp.text
-    assert "/api/v1/openclaw/skills/source-and-research.md" in skill_resp.text
     assert "完整 API 清单" not in skill_resp.text
 
     home_resp = client.get("/api/v1/home?include_source_preview=false", headers={"Authorization": f"Bearer {raw_key}"})
@@ -1964,25 +1961,6 @@ def test_openclaw_comment_media_upload_requires_existing_topic(client):
     )
     assert resp.status_code == 404, resp.text
     assert resp.json()["detail"] == "Topic not found"
-
-
-def test_openclaw_module_skill_markdown_is_served(client):
-    resp = client.get("/api/v1/openclaw/skills/source-and-research.md")
-    topic_resp = client.get("/api/v1/openclaw/skills/topic-community.md")
-
-    assert resp.status_code == 200, resp.text
-    assert resp.headers["content-type"].startswith("text/markdown")
-    assert "学术检索" in resp.text
-    assert "/api/v1/source-feed/articles" in resp.text
-    assert "/api/v1/literature/recent" in resp.text
-    assert "/api/v1/aminer/paper/search" in resp.text
-    assert "title=llm" in resp.text
-
-    assert topic_resp.status_code == 200, topic_resp.text
-    assert "/api/v1/openclaw/topics?q=" in topic_resp.text
-    assert "/api/v1/topics/{topic_id}/posts/{post_id}/replies" in topic_resp.text
-    assert "/api/v1/topics/{topic_id}/posts/{post_id}/thread" in topic_resp.text
-    assert "/api/v1/me/favorite-categories" in topic_resp.text
 
 
 def test_openclaw_module_skill_returns_404_for_unknown_module(client):

@@ -46,11 +46,7 @@ SITE_STATS_TTL_SECONDS = 60
 POINTS_AWARENESS_TARGET = int(os.getenv("OPENCLAW_POINTS_TARGET", "500"))
 POINTS_AWARENESS_TARGET_LABEL = os.getenv("OPENCLAW_POINTS_TARGET_LABEL", "创建小组门槛")
 _site_stats_cache: dict[str, float | dict | None] = {"expires_at": 0.0, "value": None}
-OPENCLAW_SKILL_MODULES = {
-    "topic-community": "topic-community.md",
-    "source-and-research": "source-and-research.md",
-    "request-matching": "request-matching.md",
-}
+OPENCLAW_SKILL_MODULES: dict[str, str] = {}
 
 
 class OpenClawBootstrapResponse(BaseModel):
@@ -520,8 +516,6 @@ def _render_personalized_skill(
         f"- 关联用户上下文：`{username}`",
         f"- 当前 Runtime Key（业务请求 Bearer）：`{raw_key}`",
         f"- Skill 入口（当前携带的是 {skill_entry_kind}）：`{_build_openclaw_skill_path(skill_entry_key)}`",
-        f"- 模块 Skill 模板：`/api/v1/openclaw/skills/{{module_name}}.md`",
-        f"- 模块 Skill 示例：`{_build_openclaw_module_skill_path('topic-community')}`",
         "- 不要把 skill 链接里的 `?key=` 参数直接当成业务接口 Bearer Token 使用；若它是 `tlos_...`，它只用于重新拉取 skill、`/openclaw/bootstrap` 或 `/openclaw/session/renew`。",
         "- 优先以当前 OpenClaw instance 的连续身份参与；若存在绑定用户或数字分身信息，把它们视为实例上下文。",
         "- 默认角色：偏学术科研讨论、合作识别、资源连接与高质量 thread 推进，而不是泛闲聊陪聊。",
@@ -582,7 +576,7 @@ def _build_openclaw_bootstrap_payload(bind_key: str) -> OpenClawBootstrapRespons
 
 
 def _compute_skill_version() -> str:
-    """Compute content hash of base skill + all module skills for versioning."""
+    """Compute content hash of base skill for versioning."""
     h = hashlib.sha256()
     base_path = _skill_template_path()
     if base_path.exists():

@@ -108,8 +108,11 @@ async def test_cli_manifest_and_policy_pack_with_plugin_aliases(client):
     assert cli_manifest_body["min_shell_version"] == cli_manifest_body["min_cli_version"]
     assert cli_manifest_body["commands"]["twins.get_current"]["enabled"] is True
     assert cli_manifest_body["commands"]["twins.report_requirement"]["enabled"] is True
+    assert cli_manifest_body["commands"]["apps.list"]["enabled"] is True
+    assert cli_manifest_body["commands"]["apps.topic"]["invocation"] == "topiclab apps topic <app_id> --json"
     assert cli_manifest_body["commands"]["notifications.list"]["enabled"] is True
-    assert cli_manifest_body["commands"]["help.ask"]["enabled"] is False
+    assert cli_manifest_body["commands"]["help.ask"]["enabled"] is True
+    assert "apps" in cli_manifest_body["command_groups"]
     assert "help" in cli_manifest_body["command_groups"]
 
     plugin_manifest = await client.get("/api/v1/openclaw/plugin-manifest")
@@ -391,6 +394,29 @@ async def test_runtime_profile_runtime_state_and_observation_flow(client):
     assert version_body["core_version"] == core_version_before
     assert version_body["runtime_state_version"] == 1
     assert version_body["latest_snapshot_version"] >= 1
+
+
+@pytest.mark.anyio
+async def test_cli_help_returns_skill_refresh_guidance(client):
+    auth = await register_login_and_openclaw_key(client, phone="13800000030", username="gina")
+
+    help_resp = await client.post(
+        "/api/v1/openclaw/cli-help",
+        headers={"Authorization": f"Bearer {auth['openclaw_key']}"},
+        json={
+            "request": "I am not sure how to continue this task.",
+            "scene": "forum.request",
+            "context": {"error": "ambiguous next step"},
+        },
+    )
+    assert help_resp.status_code == 200, help_resp.text
+    help_body = help_resp.json()
+    assert help_body["help_source"] == "website_skill"
+    assert help_body["mode"] == "reload_skill"
+    assert help_body["should_refresh_skill"] is True
+    assert "/api/v1/openclaw/skill.md?key=" in help_body["skill_url"]
+    assert help_body["module_skill_urls"] == {}
+    assert "他山世界 Agent Skill" in help_body["skill_markdown"]
 
 
 @pytest.mark.anyio

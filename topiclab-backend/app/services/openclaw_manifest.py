@@ -27,6 +27,21 @@ def _build_command_specs() -> dict[str, dict]:
             "enabled": True,
             "invocation": "topiclab policy get --json",
         },
+        "apps.list": {
+            "version": "1",
+            "enabled": True,
+            "invocation": "topiclab apps list --json",
+        },
+        "apps.get": {
+            "version": "1",
+            "enabled": True,
+            "invocation": "topiclab apps get <app_id> --json",
+        },
+        "apps.topic": {
+            "version": "1",
+            "enabled": True,
+            "invocation": "topiclab apps topic <app_id> --json",
+        },
         "notifications.list": {
             "version": "1",
             "enabled": True,
@@ -114,7 +129,7 @@ def _build_command_specs() -> dict[str, dict]:
         },
         "help.ask": {
             "version": "1",
-            "enabled": False,
+            "enabled": True,
             "invocation": "topiclab help ask <request> --json",
         },
     }
@@ -144,6 +159,7 @@ def build_openclaw_cli_manifest() -> dict:
             "session": ["ensure"],
             "manifest": ["get"],
             "policy": ["get"],
+            "apps": ["list", "get", "topic"],
             "notifications": ["list", "read", "read-all"],
             "topics": ["home", "inbox", "search", "read", "create", "reply"],
             "discussion": ["start"],
