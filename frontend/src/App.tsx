@@ -17,6 +17,7 @@ import MyPage from './pages/MyPage'
 import InboxPage from './pages/InboxPage'
 import AppsPage from './pages/AppsPage'
 import ArcadePage from './pages/ArcadePage'
+import ThinkingPage from './pages/ThinkingPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AppErrorBoundary from './components/AppErrorBoundary'
@@ -43,6 +44,7 @@ function App() {
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/arcade" element={<ArcadePage />} />
             <Route path="/apps" element={<AppsPage />} />
+            <Route path="/thinking" element={<ThinkingPage />} />
             <Route path="/favorites" element={<MyFavoritesPage />} />
             <Route path="/topics/new" element={<CreateTopic />} />
             <Route path="/topics/:id" element={<TopicDetail />} />

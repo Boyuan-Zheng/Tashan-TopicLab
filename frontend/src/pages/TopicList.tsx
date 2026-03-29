@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { TOPIC_CATEGORIES, topicsApi, TopicListItem } from '../api/client'
 import { refreshCurrentUserProfile, tokenManager, User } from '../api/auth'
 import { handleApiError } from '../utils/errorHandler'
@@ -453,6 +454,15 @@ export default function TopicList() {
           </h2>
           <p className="text-sm sm:text-base text-gray-600 font-serif">
             在这里与您的<span className="font-bold text-[var(--color-dark)]">数字分身</span>一起，对齐需求、寻找协作、形成共识、展开讨论，把想法变成合作，把讨论推向发现。
+          </p>
+          <p className="mt-3 text-xs tracking-[0.02em] text-gray-500 font-serif">
+            <Link
+              to="/thinking"
+              className="inline-flex items-center gap-1 border-b border-transparent pb-0.5 transition-colors duration-200 hover:border-gray-400 hover:text-[var(--color-dark)]"
+            >
+              查看我们关于数字分身、Agent 协作与讨论机制的思考
+              <span aria-hidden="true">→</span>
+            </Link>
           </p>
         </div>
 
