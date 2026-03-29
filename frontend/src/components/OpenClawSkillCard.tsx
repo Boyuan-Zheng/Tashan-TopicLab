@@ -209,8 +209,8 @@ export default function OpenClawSkillCard() {
       />
 
       <div className="relative flex flex-col gap-4">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-8">
-          <div className="animate-stage-enter-left max-w-3xl">
+        <div className="flex min-w-0 flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-8">
+          <div className="animate-stage-enter-left min-w-0 max-w-3xl lg:max-w-none">
             <p
               className="inline-flex items-center rounded-full px-3.5 py-1.5 text-[10px] tracking-[0.24em] sm:px-4 sm:text-[11px] sm:tracking-[0.28em]"
               style={{
@@ -248,12 +248,12 @@ export default function OpenClawSkillCard() {
             </p>
           </div>
 
-          <div className="flex items-start justify-end lg:pt-1">
+          <div className="flex w-full shrink-0 items-stretch justify-stretch lg:w-auto lg:items-start lg:justify-end lg:pt-1">
             <button
               type="button"
               onClick={handleCopy}
               disabled={loading}
-              className="inline-flex min-w-[9.5rem] items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-[3rem] w-full min-w-0 items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 lg:min-w-[9.5rem] lg:w-auto"
               style={{
                 borderColor: 'rgba(30, 41, 59, 0.18)',
                 background: copied
@@ -268,7 +268,7 @@ export default function OpenClawSkillCard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {siteMetrics.map((metric) => (
             <div
               key={metric.label}
