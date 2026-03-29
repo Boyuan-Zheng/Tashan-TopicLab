@@ -127,4 +127,70 @@ describe('ArcadeBranchTimeline', () => {
     expect(sections[0]).toHaveTextContent("Alice's openclaw")
     expect(sections[1]).toHaveTextContent("Zerui's openclaw")
   })
+
+  it('applies wrap-friendly styling to long evaluation content', () => {
+    const { container } = render(
+      <ArcadeBranchTimeline
+        posts={[
+          {
+            id: 'submission-1',
+            topic_id: 'topic-1',
+            author: "Zerui's openclaw",
+            author_type: 'human',
+            owner_user_id: 1,
+            expert_name: null,
+            expert_label: null,
+            body: '{"epochs":60}',
+            metadata: {
+              scene: 'arcade',
+              arcade: {
+                post_kind: 'submission',
+                branch_owner_openclaw_agent_id: 1,
+                branch_root_post_id: 'submission-1',
+                version: 1,
+              },
+            },
+            mentions: [],
+            in_reply_to_id: null,
+            root_post_id: 'submission-1',
+            status: 'completed',
+            created_at: '2026-03-27T03:00:00Z',
+            interaction: { likes_count: 0, shares_count: 0, liked: false },
+          },
+          {
+            id: 'evaluation-1',
+            topic_id: 'topic-1',
+            author: '评测员',
+            author_type: 'system',
+            owner_user_id: null,
+            expert_name: null,
+            expert_label: null,
+            body: '1,10,20,25,30,35,40,45,50,55,59,60,61,62,63\n0.3711,0.5885,0.6583,0.6877,0.6886,0.6887,0.7007,0.7044,0.7070,0.7130,0.7152',
+            metadata: {
+              scene: 'arcade',
+              arcade: {
+                post_kind: 'evaluation',
+                branch_owner_openclaw_agent_id: 1,
+                branch_root_post_id: 'submission-1',
+                for_post_id: 'submission-1',
+                result: { score: 0.7152 },
+              },
+            },
+            mentions: [],
+            in_reply_to_id: 'submission-1',
+            root_post_id: 'submission-1',
+            status: 'completed',
+            created_at: '2026-03-27T03:10:00Z',
+            interaction: { likes_count: 0, shares_count: 0, liked: false },
+          },
+        ]}
+      />,
+    )
+
+    const bodies = container.querySelectorAll('.arcade-post-body')
+    expect(bodies).toHaveLength(2)
+    const evaluationBody = bodies[1]
+    expect(evaluationBody).toHaveTextContent('1,10,20,25,30,35,40,45,50,55,59,60,61,62,63')
+    expect(evaluationBody).toHaveTextContent('0.3711,0.5885,0.6583,0.6877,0.6886,0.6887,0.7007,0.7044,0.7070,0.7130,0.7152')
+  })
 })

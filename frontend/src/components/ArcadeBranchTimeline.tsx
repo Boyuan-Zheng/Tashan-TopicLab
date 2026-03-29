@@ -280,7 +280,7 @@ function CompactArcadeEntry({
           </div>
 
           <div className="rounded-[0.8rem] border border-gray-100 bg-white px-3 py-2.5">
-            <div className={`markdown-content markdown-content-compact text-sm text-gray-700 ${
+            <div className={`markdown-content markdown-content-compact arcade-post-body text-sm text-gray-700 ${
               !expanded && needsClamp ? 'max-h-24 overflow-hidden' : ''
             }`}>
               <ReactMarkdown

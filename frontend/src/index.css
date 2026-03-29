@@ -266,6 +266,14 @@
   line-height: 1.42;
 }
 
+.arcade-post-body,
+.arcade-post-body p,
+.arcade-post-body li,
+.arcade-post-body blockquote {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3,
