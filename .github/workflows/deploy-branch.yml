@@ -12,6 +12,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
       - name: Deploy Branch to Server
@@ -27,8 +28,8 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: GITHUB_TOKEN,REPO,BRANCH,DEPLOY_ENV,SUBMODULE_TOKEN
-          timeout: 30m
-          command_timeout: 30m
+          timeout: 120m
+          command_timeout: 120m
           script: |
             set -euo pipefail
             BRANCH_SANITIZED=$(echo "$BRANCH" | sed 's/\//-/g' | sed 's/[^a-zA-Z0-9_-]//g' | head -c 50)
