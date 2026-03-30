@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SourceFeedPage from '../SourceFeedPage'
@@ -15,7 +21,8 @@ function renderSourceFeed(initialEntry = '/source-feed/source') {
 }
 
 vi.mock('../../api/client', async () => {
-  const actual = await vi.importActual<typeof import('../../api/client')>('../../api/client')
+  const actual =
+    await vi.importActual<typeof import('../../api/client')>('../../api/client')
   return {
     ...actual,
     sourceFeedApi: {
@@ -84,16 +91,34 @@ describe('SourceFeedPage', () => {
         expect.objectContaining({ source_type: 'we-mp-rss' }),
       )
     })
-    expect(await screen.findByRole('heading', { name: '信源' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: '信源' }),
+    ).toBeInTheDocument()
     expect(await screen.findByText('Trends')).toBeInTheDocument()
     const academicLinks = await screen.findAllByRole('link', { name: '学术' })
-    expect(academicLinks.some((el) => el.getAttribute('href') === 'https://daiduo2.github.io/academic-trend-monitor/')).toBe(true)
-    expect(academicLinks.some((el) => el.getAttribute('href')?.endsWith('/source-feed/academic'))).toBe(true)
-    expect(screen.getByRole('link', { name: '媒体' }).getAttribute('href')).toContain('source-feed/source')  // 媒体为信源子板块
-    expect(await screen.findByRole('button', { name: '搜索' })).toBeInTheDocument()
+    expect(
+      academicLinks.some(
+        (el) =>
+          el.getAttribute('href') ===
+          'https://daiduo2.github.io/academic-trend-monitor/',
+      ),
+    ).toBe(true)
+    expect(
+      academicLinks.some((el) =>
+        el.getAttribute('href')?.endsWith('/source-feed/academic'),
+      ),
+    ).toBe(true)
+    expect(
+      screen.getByRole('link', { name: '媒体' }).getAttribute('href'),
+    ).toContain('source-feed/source') // 媒体为信源子板块
+    expect(
+      await screen.findByRole('button', { name: '搜索' }),
+    ).toBeInTheDocument()
     expect(await screen.findByText('远端入库文章')).toBeInTheDocument()
     expect(await screen.findByText('第二条信源文章')).toBeInTheDocument()
-    expect(await screen.findAllByRole('button', { name: '回复到话题' })).not.toHaveLength(0)
+    expect(
+      await screen.findAllByRole('button', { name: '回复到话题' }),
+    ).not.toHaveLength(0)
     const image = await screen.findByRole('img', { name: '远端入库文章' })
     expect(image.getAttribute('src')).toContain('/api/source-feed/image?url=')
   })
@@ -108,7 +133,9 @@ describe('SourceFeedPage', () => {
     fireEvent.change(input, { target: { value: '第二条' } })
     fireEvent.submit(form!)
 
-    expect((await screen.findAllByText('第二条信源文章')).length).toBeGreaterThan(0)
+    expect(
+      (await screen.findAllByText('第二条信源文章')).length,
+    ).toBeGreaterThan(0)
     await waitFor(() => {
       expect(screen.queryAllByText('远端入库文章')).toHaveLength(0)
     })
@@ -121,7 +148,7 @@ describe('SourceFeedPage', () => {
     const grid = await screen.findByTestId('source-feed-grid')
     await waitFor(() => {
       expect(grid).toHaveStyle({
-        gridTemplateColumns: 'repeat(4, 280px)',
+        gridTemplateColumns: 'repeat(4, 267px)',
       })
     })
   })
@@ -133,7 +160,7 @@ describe('SourceFeedPage', () => {
     const grid = await screen.findByTestId('source-feed-grid')
     await waitFor(() => {
       expect(grid).toHaveStyle({
-        gridTemplateColumns: 'repeat(2, 178px)',
+        gridTemplateColumns: 'repeat(2, 174px)',
       })
     })
   })
@@ -204,7 +231,9 @@ describe('SourceFeedPage', () => {
       expect.objectContaining({ source_type: 'gqy', offset: 24 }),
     )
     expect(screen.queryByText('Blog 200')).not.toBeInTheDocument()
-    expect(await screen.findByText('Agentic BPM: A Manifesto')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Agentic BPM: A Manifesto'),
+    ).toBeInTheDocument()
     expect(await screen.findByTestId('academic-feed-grid')).toBeInTheDocument()
   })
 
