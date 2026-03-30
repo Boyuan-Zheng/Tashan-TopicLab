@@ -1,8 +1,7 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
-import LibraryPageLayout from '../components/LibraryPageLayout'
+import ImmersiveAppShell from '../components/ImmersiveAppShell'
 import { ExpertLibraryContent } from './ExpertList'
 import { ModeratorModeLibraryContent } from './ModeratorModeLibrary'
-import { SkillLibraryContent } from './SkillLibrary'
 import { MCPLibraryContent } from './MCPLibrary'
 
 const librarySections = [
@@ -17,12 +16,6 @@ const librarySections = [
     label: '讨论方式库',
     description: '切换不同主持模式，查看可复用的讨论编排方案。',
     render: () => <ModeratorModeLibraryContent />,
-  },
-  {
-    id: 'skills',
-    label: '技能库',
-    description: '浏览可分配技能与详细说明。',
-    render: () => <SkillLibraryContent />,
   },
   {
     id: 'mcp',
@@ -52,9 +45,9 @@ export default function LibraryPage() {
   }
 
   return (
-    <LibraryPageLayout
+    <ImmersiveAppShell
       title="库"
-      description={
+      subtitle={(
         <p>
           集中查看平台内可复用的角色、讨论方式、技能与 MCP 配置。项目基于开源实践持续演进，源码见
           {' '}
@@ -69,12 +62,12 @@ export default function LibraryPage() {
           </a>
           ，愿景是把人与智能体协作所需的能力模块沉淀为可浏览、可组合、可复用的公共知识基础设施。
         </p>
-      }
+      )}
     >
       <div className="flex flex-col md:flex-row md:items-start md:gap-8">
         <div className="relative md:w-[172px] md:flex-shrink-0">
           <div
-            className="flex items-center gap-2 overflow-x-auto border-b px-4 py-3 md:flex-col md:items-stretch md:gap-0.5 md:border-b-0 md:px-0 md:py-0 md:sticky md:top-20 scrollbar-hide"
+            className="flex items-center gap-2 overflow-x-auto border-b px-4 py-3 md:flex-col md:items-stretch md:gap-0.5 md:border-b-0 md:px-0 md:py-0 md:sticky md:top-4 scrollbar-hide"
             style={{
               borderColor: 'var(--border-default)',
               backgroundColor: 'transparent',
@@ -122,6 +115,6 @@ export default function LibraryPage() {
           {activeSection.render()}
         </div>
       </div>
-    </LibraryPageLayout>
+    </ImmersiveAppShell>
   )
 }

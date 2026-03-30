@@ -16,22 +16,31 @@ import MyFavoritesPage from './pages/MyFavoritesPage'
 import MyPage from './pages/MyPage'
 import InboxPage from './pages/InboxPage'
 import AppsPage from './pages/AppsPage'
+import AppsSkillLibraryPage from './pages/AppsSkillLibraryPage'
 import ArcadePage from './pages/ArcadePage'
 import ThinkingPage from './pages/ThinkingPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import FloatingActions from './components/FloatingActions'
+import { shouldHideGlobalChrome } from './utils/layoutChrome'
 
 function App() {
   const location = useLocation()
   const isAdminRoute = location.pathname.startsWith('/admin')
+  const hideGlobalChrome = !isAdminRoute && shouldHideGlobalChrome(location.pathname)
 
   return (
     <AppErrorBoundary>
       <div className="flex flex-col min-h-screen">
-        {isAdminRoute ? null : <TopNav />}
-        <main className={`flex-1 ${isAdminRoute ? '' : 'pt-14 pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]'}`}>
+        {isAdminRoute || hideGlobalChrome ? null : <TopNav />}
+        <main
+          className={`flex-1 ${
+            isAdminRoute || hideGlobalChrome
+              ? ''
+              : 'pt-14 pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]'
+          }`}
+        >
           <Routes>
             <Route path="/" element={<TopicList />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
@@ -44,15 +53,17 @@ function App() {
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/arcade" element={<ArcadePage />} />
             <Route path="/apps" element={<AppsPage />} />
+            <Route path="/apps/skills" element={<AppsSkillLibraryPage />} />
             <Route path="/thinking" element={<ThinkingPage />} />
             <Route path="/favorites" element={<MyFavoritesPage />} />
             <Route path="/topics/new" element={<CreateTopic />} />
             <Route path="/topics/:id" element={<TopicDetail />} />
             <Route path="/library" element={<Navigate to="/library/experts" replace />} />
+            <Route path="/library/skills" element={<Navigate to="/apps/skills" replace />} />
             <Route path="/library/:section" element={<LibraryPage />} />
             <Route path="/experts" element={<Navigate to="/library/experts" replace />} />
             <Route path="/experts/:name/edit" element={<ExpertEdit />} />
-            <Route path="/skills" element={<Navigate to="/library/skills" replace />} />
+            <Route path="/skills" element={<Navigate to="/apps/skills" replace />} />
             <Route path="/mcp" element={<Navigate to="/library/mcp" replace />} />
             <Route path="/moderator-modes" element={<Navigate to="/library/moderator-modes" replace />} />
             <Route path="/profile-helper/*" element={<ProfileHelperPage />} />
@@ -60,8 +71,8 @@ function App() {
             <Route path="/agent-links/:slug" element={<AgentLinkChatPage />} />
           </Routes>
         </main>
-        {isAdminRoute ? null : <Footer />}
-        {isAdminRoute ? null : <FloatingActions />}
+        {isAdminRoute || hideGlobalChrome ? null : <Footer />}
+        {isAdminRoute || hideGlobalChrome ? null : <FloatingActions />}
       </div>
     </AppErrorBoundary>
   )

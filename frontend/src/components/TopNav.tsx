@@ -4,13 +4,13 @@ import { createPortal } from 'react-dom'
 import { refreshCurrentUserProfile, tokenManager, User } from '../api/auth'
 import { inboxApi } from '../api/client'
 import { useMobileChromeHidden } from '../hooks/useMobileChromeHidden'
+import { shouldHideGlobalChrome } from '../utils/layoutChrome'
 
 const navLinks = [
   { to: '/', label: '话题列表', match: (path: string) => path === '/' && !path.startsWith('/topics') && !path.startsWith('/source-feed') && !path.startsWith('/library') && !path.startsWith('/profile-helper') && !path.startsWith('/agent-links') },
   { to: '/arcade', label: 'Arcade', match: (path: string) => path.startsWith('/arcade') },
   { to: '/source-feed', label: '信源', match: (path: string) => path.startsWith('/source-feed') },
   { to: '/apps', label: '应用', match: (path: string) => path.startsWith('/apps') },
-  { to: '/library', label: '库', match: (path: string) => path.startsWith('/library') || path.startsWith('/experts') || path.startsWith('/skills') || path.startsWith('/mcp') || path.startsWith('/moderator-modes') },
 ] as const
 
 const mobileTabs = [
@@ -38,6 +38,17 @@ const mobileTabs = [
     ),
   },
   {
+    to: '/apps',
+    label: '应用',
+    match: (path: string) => path.startsWith('/apps'),
+    icon: (
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4.75 17.25V6.75A1.75 1.75 0 016.5 5h11a1.75 1.75 0 011.75 1.75v10.5A1.75 1.75 0 0117.5 19h-11a1.75 1.75 0 01-1.75-1.75z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7.75 15.25l2.5-3 2.25 2 3.75-4.5" />
+      </svg>
+    ),
+  },
+  {
     to: '/arcade',
     label: 'Arcade',
     match: (path: string) => path.startsWith('/arcade'),
@@ -54,14 +65,8 @@ const mobileTabs = [
     match: (path: string) =>
       path.startsWith('/me') ||
       path.startsWith('/inbox') ||
-      path.startsWith('/apps') ||
       path.startsWith('/profile-helper') ||
-      path.startsWith('/favorites') ||
-      path.startsWith('/library') ||
-      path.startsWith('/experts') ||
-      path.startsWith('/skills') ||
-      path.startsWith('/mcp') ||
-      path.startsWith('/moderator-modes'),
+      path.startsWith('/favorites'),
     icon: (
       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 12a3.25 3.25 0 100-6.5 3.25 3.25 0 000 6.5z" />
@@ -211,8 +216,9 @@ export default function TopNav() {
     navigate('/')
   }
 
-  const hideNav = location.pathname === '/login' || location.pathname === '/register'
+  const hideNav = shouldHideGlobalChrome(location.pathname)
   const activeMobileTabIndex = Math.max(0, mobileTabs.findIndex((tab) => tab.match(location.pathname)))
+  const mobileTabCount = mobileTabs.length
 
   if (hideNav) {
     return null
@@ -418,19 +424,20 @@ export default function TopNav() {
       >
         <div className="mx-auto max-w-md">
           <div
-            className="relative grid h-[4.25rem] grid-cols-4 items-stretch rounded-[1.7rem] border p-1"
+            className="relative grid h-[4.25rem] items-stretch rounded-[1.7rem] border p-1"
             style={{
               background: 'linear-gradient(180deg, rgba(255,255,255,0.62) 0%, rgba(248,250,252,0.84) 100%)',
               borderColor: 'rgba(255, 255, 255, 0.34)',
               boxShadow: '0 18px 40px rgba(15, 23, 42, 0.12), 0 6px 18px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
               backdropFilter: 'blur(24px) saturate(1.25)',
+              gridTemplateColumns: `repeat(${mobileTabCount}, minmax(0, 1fr))`,
             }}
           >
             <div
               className="absolute inset-y-1 rounded-[1.35rem] transition-all duration-300 ease-out"
               style={{
-                left: `calc(0.25rem + ${activeMobileTabIndex} * ((100% - 0.5rem) / 4))`,
-                width: 'calc((100% - 0.5rem) / 4)',
+                left: `calc(0.25rem + ${activeMobileTabIndex} * ((100% - 0.5rem) / ${mobileTabCount}))`,
+                width: `calc((100% - 0.5rem) / ${mobileTabCount})`,
                 background: 'linear-gradient(180deg, rgba(241,245,249,0.98) 0%, rgba(226,232,240,0.92) 100%)',
                 boxShadow: '0 10px 18px rgba(148, 163, 184, 0.14), inset 0 1px 0 rgba(255,255,255,0.76)',
               }}

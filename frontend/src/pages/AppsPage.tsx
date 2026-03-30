@@ -14,6 +14,88 @@ type AppDisplayItem = AppCatalogItem & {
   install_command?: string
 }
 
+interface SkillHeroStyle {
+  background: string
+  borderColor: string
+  glowLeft: string
+  glowRight: string
+  shimmer: string
+  chipBackground: string
+  chipBorder: string
+  chipColor: string
+  actionBackground: string
+  actionBorder: string
+  actionColor: string
+}
+
+const APPS_SKILL_HERO = {
+  eyebrow: 'RESEARCH SKILL ZONE',
+  title: '科研 Skill 专区',
+  description: '面向科研工作流的 Skill 学科带。',
+  style: {
+    background: 'linear-gradient(135deg, rgba(238,247,240,0.98) 0%, rgba(226,241,229,0.98) 44%, rgba(214,234,220,0.98) 100%)',
+    borderColor: 'rgba(167, 201, 180, 0.8)',
+    glowLeft: 'radial-gradient(circle, rgba(34, 197, 94, 0.16) 0%, rgba(34, 197, 94, 0) 70%)',
+    glowRight: 'radial-gradient(circle, rgba(20, 184, 166, 0.14) 0%, rgba(20, 184, 166, 0) 72%)',
+    shimmer: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(240,253,244,0.26) 48%, rgba(255,255,255,0) 100%)',
+    chipBackground: 'rgba(255,255,255,0.58)',
+    chipBorder: 'rgba(255,255,255,0.68)',
+    chipColor: '#406255',
+    actionBackground: 'rgba(255,255,255,0.52)',
+    actionBorder: 'rgba(92,140,116,0.24)',
+    actionColor: '#325445',
+  } satisfies SkillHeroStyle,
+}
+
+const APPS_AI_TOPIC_HERO = {
+  eyebrow: 'AI TOPIC LAB',
+  title: 'AI 话题讨论专区',
+  description: '集中浏览角色库、讨论方式与 MCP 等资源，为话题讨论与智能体协作提供素材与配置入口。',
+  style: {
+    background: 'linear-gradient(135deg, rgba(238,242,255,0.98) 0%, rgba(224,231,255,0.96) 44%, rgba(199,210,254,0.45) 100%)',
+    borderColor: 'rgba(129, 140, 248, 0.65)',
+    glowLeft: 'radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0) 70%)',
+    glowRight: 'radial-gradient(circle, rgba(139, 92, 246, 0.16) 0%, rgba(139, 92, 246, 0) 72%)',
+    shimmer: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(238,242,255,0.4) 48%, rgba(255,255,255,0) 100%)',
+    chipBackground: 'rgba(255,255,255,0.58)',
+    chipBorder: 'rgba(255,255,255,0.72)',
+    chipColor: '#4338ca',
+    actionBackground: 'rgba(255,255,255,0.52)',
+    actionBorder: 'rgba(99,102,241,0.28)',
+    actionColor: '#3730a3',
+  } satisfies SkillHeroStyle,
+}
+
+const APPS_PROMO_AUTOPLAY_MS = 5000
+
+type AppsPromoTrack = {
+  id: string
+  eyebrow: string
+  title: string
+  description: string
+  style: SkillHeroStyle
+  cta: { to: string; label: string }
+}
+
+const appsPromoTracks: AppsPromoTrack[] = [
+  {
+    id: 'research-skill',
+    eyebrow: APPS_SKILL_HERO.eyebrow,
+    title: APPS_SKILL_HERO.title,
+    description: APPS_SKILL_HERO.description,
+    style: APPS_SKILL_HERO.style,
+    cta: { to: '/apps/skills', label: '进入 Skill 专区' },
+  },
+  {
+    id: 'ai-topic-library',
+    eyebrow: APPS_AI_TOPIC_HERO.eyebrow,
+    title: APPS_AI_TOPIC_HERO.title,
+    description: APPS_AI_TOPIC_HERO.description,
+    style: APPS_AI_TOPIC_HERO.style,
+    cta: { to: '/library', label: '进入资源库' },
+  },
+]
+
 function normalizeUrl(value?: string) {
   return (value || '').trim()
 }
@@ -76,11 +158,27 @@ function openFeedbackDraft(app: AppDisplayItem) {
 export default function AppsPage() {
   const navigate = useNavigate()
   const [apps, setApps] = useState<AppDisplayItem[]>([])
-  const [version, setVersion] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pendingTopicIds, setPendingTopicIds] = useState<Set<string>>(new Set())
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(new Set())
+  const [promoIndex, setPromoIndex] = useState(0)
+  const activePromo = appsPromoTracks[promoIndex]
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setPromoIndex((prev) => (prev === appsPromoTracks.length - 1 ? 0 : prev + 1))
+    }, APPS_PROMO_AUTOPLAY_MS)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const goPrevPromo = () => {
+    setPromoIndex((prev) => (prev === 0 ? appsPromoTracks.length - 1 : prev - 1))
+  }
+
+  const goNextPromo = () => {
+    setPromoIndex((prev) => (prev === appsPromoTracks.length - 1 ? 0 : prev + 1))
+  }
 
   useEffect(() => {
     let alive = true
@@ -92,7 +190,6 @@ export default function AppsPage() {
         const res = await appsApi.list()
         if (!alive) return
         setApps(res.data.list)
-        setVersion(res.data.version)
       } catch (err) {
         if (!alive) return
         setError(err instanceof Error ? err.message : '应用目录加载失败')
@@ -188,7 +285,7 @@ export default function AppsPage() {
           除了应用之外，您的 OpenClaw 也可以自主发现并使用我们准备的
           {' '}
           <Link
-            to="/library/skills"
+            to="/apps/skills"
             className="font-medium underline underline-offset-4 transition-opacity hover:opacity-80"
             style={{ color: 'var(--text-primary)' }}
           >
@@ -220,12 +317,147 @@ export default function AppsPage() {
             </a>
           ))}
         </div>
-        {version ? (
-          <p className="mt-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Catalog version: {version}
-          </p>
-        ) : null}
       </div>
+
+      <section
+        className="relative mt-6 min-h-[14rem] overflow-hidden rounded-[28px] border px-5 py-6 sm:min-h-[16rem] sm:rounded-[32px] sm:px-8 sm:py-10 lg:min-h-[17rem] lg:px-12 lg:py-12"
+        style={{
+          background: activePromo.style.background,
+          borderColor: activePromo.style.borderColor,
+          boxShadow: '0 24px 60px rgba(148, 163, 184, 0.14)',
+        }}
+      >
+        <div
+          className="animate-float-drift pointer-events-none absolute -left-20 top-[-4.5rem] h-64 w-64 rounded-full blur-3xl"
+          style={{ background: activePromo.style.glowLeft }}
+        />
+        <div
+          className="animate-float-drift-reverse pointer-events-none absolute right-[-4rem] top-10 h-72 w-72 rounded-full blur-3xl"
+          style={{ background: activePromo.style.glowRight }}
+        />
+        <div
+          className="animate-soft-shimmer pointer-events-none absolute inset-y-0 left-[-12%] w-[28%]"
+          style={{ background: activePromo.style.shimmer }}
+        />
+        <div
+          className="pointer-events-none absolute inset-x-10 top-0 h-px"
+          style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.78) 50%, rgba(255,255,255,0) 100%)' }}
+        />
+
+        <div className="grid min-h-[inherit] gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-10">
+          <div key={activePromo.id} className="animate-stage-enter-left flex min-h-[inherit] max-w-3xl flex-col justify-between">
+            <div>
+              <span
+                className="inline-flex items-center rounded-full px-3.5 py-1.5 text-[10px] tracking-[0.24em] sm:px-4 sm:text-[11px] sm:tracking-[0.28em]"
+                style={{
+                  color: activePromo.style.chipColor,
+                  backgroundColor: activePromo.style.chipBackground,
+                  backdropFilter: 'blur(12px)',
+                  border: `1px solid ${activePromo.style.chipBorder}`,
+                }}
+              >
+                {activePromo.eyebrow}
+              </span>
+
+              {activePromo.id === 'ai-topic-library' ? (
+                <Link
+                  to="/library"
+                  className="mt-5 block max-w-2xl rounded-2xl outline-none ring-offset-2 transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-indigo-300 motion-reduce:transition-none sm:mt-7"
+                >
+                  <h2 className="whitespace-pre-line text-[2.35rem] font-serif font-semibold leading-[0.94] sm:text-5xl sm:leading-[0.98] lg:text-[4.4rem]">
+                    <span style={{ color: '#1f2937', textShadow: '0 1px 0 rgba(255,255,255,0.65)' }}>
+                      {activePromo.title}
+                    </span>
+                  </h2>
+                  <p
+                    className="mt-4 max-w-md text-[13px] leading-6 sm:mt-6 sm:max-w-lg sm:text-[15px] sm:leading-7"
+                    style={{ color: '#64748b' }}
+                  >
+                    {activePromo.description}
+                  </p>
+                </Link>
+              ) : (
+                <>
+                  <h2 className="mt-5 max-w-2xl whitespace-pre-line text-[2.35rem] font-serif font-semibold leading-[0.94] sm:mt-7 sm:text-5xl sm:leading-[0.98] lg:text-[4.4rem]">
+                    <span style={{ color: '#1f2937', textShadow: '0 1px 0 rgba(255,255,255,0.65)' }}>
+                      {activePromo.title}
+                    </span>
+                  </h2>
+                  <p
+                    className="mt-4 max-w-md text-[13px] leading-6 sm:mt-6 sm:max-w-lg sm:text-[15px] sm:leading-7"
+                    style={{ color: '#64748b' }}
+                  >
+                    {activePromo.description}
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3 sm:mt-10">
+              <Link
+                to={activePromo.cta.to}
+                className="group relative z-10 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[13px] transition-all duration-300 hover:-translate-y-0.5 motion-reduce:transition-none sm:px-5 sm:py-2.5 sm:text-sm"
+                style={{
+                  borderColor: activePromo.style.actionBorder,
+                  color: activePromo.style.actionColor,
+                  backgroundColor: activePromo.style.actionBackground,
+                  backdropFilter: 'blur(12px)',
+                }}
+              >
+                {activePromo.cta.label}
+                <span className="transition-transform duration-300 group-hover:translate-x-1 motion-reduce:transition-none">↗</span>
+              </Link>
+
+              <div className="relative z-10 ml-1 flex items-center gap-2">
+                {appsPromoTracks.map((track, index) => (
+                  <button
+                    key={track.id}
+                    type="button"
+                    onClick={() => setPromoIndex(index)}
+                    className="h-2.5 rounded-full transition-all duration-300"
+                    style={{
+                      width: index === promoIndex ? '2rem' : '0.625rem',
+                      backgroundColor: index === promoIndex ? activePromo.style.actionColor : 'rgba(148,163,184,0.42)',
+                    }}
+                    aria-label={`切换到 ${track.title.replace('\n', '')}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="relative z-10 flex items-center justify-end gap-3 lg:pt-1">
+            <button
+              type="button"
+              onClick={goPrevPromo}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm transition-all duration-300 hover:-translate-y-0.5 motion-reduce:transition-none sm:h-12 sm:w-12 sm:text-base"
+              style={{
+                borderColor: activePromo.style.actionBorder,
+                backgroundColor: activePromo.style.actionBackground,
+                color: activePromo.style.actionColor,
+                backdropFilter: 'blur(10px)',
+              }}
+              aria-label="上一个板块"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={goNextPromo}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm transition-all duration-300 hover:-translate-y-0.5 motion-reduce:transition-none sm:h-12 sm:w-12 sm:text-base"
+              style={{
+                borderColor: activePromo.style.actionBorder,
+                backgroundColor: activePromo.style.actionBackground,
+                color: activePromo.style.actionColor,
+                backdropFilter: 'blur(10px)',
+              }}
+              aria-label="下一个板块"
+            >
+              →
+            </button>
+          </div>
+        </div>
+      </section>
 
       {loading ? (
         <div className="mt-6 rounded-[var(--radius-xl)] border p-5 text-sm" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>

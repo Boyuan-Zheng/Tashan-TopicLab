@@ -22,11 +22,13 @@ const myEntries = [
     title: '应用',
     description: '浏览精选研究工作流应用，查看工具介绍与外部文档入口。',
     to: '/apps',
+    hideOnMobile: true,
   },
   {
-    title: '库',
-    description: '浏览角色库、讨论方式库、技能库与 MCP 库。',
-    to: '/library',
+    title: '资源库',
+    description: '角色库、讨论方式与 MCP 等请从应用页进入。',
+    to: '/apps',
+    hideOnMobile: true,
   },
 ] as const
 
@@ -47,9 +49,9 @@ export default function MyPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {myEntries.map((entry) => (
           <Link
-            key={entry.to}
+            key={entry.title}
             to={entry.to}
-            className="group rounded-[var(--radius-lg)] border p-5 transition-all hover:-translate-y-0.5"
+            className={`group rounded-[var(--radius-lg)] border p-5 transition-all hover:-translate-y-0.5 ${'hideOnMobile' in entry && entry.hideOnMobile ? 'max-sm:hidden' : ''}`}
             style={{
               borderColor: 'var(--border-default)',
               backgroundColor: 'var(--bg-container)',
