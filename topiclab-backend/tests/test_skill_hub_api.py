@@ -58,16 +58,16 @@ def register_and_login(client, *, phone: str, username: str, password: str = "pa
 
 
 def test_skill_hub_public_seeded_routes(client):
-    skills = client.get("/api/v1/skill-hub/skills")
+    skills = client.get("/api/v1/skill-hub/skills?limit=100&sort=new")
     assert skills.status_code == 200, skills.text
     payload = skills.json()
-    assert payload["total"] == 1
-    assert [item["slug"] for item in payload["list"]] == ["research-dream"]
+    assert payload["total"] >= 260
 
     categories = client.get("/api/v1/skill-hub/categories")
     assert categories.status_code == 200, categories.text
     assert len(categories.json()["disciplines"]) == 14
     assert any(item["key"] == "general" for item in categories.json()["clusters"])
+    assert any(item["key"] == "ai" for item in categories.json()["clusters"])
 
     tasks = client.get("/api/v1/skill-hub/tasks", headers={"Authorization": "Bearer invalid"})
     assert tasks.status_code == 401, tasks.text
@@ -85,6 +85,31 @@ def test_skill_hub_public_seeded_routes(client):
     assert detail.status_code == 200, detail.text
     assert detail.json()["slug"] == "research-dream"
 
+    ai_detail = client.get("/api/v1/skill-hub/skills/ai-research-vllm")
+    assert ai_detail.status_code == 200, ai_detail.text
+    assert ai_detail.json()["cluster_key"] == "ai"
+    assert ai_detail.json()["category_key"] == "08"
+
+    scientific_detail = client.get("/api/v1/skill-hub/skills/claude-scientific-networkx")
+    assert scientific_detail.status_code == 200, scientific_detail.text
+    assert scientific_detail.json()["cluster_key"] == "general"
+    assert scientific_detail.json()["category_key"] == "07"
+
+    astro = client.get("/api/v1/skill-hub/skills/claude-scientific-astropy")
+    assert astro.status_code == 200, astro.text
+    assert astro.json()["category_key"] == "ast"
+    assert astro.json()["cluster_key"] == "general"
+
+    tf = client.get("/api/v1/skill-hub/skills/claude-scientific-transformers")
+    assert tf.status_code == 200, tf.text
+    assert tf.json()["category_key"] == "08"
+    assert tf.json()["cluster_key"] == "ai"
+
+    econ = client.get("/api/v1/skill-hub/skills/claude-scientific-alpha-vantage")
+    assert econ.status_code == 200, econ.text
+    assert econ.json()["category_key"] == "02"
+    assert econ.json()["cluster_key"] == "general"
+
     content = client.get("/api/v1/skill-hub/skills/research-dream/content")
     assert content.status_code == 200, content.text
     content_payload = content.json()
@@ -93,6 +118,14 @@ def test_skill_hub_public_seeded_routes(client):
     assert content_payload["content_type"] == "text/markdown"
     assert content_payload["format"] == "skill_md"
     assert "Research Dream" in content_payload["content"]
+
+    ai_content = client.get("/api/v1/skill-hub/skills/ai-research-vllm/content")
+    assert ai_content.status_code == 200, ai_content.text
+    assert "vllm" in ai_content.json()["content"].lower()
+
+    scientific_content = client.get("/api/v1/skill-hub/skills/claude-scientific-networkx/content")
+    assert scientific_content.status_code == 200, scientific_content.text
+    assert "networkx" in scientific_content.json()["content"].lower()
 
     guide = client.get("/api/v1/skill-hub/guide.md")
     assert guide.status_code == 200, guide.text
@@ -327,3 +360,27 @@ def test_skill_hub_download_wish_vote_and_points(client):
     leaderboard = client.get("/api/v1/skill-hub/leaderboard")
     assert leaderboard.status_code == 200, leaderboard.text
     assert any(item["slug"] == slug for item in leaderboard.json()["skills"])
+
+
+def test_claude_scientific_taxonomy_json_covers_meta_and_valid_keys():
+    import json
+    from pathlib import Path
+
+    from app.services.skill_hub import DISCIPLINES, RESEARCH_CLUSTERS
+
+    root = Path(__file__).resolve().parents[1]
+    repo = root.parent
+    meta_path = repo / "backend" / "libs" / "assignable_skills" / "claude-scientific" / "meta.json"
+    tax_path = root / "app" / "data" / "claude_scientific_taxonomy.json"
+    assert meta_path.is_file(), meta_path
+    assert tax_path.is_file(), tax_path
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    tax = json.loads(tax_path.read_text(encoding="utf-8"))
+    slugs_meta = {k.split(":", 1)[1] for k in meta.get("skills", {})}
+    assert slugs_meta == set(tax.keys())
+    dkeys = {d["key"] for d in DISCIPLINES}
+    ckeys = {c["key"] for c in RESEARCH_CLUSTERS}
+    for slug, entry in tax.items():
+        assert isinstance(entry, dict), slug
+        assert entry["category_key"] in dkeys, slug
+        assert entry["cluster_key"] in ckeys, slug

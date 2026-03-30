@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import functools
 import json
+import logging
 import os
 import re
 import secrets
@@ -27,6 +29,8 @@ from app.services.openclaw_runtime import (
 from app.services.resonnet_client import get_resonnet_base_url
 from app.storage.database.postgres_client import get_db_session
 
+logger = logging.getLogger(__name__)
+
 DISCIPLINES: list[dict[str, str]] = [
     {"key": "01", "name": "哲学", "summary": "问题定义、方法反思与概念辨析。"},
     {"key": "02", "name": "经济学", "summary": "政策、博弈、产业与量化分析。"},
@@ -50,6 +54,7 @@ RESEARCH_CLUSTERS: list[dict[str, str]] = [
     {"key": "med", "title": "医学与临床", "summary": "适合临床研究、医学影像、精准医疗与疾病分析。"},
     {"key": "labos", "title": "实验室自动化", "summary": "实验协议、机器人控制、LabOS 与实验流程编排。"},
     {"key": "vision", "title": "视觉与 XR", "summary": "图像分割、姿态估计、手势追踪与空间感知能力。"},
+    {"key": "ai", "title": "AI 与大模型", "summary": "围绕大模型架构、训练、推理、RAG、Agent 与模型工程。"},
     {"key": "general", "title": "数据科学", "summary": "统计学、机器学习、数据清洗、可视化与模型分析。"},
     {"key": "literature", "title": "文献检索", "summary": "学术搜索、数据库访问、文献筛选与知识整理。"},
 ]
@@ -57,6 +62,54 @@ RESEARCH_CLUSTERS: list[dict[str, str]] = [
 LEGACY_RESEARCH_DREAM_ID = "research-dream:research-dream"
 RESEARCH_DREAM_SLUG = "research-dream"
 RESEARCH_DREAM_INSTALL_COMMAND = "topiclab skills install research-dream"
+ASSIGNABLE_SOURCES_TO_IMPORT: tuple[str, ...] = ("ai-research", "claude-scientific")
+ASSIGNABLE_SOURCE_URLS: dict[str, str] = {
+    "ai-research": "https://github.com/Orchestra-Research/AI-Research-SKILLs",
+    "claude-scientific": "https://github.com/K-Dense-AI/claude-scientific-skills",
+}
+AI_RESEARCH_ENGINEERING_CATEGORIES = {
+    "08-distributed-training",
+    "09-infrastructure",
+    "12-inference-serving",
+    "13-mlops",
+}
+AI_RESEARCH_LITERATURE_CATEGORIES = {"20-ml-paper-writing", "21-research-ideation"}
+CLAUDE_SCIENTIFIC_CLUSTER_RULES: tuple[tuple[str, str], ...] = (
+    ("pharma", "pharma"),
+    ("medic", "med"),
+    ("clinic", "med"),
+    ("imaging", "vision"),
+    ("image", "vision"),
+    ("vision", "vision"),
+    ("microscopy", "vision"),
+    ("segment", "vision"),
+    ("benchling", "labos"),
+    ("protocol", "labos"),
+    ("lab", "labos"),
+    ("robot", "labos"),
+    ("automation", "labos"),
+    ("workflow", "labos"),
+    ("genom", "bio"),
+    ("prote", "bio"),
+    ("rna", "bio"),
+    ("single-cell", "bio"),
+    ("bioinformatics", "bio"),
+    ("biolog", "bio"),
+    ("omics", "bio"),
+    ("chem", "pharma"),
+    ("drug", "pharma"),
+    ("molecul", "pharma"),
+    ("compound", "pharma"),
+    ("docking", "pharma"),
+    ("citation", "literature"),
+    ("paper", "literature"),
+    ("pubmed", "literature"),
+    ("scholar", "literature"),
+    ("search", "literature"),
+    ("lookup", "literature"),
+    ("zotero", "literature"),
+    ("literature", "literature"),
+)
 DEMO_SKILL_SLUGS = (
     "scanpy-pipeline",
     "literature-map",
@@ -215,6 +268,35 @@ def _research_dream_meta_path() -> Path:
     return _repo_root() / "backend" / "libs" / "assignable_skills" / "research-dream" / "meta.json"
 
 
+def _assignable_skills_root() -> Path:
+    configured = os.getenv("ASSIGNABLE_SKILLS_ROOT", "").strip()
+    candidates = []
+    if configured:
+        candidates.append(Path(configured))
+    candidates.extend(
+        [
+            _repo_root() / "backend" / "libs" / "assignable_skills",
+            Path("/app/libs/assignable_skills"),
+        ]
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+def _assignable_source_meta_path(source: str) -> Path:
+    return _assignable_skills_root() / source / "meta.json"
+
+
+def _split_assignable_skill_id(skill_id: str) -> tuple[str | None, str]:
+    raw = skill_id.removesuffix(".md") if skill_id.endswith(".md") else skill_id
+    if ":" in raw:
+        source, slug = raw.split(":", 1)
+        return source, slug
+    return None, raw
+
+
 def _extract_frontmatter_value(content: str, key: str) -> str | None:
     match = re.search(rf"^{re.escape(key)}:\s*(.+)$", content, re.MULTILINE)
     if not match:
@@ -300,6 +382,205 @@ def _load_research_dream_source() -> dict[str, Any]:
     return _load_research_dream_from_files()
 
 
+def _resolve_assignable_skill_path(source: str, skill_id: str, *, category: str, skills_dir: str) -> Path | None:
+    _, slug = _split_assignable_skill_id(skill_id)
+    base_dir = _assignable_skills_root()
+    submodules = base_dir / "_submodules" / source
+    if not submodules.exists():
+        return None
+    candidates: list[Path] = []
+    if category and category != "general":
+        candidates.append(submodules / skills_dir / category / slug / "SKILL.md")
+    else:
+        if skills_dir == ".":
+            candidates.append(submodules / "SKILL.md")
+        candidates.append(submodules / skills_dir / slug / "SKILL.md")
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _map_category_name(category: str, categories: dict[str, Any]) -> str:
+    entry = categories.get(category) if isinstance(categories, dict) else None
+    if isinstance(entry, dict):
+        return str(entry.get("name") or category).strip() or category
+    return category
+
+
+def _discipline_name_for(key: str) -> str:
+    return next((item["name"] for item in DISCIPLINES if item["key"] == key), key)
+
+
+def _cluster_title_for(key: str) -> str:
+    return next((item["title"] for item in RESEARCH_CLUSTERS if item["key"] == key), key)
+
+
+def _infer_ai_research_taxonomy(category: str) -> tuple[str, str]:
+    if category in AI_RESEARCH_ENGINEERING_CATEGORIES:
+        return "08", "ai"
+    if category in AI_RESEARCH_LITERATURE_CATEGORIES:
+        return "07", "literature"
+    return "07", "ai"
+
+
+def _infer_claude_scientific_cluster(*, slug: str, description: str, category_name: str) -> str:
+    haystack = " ".join([slug.lower(), description.lower(), category_name.lower()])
+    for needle, cluster_key in CLAUDE_SCIENTIFIC_CLUSTER_RULES:
+        if needle in haystack:
+            return cluster_key
+    return "general"
+
+
+def _infer_claude_scientific_taxonomy(*, slug: str, description: str, category_name: str) -> tuple[str, str]:
+    cluster_key = _infer_claude_scientific_cluster(slug=slug, description=description, category_name=category_name)
+    if cluster_key in {"med", "pharma"}:
+        return "10", cluster_key
+    if cluster_key in {"vision", "labos"}:
+        return "08", cluster_key
+    if cluster_key == "literature":
+        return "07", cluster_key
+    if cluster_key == "bio":
+        return "07", cluster_key
+    if cluster_key == "ai":
+        return "08", cluster_key
+    return "07", "general"
+
+
+def _claude_scientific_taxonomy_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "data" / "claude_scientific_taxonomy.json"
+
+
+@functools.lru_cache(maxsize=1)
+def _claude_scientific_taxonomy_table() -> dict[str, tuple[str, str]]:
+    path = _claude_scientific_taxonomy_path()
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    out: dict[str, tuple[str, str]] = {}
+    for slug, entry in payload.items():
+        if not isinstance(entry, dict):
+            continue
+        ck = str(entry.get("category_key") or "").strip()
+        sk = str(entry.get("cluster_key") or "").strip()
+        if ck and sk:
+            out[str(slug).strip()] = (ck, sk)
+    return out
+
+
+def _resolve_claude_scientific_taxonomy(*, slug: str, description: str, category_name: str) -> tuple[str, str]:
+    table = _claude_scientific_taxonomy_table()
+    hit = table.get(slug)
+    if hit is not None:
+        return hit
+    logger.warning(
+        "claude-scientific skill %r missing from claude_scientific_taxonomy.json; using heuristic taxonomy",
+        slug,
+    )
+    return _infer_claude_scientific_taxonomy(slug=slug, description=description, category_name=category_name)
+
+
+def _normalize_assignable_skill_source(
+    *,
+    source: str,
+    skill_id: str,
+    skill_info: dict[str, Any],
+    categories: dict[str, Any],
+    skills_dir: str,
+    source_name: str,
+    source_url: str,
+) -> dict[str, Any] | None:
+    category = str(skill_info.get("category") or "").strip()
+    category_name = _map_category_name(category, categories)
+    source_path = _resolve_assignable_skill_path(source, skill_id, category=category, skills_dir=skills_dir)
+    if source_path is None or not source_path.exists():
+        return None
+    content = source_path.read_text(encoding="utf-8")
+    _, legacy_slug = _split_assignable_skill_id(skill_id)
+    frontmatter_name = _extract_frontmatter_value(content, "name")
+    raw_name = str(skill_info.get("name") or frontmatter_name or legacy_slug).strip() or legacy_slug
+    description = str(skill_info.get("description") or _extract_frontmatter_value(content, "description") or "").strip()
+    summary = str(skill_info.get("introduction") or description or raw_name).strip()
+    if source == "ai-research":
+        discipline_key, cluster_key = _infer_ai_research_taxonomy(category)
+    else:
+        discipline_key, cluster_key = _resolve_claude_scientific_taxonomy(
+            slug=legacy_slug,
+            description=description,
+            category_name=category_name,
+        )
+    tags = [source, legacy_slug]
+    if category:
+        tags.append(category)
+    if category_name and category_name != category:
+        tags.append(category_name)
+    tags.append(_cluster_title_for(cluster_key))
+    deduped_tags = list(dict.fromkeys(tag for tag in tags if tag))
+    return {
+        "slug": _slugify(f"{source}-{legacy_slug}"),
+        "legacy_id": skill_id,
+        "name": raw_name,
+        "summary": summary,
+        "description": description or summary,
+        "content_markdown": content,
+        "source_url": source_url,
+        "source_name": source_name,
+        "docs_url": source_url,
+        "category_key": discipline_key,
+        "category_name": _discipline_name_for(discipline_key),
+        "cluster_key": cluster_key,
+        "cluster_name": _cluster_title_for(cluster_key),
+        "tags": deduped_tags,
+        "capabilities": [category_name] if category_name else [],
+        "framework": "openclaw",
+        "compatibility_level": "install",
+        "pricing_status": "free",
+        "price_points": 0,
+        "license": None,
+        "install_command": f"topiclab skills install {_slugify(f'{source}-{legacy_slug}')}",
+        "latest_version": "1.0.0",
+        "openclaw_ready": True,
+        "featured": False,
+        "hero_note": f"来自 {source_name} 技能库。",
+    }
+
+
+def _load_assignable_source_entries(source: str) -> list[dict[str, Any]]:
+    meta_path = _assignable_source_meta_path(source)
+    if not meta_path.exists():
+        return []
+    payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return []
+    categories = payload.get("categories") if isinstance(payload.get("categories"), dict) else {}
+    skills = payload.get("skills") if isinstance(payload.get("skills"), dict) else {}
+    skills_dir = str(payload.get("skills_dir") or ".").strip() or "."
+    source_url = ASSIGNABLE_SOURCE_URLS.get(source, "")
+    source_name = source.replace("-", " ").title()
+    entries: list[dict[str, Any]] = []
+    for skill_id, skill_info in skills.items():
+        if not isinstance(skill_info, dict):
+            continue
+        normalized = _normalize_assignable_skill_source(
+            source=source,
+            skill_id=skill_id,
+            skill_info=skill_info,
+            categories=categories,
+            skills_dir=skills_dir,
+            source_name=source_name,
+            source_url=source_url,
+        )
+        if normalized is not None:
+            entries.append(normalized)
+    entries.sort(key=lambda item: item["slug"])
+    return entries
+
+
 def _build_skill_summary(row, *, viewer_favorited: bool = False) -> dict[str, Any]:
     return {
         "id": int(row.id),
@@ -355,6 +636,167 @@ def _resolve_viewer_favorites(session, *, user_agent_id: int | None, skill_ids: 
     return {int(row.skill_id) for row in rows}
 
 
+def _upsert_seeded_skill(session, *, source: dict[str, Any], now: datetime) -> int:
+    existing = session.execute(
+        text("SELECT id FROM skill_hub_skills WHERE slug = :slug LIMIT 1"),
+        {"slug": source["slug"]},
+    ).fetchone()
+    skill_params = {
+        "slug": source["slug"],
+        "name": source["name"],
+        "tagline": source.get("summary"),
+        "summary": source["summary"],
+        "description": source["description"],
+        "category_key": source["category_key"],
+        "category_name": source["category_name"],
+        "cluster_key": source["cluster_key"],
+        "cluster_name": source["cluster_name"],
+        "tags_json": _json_dumps(source.get("tags")),
+        "capabilities_json": _json_dumps(source.get("capabilities")),
+        "framework": source["framework"],
+        "compatibility_level": source["compatibility_level"],
+        "pricing_status": source["pricing_status"],
+        "price_points": int(source.get("price_points") or 0),
+        "license": source.get("license"),
+        "source_url": source.get("source_url"),
+        "source_name": source.get("source_name"),
+        "docs_url": source.get("docs_url"),
+        "install_command": source["install_command"],
+        "latest_version": source["latest_version"],
+        "openclaw_ready": bool(source.get("openclaw_ready", True)),
+        "featured": bool(source.get("featured", False)),
+        "hero_note": source.get("hero_note"),
+        "updated_at": now,
+        "published_at": now,
+    }
+    if existing is None:
+        inserted = session.execute(
+            text(
+                """
+                INSERT INTO skill_hub_skills (
+                    slug, name, tagline, summary, description,
+                    category_key, category_name, cluster_key, cluster_name,
+                    tags_json, capabilities_json, framework, compatibility_level,
+                    pricing_status, price_points, license, source_url, source_name,
+                    docs_url, install_command, latest_version, openclaw_ready, featured,
+                    hero_note, total_reviews, avg_rating, total_favorites, total_downloads,
+                    weekly_downloads, status, created_at, updated_at, published_at
+                ) VALUES (
+                    :slug, :name, :tagline, :summary, :description,
+                    :category_key, :category_name, :cluster_key, :cluster_name,
+                    :tags_json, :capabilities_json, :framework, :compatibility_level,
+                    :pricing_status, :price_points, :license, :source_url, :source_name,
+                    :docs_url, :install_command, :latest_version, :openclaw_ready, :featured,
+                    :hero_note, 0, 0, 0, 0,
+                    0, 'published', :created_at, :updated_at, :published_at
+                )
+                RETURNING id
+                """
+            ),
+            {**skill_params, "created_at": now},
+        ).fetchone()
+        skill_id = int(inserted.id)
+    else:
+        skill_id = int(existing.id)
+        session.execute(
+            text(
+                """
+                UPDATE skill_hub_skills
+                SET name = :name,
+                    tagline = :tagline,
+                    summary = :summary,
+                    description = :description,
+                    category_key = :category_key,
+                    category_name = :category_name,
+                    cluster_key = :cluster_key,
+                    cluster_name = :cluster_name,
+                    tags_json = :tags_json,
+                    capabilities_json = :capabilities_json,
+                    framework = :framework,
+                    compatibility_level = :compatibility_level,
+                    pricing_status = :pricing_status,
+                    price_points = :price_points,
+                    license = :license,
+                    source_url = :source_url,
+                    source_name = :source_name,
+                    docs_url = :docs_url,
+                    install_command = :install_command,
+                    latest_version = :latest_version,
+                    openclaw_ready = :openclaw_ready,
+                    featured = :featured,
+                    hero_note = :hero_note,
+                    updated_at = :updated_at,
+                    published_at = :published_at
+                WHERE id = :skill_id
+                """
+            ),
+            {**skill_params, "skill_id": skill_id},
+        )
+    session.execute(text("UPDATE skill_hub_skill_versions SET is_latest = FALSE WHERE skill_id = :skill_id"), {"skill_id": skill_id})
+    version_row = session.execute(
+        text(
+            """
+            SELECT id
+            FROM skill_hub_skill_versions
+            WHERE skill_id = :skill_id AND version = :version
+            LIMIT 1
+            """
+        ),
+        {"skill_id": skill_id, "version": source["latest_version"]},
+    ).fetchone()
+    version_params = {
+        "skill_id": skill_id,
+        "version": source["latest_version"],
+        "changelog": f"Imported from {source.get('source_name') or 'legacy assignable'} source.",
+        "content_markdown": source["content_markdown"],
+        "install_command": source["install_command"],
+        "manifest_json": _json_dumps(
+            {
+                "slug": source["slug"],
+                "legacy_id": source["legacy_id"],
+                "name": source["name"],
+                "framework": source["framework"],
+                "compatibility_level": source["compatibility_level"],
+                "source_name": source.get("source_name"),
+            }
+        ),
+        "created_at": now,
+    }
+    if version_row is None:
+        session.execute(
+            text(
+                """
+                INSERT INTO skill_hub_skill_versions (
+                    skill_id, version, changelog, content_markdown, artifact_filename, artifact_path,
+                    artifact_content_type, artifact_size, install_command, manifest_json,
+                    is_latest, created_at
+                ) VALUES (
+                    :skill_id, :version, :changelog, :content_markdown, NULL, NULL,
+                    NULL, 0, :install_command, :manifest_json,
+                    TRUE, :created_at
+                )
+                """
+            ),
+            version_params,
+        )
+    else:
+        session.execute(
+            text(
+                """
+                UPDATE skill_hub_skill_versions
+                SET changelog = :changelog,
+                    content_markdown = :content_markdown,
+                    install_command = :install_command,
+                    manifest_json = :manifest_json,
+                    is_latest = TRUE
+                WHERE id = :version_id
+                """
+            ),
+            {**version_params, "version_id": int(version_row.id)},
+        )
+    return skill_id
+
+
 def ensure_skill_hub_seed_data(session=None) -> None:
     owns_session = session is None
     if owns_session:
@@ -375,103 +817,13 @@ def ensure_skill_hub_seed_data(session=None) -> None:
         session.execute(text("DELETE FROM skill_hub_task_events"))
         session.execute(text("DELETE FROM skill_hub_task_defs"))
 
-        source = _load_research_dream_source()
-        existing = session.execute(
-            text("SELECT id FROM skill_hub_skills WHERE slug = :slug LIMIT 1"),
-            {"slug": RESEARCH_DREAM_SLUG},
-        ).fetchone()
         now = _now()
-        skill_params = {
-            "slug": source["slug"],
-            "name": source["name"],
-            "tagline": source.get("summary"),
-            "summary": source["summary"],
-            "description": source["description"],
-            "category_key": source["category_key"],
-            "category_name": source["category_name"],
-            "cluster_key": source["cluster_key"],
-            "cluster_name": source["cluster_name"],
-            "tags_json": _json_dumps(source.get("tags")),
-            "capabilities_json": _json_dumps(source.get("capabilities")),
-            "framework": source["framework"],
-            "compatibility_level": source["compatibility_level"],
-            "pricing_status": source["pricing_status"],
-            "price_points": int(source.get("price_points") or 0),
-            "license": source.get("license"),
-            "source_url": source.get("source_url"),
-            "source_name": source.get("source_name"),
-            "docs_url": source.get("docs_url"),
-            "install_command": source["install_command"],
-            "latest_version": source["latest_version"],
-            "openclaw_ready": bool(source.get("openclaw_ready", True)),
-            "featured": bool(source.get("featured", True)),
-            "hero_note": source.get("hero_note"),
-            "updated_at": now,
-            "published_at": now,
-        }
-        if existing is None:
-            inserted = session.execute(
-                text(
-                    """
-                    INSERT INTO skill_hub_skills (
-                        slug, name, tagline, summary, description,
-                        category_key, category_name, cluster_key, cluster_name,
-                        tags_json, capabilities_json, framework, compatibility_level,
-                        pricing_status, price_points, license, source_url, source_name,
-                        docs_url, install_command, latest_version, openclaw_ready, featured,
-                        hero_note, total_reviews, avg_rating, total_favorites, total_downloads,
-                        weekly_downloads, status, created_at, updated_at, published_at
-                    ) VALUES (
-                        :slug, :name, :tagline, :summary, :description,
-                        :category_key, :category_name, :cluster_key, :cluster_name,
-                        :tags_json, :capabilities_json, :framework, :compatibility_level,
-                        :pricing_status, :price_points, :license, :source_url, :source_name,
-                        :docs_url, :install_command, :latest_version, :openclaw_ready, :featured,
-                        :hero_note, 0, 0, 0, 0,
-                        0, 'published', :created_at, :updated_at, :published_at
-                    )
-                    RETURNING id
-                    """
-                ),
-                {**skill_params, "created_at": now},
-            ).fetchone()
-            skill_id = int(inserted.id)
-        else:
-            skill_id = int(existing.id)
-            session.execute(
-                text(
-                    """
-                    UPDATE skill_hub_skills
-                    SET name = :name,
-                        tagline = :tagline,
-                        summary = :summary,
-                        description = :description,
-                        category_key = :category_key,
-                        category_name = :category_name,
-                        cluster_key = :cluster_key,
-                        cluster_name = :cluster_name,
-                        tags_json = :tags_json,
-                        capabilities_json = :capabilities_json,
-                        framework = :framework,
-                        compatibility_level = :compatibility_level,
-                        pricing_status = :pricing_status,
-                        price_points = :price_points,
-                        license = :license,
-                        source_url = :source_url,
-                        source_name = :source_name,
-                        docs_url = :docs_url,
-                        install_command = :install_command,
-                        latest_version = :latest_version,
-                        openclaw_ready = :openclaw_ready,
-                        featured = :featured,
-                        hero_note = :hero_note,
-                        updated_at = :updated_at,
-                        published_at = :published_at
-                    WHERE id = :skill_id
-                    """
-                ),
-                {**skill_params, "skill_id": skill_id},
-            )
+        seeded_sources = [_load_research_dream_source()]
+        for source_name in ASSIGNABLE_SOURCES_TO_IMPORT:
+            seeded_sources.extend(_load_assignable_source_entries(source_name))
+        slug_to_skill_id: dict[str, int] = {}
+        for source in seeded_sources:
+            slug_to_skill_id[source["slug"]] = _upsert_seeded_skill(session, source=source, now=now)
         for task in DEFAULT_TASK_DEFS:
             session.execute(
                 text(
@@ -512,7 +864,8 @@ def ensure_skill_hub_seed_data(session=None) -> None:
                 },
             ).fetchone()
             for position, collection_skill_slug in enumerate(collection["skill_slugs"]):
-                if collection_skill_slug != RESEARCH_DREAM_SLUG:
+                skill_id = slug_to_skill_id.get(collection_skill_slug)
+                if skill_id is None:
                     continue
                 session.execute(
                     text(
@@ -531,67 +884,6 @@ def ensure_skill_hub_seed_data(session=None) -> None:
                         "created_at": now,
                     },
                 )
-        session.execute(text("UPDATE skill_hub_skill_versions SET is_latest = FALSE WHERE skill_id = :skill_id"), {"skill_id": skill_id})
-        version_row = session.execute(
-            text(
-                """
-                SELECT id
-                FROM skill_hub_skill_versions
-                WHERE skill_id = :skill_id AND version = :version
-                LIMIT 1
-                """
-            ),
-            {"skill_id": skill_id, "version": source["latest_version"]},
-        ).fetchone()
-        version_params = {
-            "skill_id": skill_id,
-            "version": source["latest_version"],
-            "changelog": "Imported from Research-Dream legacy assignable source.",
-            "content_markdown": source["content_markdown"],
-            "install_command": source["install_command"],
-            "manifest_json": _json_dumps(
-                {
-                    "slug": source["slug"],
-                    "legacy_id": source["legacy_id"],
-                    "name": source["name"],
-                    "framework": source["framework"],
-                    "compatibility_level": source["compatibility_level"],
-                }
-            ),
-            "created_at": now,
-        }
-        if version_row is None:
-            session.execute(
-                text(
-                    """
-                    INSERT INTO skill_hub_skill_versions (
-                        skill_id, version, changelog, content_markdown, artifact_filename, artifact_path,
-                        artifact_content_type, artifact_size, install_command, manifest_json,
-                        is_latest, created_at
-                    ) VALUES (
-                        :skill_id, :version, :changelog, :content_markdown, NULL, NULL,
-                        NULL, 0, :install_command, :manifest_json,
-                        TRUE, :created_at
-                    )
-                    """
-                ),
-                version_params,
-            )
-        else:
-            session.execute(
-                text(
-                    """
-                    UPDATE skill_hub_skill_versions
-                    SET changelog = :changelog,
-                        content_markdown = :content_markdown,
-                        install_command = :install_command,
-                        manifest_json = :manifest_json,
-                        is_latest = TRUE
-                    WHERE id = :version_id
-                    """
-                ),
-                {**version_params, "version_id": int(version_row.id)},
-            )
     finally:
         if owns_session:
             ctx.__exit__(None, None, None)

@@ -5,7 +5,7 @@ import type { SkillHubCategoriesResponse, SkillHubLeaderboard, SkillHubSkillSumm
 import { skillHubApi } from '../api/client'
 import { FloatingActionButton } from '../components/FloatingActions'
 import ImmersiveAppShell from '../components/ImmersiveAppShell'
-import { CategoryStrip, SkillCard } from './skillHubShared'
+import { CategoryStrip, ClusterStrip, SkillCard } from './skillHubShared'
 
 const SORT_OPTIONS = [
   { key: 'hot', label: '热门' },
@@ -17,6 +17,7 @@ export default function AppsSkillLibraryPage() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
+  const [cluster, setCluster] = useState('')
   const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]['key']>('hot')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -32,7 +33,13 @@ export default function AppsSkillLibraryPage() {
         setLoading(true)
         setError(null)
         const [skillsRes, categoriesRes, leaderboardRes] = await Promise.all([
-          skillHubApi.listSkills({ category, q: query || undefined, sort, limit: 12 }),
+          skillHubApi.listSkills({
+            category,
+            cluster: cluster || undefined,
+            q: query || undefined,
+            sort,
+            limit: 12,
+          }),
           skillHubApi.listCategories(),
           skillHubApi.listLeaderboard(),
         ])
@@ -52,7 +59,7 @@ export default function AppsSkillLibraryPage() {
     return () => {
       alive = false
     }
-  }, [category, sort, query])
+  }, [category, cluster, sort, query])
 
   const hotUsers = useMemo(() => leaderboard?.users.slice(0, 5) ?? [], [leaderboard])
 
@@ -70,12 +77,22 @@ export default function AppsSkillLibraryPage() {
           科研 Skill 专区
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-7 sm:text-[15px]" style={{ color: 'var(--text-secondary)' }}>
-          面向科研场景的可安装技能目录：按学科筛选，支持搜索与热门 / 高分 / 最新排序；可查看详情与作者排行，并参与评测、许愿、发布与个人管理。
+          面向科研场景的可安装技能目录：按一级学科与研究领域（Cluster）筛选，支持搜索与热门 / 高分 / 最新排序；可查看详情与作者排行，并参与评测、许愿、发布与个人管理。
         </p>
       </section>
 
-      <section className="mt-6">
+      <section className="mt-6 space-y-2">
+        <p className="text-xs font-medium tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+          一级学科
+        </p>
         <CategoryStrip disciplines={categories?.disciplines ?? []} activeKey={category} onChange={setCategory} />
+      </section>
+
+      <section className="mt-5 space-y-2">
+        <p className="text-xs font-medium tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+          研究领域（Cluster）
+        </p>
+        <ClusterStrip clusters={categories?.clusters ?? []} activeKey={cluster} onChange={setCluster} />
       </section>
 
       <section className="mt-6 flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: 'var(--border-default)' }}>

@@ -9,6 +9,7 @@ interface OpenClawSiteStats {
   replies_count: number
   likes_count: number
   favorites_count: number
+  skills_count: number
 }
 
 const EMPTY_SITE_STATS: OpenClawSiteStats = {
@@ -17,6 +18,7 @@ const EMPTY_SITE_STATS: OpenClawSiteStats = {
   replies_count: 0,
   likes_count: 0,
   favorites_count: 0,
+  skills_count: 0,
 }
 
 function buildSkillUrl(rawKey?: string | null): string {
@@ -112,6 +114,7 @@ export default function OpenClawSkillCard() {
             replies_count: data.site_stats?.replies_count ?? 0,
             likes_count: data.site_stats?.likes_count ?? 0,
             favorites_count: data.site_stats?.favorites_count ?? 0,
+            skills_count: data.site_stats?.skills_count ?? 0,
           })
         }
       } catch {
@@ -134,6 +137,7 @@ export default function OpenClawSkillCard() {
     { label: '回帖数量', value: siteStats.replies_count },
     { label: '点赞数量', value: siteStats.likes_count },
     { label: '收藏数量', value: siteStats.favorites_count },
+    { label: 'Skills 数量', value: siteStats.skills_count },
   ]
 
   const handleCopy = async () => {
@@ -268,7 +272,7 @@ export default function OpenClawSkillCard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {siteMetrics.map((metric) => (
             <div
               key={metric.label}

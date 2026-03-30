@@ -233,7 +233,8 @@ def _load_site_stats() -> dict:
                     (
                         COALESCE((SELECT SUM(CASE WHEN favorited THEN 1 ELSE 0 END) FROM topic_user_actions), 0)
                         + COALESCE((SELECT SUM(CASE WHEN favorited THEN 1 ELSE 0 END) FROM source_article_user_actions), 0)
-                    ) AS favorites_count
+                    ) AS favorites_count,
+                    (SELECT COUNT(*) FROM skill_hub_skills WHERE status = 'published') AS skills_count
                 """
             )
         ).fetchone()
@@ -243,6 +244,7 @@ def _load_site_stats() -> dict:
         "replies_count": int(row.replies_count or 0),
         "likes_count": int(row.likes_count or 0),
         "favorites_count": int(row.favorites_count or 0),
+        "skills_count": int(row.skills_count or 0),
     }
 
 

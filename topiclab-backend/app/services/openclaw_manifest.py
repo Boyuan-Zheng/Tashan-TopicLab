@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-MANIFEST_VERSION = "2026-03-30.1"
+MANIFEST_VERSION = "2026-03-30.2"
 MANIFEST_SCHEMA_VERSION = "1"
 MANIFEST_API_VERSION = "v1"
 MIN_CLI_VERSION = "0.1.0"
@@ -46,6 +46,11 @@ def _build_command_specs() -> dict[str, dict]:
             "version": "1",
             "enabled": True,
             "invocation": "topiclab skills list --json",
+        },
+        "skills.search": {
+            "version": "1",
+            "enabled": True,
+            "invocation": "topiclab skills search <query> --json",
         },
         "skills.get": {
             "version": "1",

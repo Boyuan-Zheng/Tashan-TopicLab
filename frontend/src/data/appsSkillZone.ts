@@ -33,6 +33,7 @@ export const RESEARCH_SKILL_CLUSTERS: ResearchSkillCluster[] = [
   { key: 'med', title: '医学与临床', summary: '适合临床研究、医学影像、精准医疗与疾病分析。' },
   { key: 'labos', title: '实验室自动化', summary: '实验协议、机器人控制、LabOS 与实验流程编排。' },
   { key: 'vision', title: '视觉与 XR', summary: '图像分割、姿态估计、手势追踪与空间感知能力。' },
+  { key: 'ai', title: 'AI 与大模型', summary: '围绕大模型架构、训练、推理、RAG、Agent 与模型工程。' },
   { key: 'general', title: '数据科学', summary: '统计学、机器学习、数据清洗、可视化与模型分析。' },
   { key: 'literature', title: '文献检索', summary: '学术搜索、数据库访问、文献筛选与知识整理。' },
 ]

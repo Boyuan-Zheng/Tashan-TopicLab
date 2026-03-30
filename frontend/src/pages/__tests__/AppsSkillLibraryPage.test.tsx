@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -45,37 +45,36 @@ describe('SkillHub pages', () => {
     vi.clearAllMocks()
     localStorage.clear()
 
-    mockedListSkills
-      .mockResolvedValueOnce({
-        data: {
-          list: [
-            {
-              id: 1,
-              slug: 'literature-map',
-              name: 'Literature Map',
-              summary: 'Build a paper graph',
-              tagline: 'map papers fast',
-              category_key: '07',
-              category_name: '信息科学',
-              cluster_key: 'literature',
-              cluster_name: '文献检索',
-              compatibility_level: 'install',
-              openclaw_ready: true,
-              tags: ['papers', 'graph'],
-              capabilities: ['search'],
-              avg_rating: 4.7,
-              total_reviews: 8,
-              total_downloads: 33,
-              total_favorites: 4,
-              weekly_downloads: 11,
-              price_points: 0,
-            },
-          ],
-          total: 1,
-          limit: 12,
-          offset: 0,
-        },
-      } as any)
+    mockedListSkills.mockResolvedValue({
+      data: {
+        list: [
+          {
+            id: 1,
+            slug: 'literature-map',
+            name: 'Literature Map',
+            summary: 'Build a paper graph',
+            tagline: 'map papers fast',
+            category_key: '07',
+            category_name: '信息科学',
+            cluster_key: 'literature',
+            cluster_name: '文献检索',
+            compatibility_level: 'install',
+            openclaw_ready: true,
+            tags: ['papers', 'graph'],
+            capabilities: ['search'],
+            avg_rating: 4.7,
+            total_reviews: 8,
+            total_downloads: 33,
+            total_favorites: 4,
+            weekly_downloads: 11,
+            price_points: 0,
+          },
+        ],
+        total: 1,
+        limit: 12,
+        offset: 0,
+      },
+    } as any)
 
     mockedListCategories.mockResolvedValue({
       data: {
@@ -96,13 +95,36 @@ describe('SkillHub pages', () => {
   it('renders the new SkillHub home with real API data', async () => {
     renderSkillHubHome()
 
-    expect(await screen.findByText('面向科研场景的可安装技能目录：按学科筛选，支持搜索与热门 / 高分 / 最新排序；可查看详情与作者排行，并参与评测、许愿、发布与个人管理。')).toBeInTheDocument()
+    expect(
+      await screen.findByText(
+        '面向科研场景的可安装技能目录：按一级学科与研究领域（Cluster）筛选，支持搜索与热门 / 高分 / 最新排序；可查看详情与作者排行，并参与评测、许愿、发布与个人管理。',
+      ),
+    ).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: '技能列表' })).toBeInTheDocument()
     expect((await screen.findAllByText('文献检索')).length).toBeGreaterThan(0)
     expect((await screen.findAllByText('Literature Map')).length).toBeGreaterThan(0)
     expect(await screen.findByRole('link', { name: '许愿墙' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '上传技能' })).toBeInTheDocument()
     await waitFor(() => expect(mockedListSkills).toHaveBeenCalledTimes(1))
+  })
+
+  it('requests skills with cluster when a research cluster filter is selected', async () => {
+    renderSkillHubHome()
+    await screen.findByText('Literature Map')
+    expect(mockedListSkills).toHaveBeenCalledWith(
+      expect.objectContaining({ sort: 'hot', limit: 12 }),
+    )
+    const clusterHeadings = screen.getAllByText('研究领域（Cluster）')
+    const clusterSection = clusterHeadings[0]?.closest('section')
+    expect(clusterSection).toBeTruthy()
+    fireEvent.click(
+      within(clusterSection as HTMLElement).getByRole('button', { name: '筛选研究领域：文献检索' }),
+    )
+    await waitFor(() => {
+      expect(mockedListSkills).toHaveBeenLastCalledWith(
+        expect.objectContaining({ cluster: 'literature', sort: 'hot', limit: 12 }),
+      )
+    })
   })
 
   it('shows a login prompt in profile when user is not authenticated', async () => {

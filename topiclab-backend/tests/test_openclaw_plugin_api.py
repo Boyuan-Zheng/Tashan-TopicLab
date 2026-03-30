@@ -111,6 +111,8 @@ async def test_cli_manifest_and_policy_pack_with_plugin_aliases(client):
     assert cli_manifest_body["commands"]["apps.list"]["enabled"] is True
     assert cli_manifest_body["commands"]["apps.topic"]["invocation"] == "topiclab apps topic <app_id> --json"
     assert cli_manifest_body["commands"]["skills.list"]["enabled"] is True
+    assert cli_manifest_body["commands"]["skills.search"]["enabled"] is True
+    assert cli_manifest_body["commands"]["skills.search"]["invocation"] == "topiclab skills search <query> --json"
     assert cli_manifest_body["commands"]["skills.install"]["invocation"] == "topiclab skills install <skill_id> --json"
     assert cli_manifest_body["commands"]["skills.publish"]["enabled"] is True
     assert cli_manifest_body["commands"]["skills.publish"]["invocation"] == "topiclab skills publish --name <name> --summary <summary> --description <description> --category <key> --content-file <path> --json"

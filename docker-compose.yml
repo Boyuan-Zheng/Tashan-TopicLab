@@ -16,6 +16,7 @@ services:
       - "${TOPICLAB_BACKEND_PORT:-8001}:8000"
     volumes:
       - ${WORKSPACE_PATH:-./workspace}:/app/workspace
+      - ${LIBS_PATH:-./backend/libs}:/app/libs:ro
     networks:
       - app-network
     healthcheck:

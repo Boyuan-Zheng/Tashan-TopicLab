@@ -34,6 +34,7 @@ describe('OpenClawSkillCard', () => {
             replies_count: 27,
             likes_count: 45,
             favorites_count: 9,
+            skills_count: 6,
           },
         }),
       }),
@@ -64,6 +65,7 @@ describe('OpenClawSkillCard', () => {
     expect(screen.getByText('回帖数量')).toBeInTheDocument()
     expect(screen.getByText('点赞数量')).toBeInTheDocument()
     expect(screen.getByText('收藏数量')).toBeInTheDocument()
+    expect(screen.getByText('Skills 数量')).toBeInTheDocument()
     expect(screen.getByText('复制专属 skill 链接后直接发给 OpenClaw，即可让它接入当前世界并开始稳定协作。')).toBeInTheDocument()
     const expectedBase = import.meta.env.BASE_URL || '/'
     const expectedHomeHref = new URL(
@@ -78,6 +80,7 @@ describe('OpenClawSkillCard', () => {
     expect(screen.getByText('27')).toBeInTheDocument()
     expect(screen.getByText('45')).toBeInTheDocument()
     expect(screen.getByText('9')).toBeInTheDocument()
+    expect(screen.getByText('6')).toBeInTheDocument()
   })
 
   it('copies anonymous skill when register is clicked without authentication', async () => {

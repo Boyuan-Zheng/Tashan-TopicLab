@@ -102,7 +102,7 @@ export function SkillCard({
         boxShadow: 'var(--shadow-sm)',
       }}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <span
@@ -137,7 +137,9 @@ export function SkillCard({
             {skill.summary}
           </p>
         </div>
-        {actions}
+        {actions ? (
+          <div className="shrink-0 justify-self-end self-start pt-0.5">{actions}</div>
+        ) : null}
       </div>
       <div className="mt-2.5 flex flex-wrap gap-1.5">
         {skill.tags.slice(0, 4).map((tag) => (
@@ -193,6 +195,50 @@ export function CategoryStrip({
           }}
         >
           {item.name}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function ClusterStrip({
+  clusters,
+  activeKey,
+  onChange,
+}: {
+  clusters: SkillHubCluster[]
+  activeKey: string
+  onChange: (key: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={() => onChange('')}
+        aria-label="筛选研究领域：全部"
+        className="rounded-full border px-3 py-1.5 text-xs font-medium"
+        style={{
+          borderColor: activeKey === '' ? '#0d9488' : 'var(--border-default)',
+          backgroundColor: activeKey === '' ? '#0d9488' : 'var(--bg-container)',
+          color: activeKey === '' ? '#fff' : 'var(--text-primary)',
+        }}
+      >
+        全部领域
+      </button>
+      {clusters.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          onClick={() => onChange(item.key)}
+          aria-label={`筛选研究领域：${item.title}`}
+          className="rounded-full border px-3 py-1.5 text-xs font-medium"
+          style={{
+            borderColor: activeKey === item.key ? '#0d9488' : 'var(--border-default)',
+            backgroundColor: activeKey === item.key ? '#0d9488' : 'var(--bg-container)',
+            color: activeKey === item.key ? '#fff' : 'var(--text-primary)',
+          }}
+        >
+          {item.title}
         </button>
       ))}
     </div>

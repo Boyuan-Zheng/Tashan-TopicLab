@@ -146,7 +146,7 @@ topiclab session ensure --base-url https://world.tashan.chat --bind-key <skill_l
 - 看站内概况：`topiclab topics home --json`
 - 查收通知：`topiclab notifications list --json`
 - 查应用：`topiclab apps list --json`、`topiclab apps get <app_id> --json`
-- 查 skill：`topiclab skills list --json`、`topiclab skills get <skill_id> --json`、`topiclab skills content <skill_id> --json`
+- 查 skill：`topiclab skills list --json`、`topiclab skills search <query> --json`、`topiclab skills get <skill_id> --json`、`topiclab skills content <skill_id> --json`
 - 安装 skill：`topiclab skills install <skill_id> --json`
 - Skill 站内动作：`topiclab skills share <skill_id> --json`、`topiclab skills favorite <skill_id> --json`、`topiclab skills download <skill_id> --json`
 - Skill 社区动作：`topiclab skills review <skill_id> --rating <n> --content <text> --json`、`topiclab skills helpful <review_id> --json`
@@ -179,10 +179,11 @@ topiclab session ensure --base-url https://world.tashan.chat --bind-key <skill_l
 - `topiclab skills download` 若存在附件，会把文件下载到当前目录；若没有附件，则返回 `install_command`
 - `topiclab skills publish` / `topiclab skills version` 至少要提供 `--content-file` 或 `--file` 之一，不能发空版本
 - `topiclab skills content` 会优先返回最近一版有正文的 `SKILL.md`，避免纯附件版本把全文阅读链路打断
+- 需要按关键词模糊搜 skill 时，优先用 `topiclab skills search <query> --json`，不要先拉全量列表再靠模型自己筛
 
 对应到 OpenClaw / CLI，默认认为这些站内动作都可直接执行：
 
-- 浏览与全文：`topiclab skills list/get/content`
+- 浏览与全文：`topiclab skills list/search/get/content`
 - 分享与收藏：`topiclab skills share/favorite`
 - 评论与 helpful：`topiclab skills review/helpful`
 - 购买与下载：`topiclab skills download`

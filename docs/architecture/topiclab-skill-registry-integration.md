@@ -15,6 +15,16 @@ So the current system is best described as:
 
 > one internal SkillHub, multiple consumption surfaces
 
+### Claude Scientific taxonomy (discipline + cluster)
+
+Imported `claude-scientific` skills get their SkillHub **`category_key`** (一级学科筛选) and **`cluster_key`** (卡片上的研究领域徽章) from a **checked-in map**, not from `meta.json`’s generic `"category": "general"` alone:
+
+- **Map file**: [`topiclab-backend/app/data/claude_scientific_taxonomy.json`](../../topiclab-backend/app/data/claude_scientific_taxonomy.json) — one entry per legacy slug (`networkx`, `scanpy`, …) with `category_key` and `cluster_key` valid against `DISCIPLINES` / `RESEARCH_CLUSTERS` in [`topiclab-backend/app/services/skill_hub.py`](../../topiclab-backend/app/services/skill_hub.py).
+- **Loader**: `_resolve_claude_scientific_taxonomy` in `skill_hub.py` reads that JSON (via `_claude_scientific_taxonomy_table`). If a slug is missing after a submodule update, the service logs a warning and falls back to `_infer_claude_scientific_taxonomy` heuristics until the map is updated.
+- **Regression test**: `test_claude_scientific_taxonomy_json_covers_meta_and_valid_keys` in `topiclab-backend/tests/test_skill_hub_api.py` asserts the map’s keys exactly match `backend/libs/assignable_skills/claude-scientific/meta.json` and that every pair of keys is allowed.
+
+**Checklist when adding a new claude-scientific skill**: update submodule + `meta.json` → add a row to `claude_scientific_taxonomy.json` → run backend tests.
+
 - Web: `/apps/skills` browse, view fulltext, share, favorite, review, purchase decision
 - CLI: `list`, `get`, `content`, `install`, `publish`, `review`, `favorite`, `profile`, `wishes`, `collections`
 - note: `publish` / `version` require either markdown content or an uploaded file, and `download` now materializes an attachment locally when the backend exposes one
@@ -498,7 +508,7 @@ This is the safest way to unify `skillshub`'s marketplace incentives with TopicL
 ### Phase 3: UI convergence
 
 - build TopicLab-native skill library pages in `frontend`
-- `/apps/skills` (`AppsSkillLibraryPage`): compact discovery — full-width pill search, wrapping 一级学科 chips (teal active state), segmented sort (热门 / 高分 / 最新), results list or empty state; sidebar leaderboard +「查看全部排名」; fixed bottom-right FAB stack (reuse `FloatingActionButton` primary glass/gradient style from topic list「创建话题」) for 许愿墙 and 上传技能; `ImmersiveAppShell` route hides global TopNav / mobile tab bar / footer / global `FloatingActions`
+- `/apps/skills` (`AppsSkillLibraryPage`): compact discovery — wrapping 一级学科 chips plus **研究领域（Cluster）** chips (same teal active state), both backed by `GET /v1/skill-hub/categories` (`disciplines` + `clusters`); list uses `GET /v1/skill-hub/skills` with optional `category` and `cluster` query params; full-width pill search, segmented sort (热门 / 高分 / 最新), results list or empty state; sidebar leaderboard +「查看全部排名」; fixed bottom-right FAB stack (reuse `FloatingActionButton` primary glass/gradient style from topic list「创建话题」) for 许愿墙 and 上传技能; `ImmersiveAppShell` route hides global TopNav / mobile tab bar / footer / global `FloatingActions`
 - Skill detail (`AppsSkillDetailPage`): **分享**为详情侧「复制分享文案」+ 固定格式预览（`formatSkillHubShareClipboard`：他山世界前缀、tagline/summary、绝对链接）；`/apps/skills/share?skill=` 仅重定向到对应 slug 详情或专区首页，不再提供独立分享页
 - `/library/*` (`LibraryPage`): same immersive shell +「← 应用」顶栏；主导航不再提供「库」入口，从 `/apps` 正文内资源库链接进入
 - `/apps`：与 Arcade 类似的单区轮播（科研 Skill ↔ AI 话题/资源库），5s 自动切换 + 圆点 + 左右箭头；第二屏文案为资源库说明，标题区与「进入资源库」均指向 `/library`

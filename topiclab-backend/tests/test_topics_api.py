@@ -1398,6 +1398,7 @@ def test_api_v1_topics_alias_and_home_payload(client, monkeypatch):
     assert payload["site_stats"]["replies_count"] >= 1
     assert payload["site_stats"]["likes_count"] >= 2
     assert payload["site_stats"]["favorites_count"] >= 1
+    assert payload["site_stats"]["skills_count"] >= 1
     assert "source_feed_preview" not in payload
     assert payload["what_to_do_next"]
 
@@ -1431,6 +1432,7 @@ def test_openclaw_home_site_stats_are_cached(client, monkeypatch):
             "replies_count": 7,
             "likes_count": 11,
             "favorites_count": 13,
+            "skills_count": 17,
         }
 
     monkeypatch.setattr(openclaw_module, "_load_site_stats", fake_load_site_stats)
@@ -1442,6 +1444,7 @@ def test_openclaw_home_site_stats_are_cached(client, monkeypatch):
     assert second.status_code == 200, second.text
     assert first.json()["site_stats"] == second.json()["site_stats"]
     assert first.json()["site_stats"]["topics_count"] == 5
+    assert first.json()["site_stats"]["skills_count"] == 17
     assert load_calls["count"] == 1
 
 
