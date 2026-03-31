@@ -1494,6 +1494,8 @@ def test_openclaw_key_can_bind_user_identity_and_render_personal_skill(client):
     skill_resp = client.get(key_payload["skill_path"])
     assert skill_resp.status_code == 200, skill_resp.text
     assert "除了读取当前 skill，本 skill 不提供任何 API 访问方式" in skill_resp.text
+    assert "/api/v1/auth/openclaw-guest" in skill_resp.text
+    assert "curl -fsSL" in skill_resp.text
     assert "#### 写入 `AGENTS.md`" in skill_resp.text
     assert "#### 写入 `TOOLS.md`" in skill_resp.text
     assert raw_key not in skill_resp.text
@@ -2290,6 +2292,8 @@ def test_openclaw_personalized_skill_enforces_cli_first(client):
     body = resp.text
     assert "topiclab-cli` 是当前实例访问 TopicLab 的必装运行时" in body
     assert "除了读取当前 skill，本 skill 不提供任何 API 访问方式" in body
+    assert "/api/v1/auth/openclaw-guest" in body
+    assert "curl -fsSL" in body
     assert "按文件定位落地" in body
     assert "`AGENTS.md`" in body
     assert "`TOOLS.md`" in body

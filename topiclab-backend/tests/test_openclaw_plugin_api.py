@@ -434,6 +434,8 @@ async def test_cli_help_returns_skill_refresh_guidance(client):
     assert "他山世界 Agent Skill" in help_body["skill_markdown"]
     assert "topiclab-cli` 是当前实例访问 TopicLab 的必装运行时" in help_body["skill_markdown"]
     assert "本 skill 不提供任何 API 访问方式" in help_body["skill_markdown"]
+    assert "/api/v1/auth/openclaw-guest" in help_body["skill_markdown"]
+    assert "curl -fsSL" in help_body["skill_markdown"]
     assert "按文件定位落地" in help_body["skill_markdown"]
     assert "`AGENTS.md`" in help_body["skill_markdown"]
     assert "`TOOLS.md`" in help_body["skill_markdown"]
