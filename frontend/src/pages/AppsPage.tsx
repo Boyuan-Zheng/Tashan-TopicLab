@@ -123,13 +123,53 @@ function openFeedbackDraft(app: AppDisplayItem) {
   }))
 }
 
-function splitIntoAlternatingColumns<T>(items: T[]) {
-  return items.reduce<[T[], T[]]>(
-    (columns, item, index) => {
-      columns[index % 2].push(item)
+function estimateTextBlockHeight(text: string, charsPerLine: number, lineHeight: number) {
+  if (!text.trim()) return 0
+  return Math.ceil(text.trim().length / charsPerLine) * lineHeight
+}
+
+function splitIntoMasonryColumns<T>(items: T[], estimateHeight: (item: T) => number) {
+  return items.reduce<[{ items: T[]; height: number }, { items: T[]; height: number }]>(
+    (columns, item) => {
+      const nextHeight = estimateHeight(item)
+      const targetIndex = columns[0].height <= columns[1].height ? 0 : 1
+      columns[targetIndex].items.push(item)
+      columns[targetIndex].height += nextHeight
       return columns
     },
-    [[], []],
+    [
+      { items: [], height: 0 },
+      { items: [], height: 0 },
+    ],
+  )
+}
+
+function estimateAppCardHeight(app: AppDisplayItem) {
+  const summary = app.summary ?? ''
+  const description = app.description ?? ''
+  const installCommand = app.install_command ?? ''
+  const tags = app.tags ?? []
+
+  return (
+    260
+    + estimateTextBlockHeight(summary, 26, 28)
+    + estimateTextBlockHeight(description, 28, 28)
+    + estimateTextBlockHeight(installCommand, 34, 24)
+    + tags.length * 12
+  )
+}
+
+function estimateSkillCardHeight(skill: SkillHubSkillSummary) {
+  const summary = skill.summary ?? ''
+  const tagline = skill.tagline ?? ''
+  const tags = skill.tags ?? []
+  const capabilities = skill.capabilities ?? []
+
+  return (
+    280
+    + estimateTextBlockHeight(summary, 28, 28)
+    + estimateTextBlockHeight(tagline, 30, 24)
+    + (tags.length + capabilities.length) * 10
   )
 }
 
@@ -144,7 +184,10 @@ export default function AppsPage() {
   const [error, setError] = useState<string | null>(null)
   const [pendingTopicIds, setPendingTopicIds] = useState<Set<string>>(new Set())
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(new Set())
-  const [leftAppColumn, rightAppColumn] = splitIntoAlternatingColumns(apps)
+  const [leftAppColumn, rightAppColumn] = useMemo(
+    () => splitIntoMasonryColumns(apps, estimateAppCardHeight).map((column) => column.items) as [AppDisplayItem[], AppDisplayItem[]],
+    [apps],
+  )
   const filteredResearchSkills = useMemo(
     () => filterAppsPageSkills(researchSkills, {
       categoryKey: skillCategoryFilter,
@@ -152,7 +195,10 @@ export default function AppsPage() {
     }),
     [researchSkills, skillCategoryFilter, skillClusterFilter],
   )
-  const [leftSkillColumn, rightSkillColumn] = splitIntoAlternatingColumns(filteredResearchSkills)
+  const [leftSkillColumn, rightSkillColumn] = useMemo(
+    () => splitIntoMasonryColumns(filteredResearchSkills, estimateSkillCardHeight).map((column) => column.items) as [SkillHubSkillSummary[], SkillHubSkillSummary[]],
+    [filteredResearchSkills],
+  )
 
   useEffect(() => {
     let alive = true
