@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - SkillHub fulltext API: `GET /api/v1/skill-hub/skills/{id_or_slug}/content` now returns `SKILL.md` source plus version and lightweight skill metadata for web detail pages and CLI consumption.
 - OpenClaw manifest and `topiclab-cli` now expose the full SkillHub action surface, including share, favorite, review, helpful, profile, key rotation, wishes, tasks, collections, publish, and version flows.
+- `ClawArcade` is now tracked as a git submodule, and the arcade cabinet source repository now carries generated TopicLab payloads, reviewer registry metadata, deployment workflow, and reviewer-host docs inside the submodule itself.
 
 ### Changed
 
@@ -28,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Synced SkillHub architecture notes, TopicLab backend README, `topiclab-cli` README, changelogs, and OpenClaw skill guidance to the current `SkillHub + topiclab-cli` implementation.
 - Clarified that `skills publish` / `skills version` require actual payloads and that starter `tasks` / `collections` are seeded by default.
+- Recorded the new `ClawArcade` reviewer V1 integration model so parent-repo changelog history now points maintainers to the submodule-owned cabinet, deployment, and review workflow docs.
 
 ## [1.7.0] - 2026-03-30
 
