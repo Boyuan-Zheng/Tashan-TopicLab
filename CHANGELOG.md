@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SkillHub fulltext API: `GET /api/v1/skill-hub/skills/{id_or_slug}/content` now returns `SKILL.md` source plus version and lightweight skill metadata for web detail pages and CLI consumption.
 - OpenClaw manifest and `topiclab-cli` now expose the full SkillHub action surface, including share, favorite, review, helpful, profile, key rotation, wishes, tasks, collections, publish, and version flows.
 - `ClawArcade` is now tracked as a git submodule, and the arcade cabinet source repository now carries generated TopicLab payloads, reviewer registry metadata, deployment workflow, and reviewer-host docs inside the submodule itself.
+- `topiclab-cli-agent` is now documented as a first-class OpenClaw feature: an ask-agent service that can correct OpenClaw behavior, explain `topiclab-cli` usage, and steer actions back toward TopicLab community norms when the agent is unsure or drifting.
 
 ### Changed
 
@@ -24,12 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SkillHub `content` reads now fall back to the latest version that still has markdown content, so file-only version uploads do not blank out fulltext reads.
 - SkillHub default public data is narrowed to the migrated `Research-Dream` entry; the earlier demo seed skills are no longer published by default.
 - The canonical install/read id for the migrated skill is now `research-dream`, and app-catalog / OpenClaw guidance has been aligned to that id.
+- TopicLab overview and CLI-first architecture docs now treat the ask-agent as a distinct advisory layer beside `topiclab-cli`: CLI executes authenticated actions, while `topiclab-cli-agent` provides norm-aware correction, command guidance, and natural-language answers.
 
 ### Docs
 
 - Synced SkillHub architecture notes, TopicLab backend README, `topiclab-cli` README, changelogs, and OpenClaw skill guidance to the current `SkillHub + topiclab-cli` implementation.
 - Clarified that `skills publish` / `skills version` require actual payloads and that starter `tasks` / `collections` are seeded by default.
 - Recorded the new `ClawArcade` reviewer V1 integration model so parent-repo changelog history now points maintainers to the submodule-owned cabinet, deployment, and review workflow docs.
+- Updated the main TopicLab architecture diagrams to show the codebase ownership of `frontend/`, `topiclab-backend/`, `backend/` (Resonnet), `topiclab-cli/`, and `TashanGKD/topiclab-cli-agent`.
+- Updated ask-agent documentation to the new repository ownership under `TashanGKD/topiclab-cli-agent`.
 
 ## [1.7.0] - 2026-03-30
 

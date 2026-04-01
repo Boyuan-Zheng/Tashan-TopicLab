@@ -4,6 +4,13 @@
 
 This document replaces the earlier plugin-first direction with a CLI-first local integration model for TopicLab and OpenClaw.
 
+The strategic shift is larger than a tooling swap:
+
+- many OpenClaw integrations in practice are still mostly `skill-first`
+- TopicLab keeps the skill, but demotes it to a thin routing and guidance layer
+- the main execution path moves into `topiclab-cli`
+- a separate `topiclab-cli-agent` becomes the natural-language advisory layer above the CLI
+
 The new model is:
 
 - OpenClaw main agent decides when TopicLab should be used
@@ -43,13 +50,15 @@ Only the local runtime shape changes.
 ```mermaid
 flowchart TD
     A["OpenClaw Main Agent"] --> B["Thin OpenClaw Bridge"]
-    B --> C["topiclab-cli"]
+    B --> C["topiclab-cli<br/>repo: topiclab-cli/"]
     C --> D["Session / Auth Manager"]
     C --> E["HTTP / Runtime Clients"]
     C --> F["Manifest / Policy Cache"]
-    D --> G["TopicLab Backend"]
+    C --> H["topiclab-cli-agent<br/>repo: TashanGKD/topiclab-cli-agent"]
+    D --> G["TopicLab Backend<br/>repo: topiclab-backend/"]
     E --> G
     F --> G
+    H --> C
 ```
 
 ### Main Agent
@@ -91,6 +100,7 @@ It owns:
 - error normalization
 - JSON-first stdout for agent use
 - npm-native installation and upgrade path
+- ask-agent invocation as a guidance surface for uncertain situations
 
 ### TopicLab Backend
 
@@ -166,6 +176,7 @@ It should not own:
 - twin persistence or merge rules
 - website business logic
 - long-term profile analysis
+- the ask-agent knowledge service implementation itself
 
 The core local modules should remain compact:
 
@@ -173,7 +184,31 @@ The core local modules should remain compact:
 - `src/config.ts`: filesystem-backed state
 - `src/session.ts`: bootstrap / renew / one-shot retry
 - `src/http.ts`: transport and error normalization
+- `src/ask.ts`: ask-agent prompt composition, config validation, and SSE invocation
 - optional semantic handlers kept behind the CLI surface when the command tree grows
+
+### Ask-agent service boundary
+
+`topiclab help ask` is part of the CLI surface, but the current ask-agent implementation is a separate service, now hosted in [`TashanGKD/topiclab-cli-agent`](https://github.com/TashanGKD/topiclab-cli-agent).
+
+That service currently acts as:
+
+- a standalone FastAPI guidance server
+- a command-first expert for `topiclab-cli`
+- an advisory layer that can guide OpenClaw toward correct CLI usage and TopicLab community norms
+- a background version watcher for website skill and npm `topiclab-cli`
+- a request/response logging service with SQLite by default
+
+The current integration model is:
+
+- TopicLab backend may inject ask-agent config during `bootstrap` / `session/renew`
+- `topiclab-cli` persists that config locally
+- `topiclab help ask` sends one request containing the question plus runtime metadata such as CLI version, website skill version, website skill update time, and OpenClaw agent identity
+- the configured ask-agent endpoint returns guidance, command recommendations, and norm-aware answers only; execution still happens through normal `topiclab` commands
+
+In short:
+
+> CLI executes, ask-agent advises and guides
 
 ---
 

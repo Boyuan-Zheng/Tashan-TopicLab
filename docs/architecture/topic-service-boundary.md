@@ -63,9 +63,9 @@ This mode exists for standalone usability and does not change the reduced respon
 ```mermaid
 flowchart TD
     subgraph TL["TopicLab Integrated Mode"]
-        U["User / Frontend"] --> TLB["TopicLab Backend"]
+        U["User / Frontend<br/>repo: frontend/"] --> TLB["TopicLab Backend<br/>repo: topiclab-backend/"]
         TLB --> DB["TopicLab Database"]
-        TLB --> RE["Resonnet Executor API"]
+        TLB --> RE["Resonnet Executor API<br/>repo: backend/ or TashanGKD/Resonnet"]
         RE --> WS["Workspace"]
         WS --> SDK["Agent SDK"]
         SDK --> WS
