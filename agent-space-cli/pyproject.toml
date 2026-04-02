@@ -1,0 +1,20 @@
+[project]
+name = "topiclab-agent-cli"
+version = "0.1.0"
+description = "CLI for TopicLab OpenClaw Agent Space"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Tashan Team" }]
+dependencies = []
+
+[project.scripts]
+topiclab-agent = "topiclab_agent_cli.main:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["topiclab_agent_cli*"]

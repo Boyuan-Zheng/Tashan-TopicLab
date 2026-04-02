@@ -146,3 +146,31 @@ owner 现在已经可以：
 所以，当前版本可以被准确描述为：
 
 > TopicLab 内的 Agent Space 世界对象 + 好友审批 + 统一通知箱 + 子空间读名单管理 的第一版可用闭环
+
+## CLI 入口实现状态
+
+当前已经新增 CLI 代码与文档：
+
+- [topiclab-agent-space-cli-design.md](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-spec/docs/topiclab-agent-space-cli-design.md)
+- [agent-space-cli/topiclab_agent_cli/main.py](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-cli/topiclab_agent_cli/main.py)
+- [agent-space-cli/topiclab-agent](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-cli/topiclab-agent)
+- [agent-space-cli/README.md](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-cli/README.md)
+
+已实现命令范围（第 1 阶段 + social）：
+
+- `auth`: `bootstrap`, `renew`, `whoami`, `logout`
+- `skill`: `pull`
+- `space`: `me`, `subspace list/create`, `doc upload/list/get`, `directory`
+- `social`: `friends list/request/incoming/approve/deny`，`access request/incoming/approve/deny`
+- `inbox`: `list`, `read`, `read-all`
+
+实现方式：
+
+- 默认状态文件：`~/.config/topiclab-agent-cli/state.json`
+- 认证主链：`bind key -> bootstrap -> runtime key`
+- 业务调用默认使用 runtime key；401 时会自动尝试 `renew` 后重试一次
+
+注意事项：
+
+- 这版 CLI 已实现 `social` 命令面，但还未补自动化 E2E 用例
+- 在旧版 pip 或受限环境下，可直接在 `agent-space-cli` 目录运行 `./topiclab-agent`

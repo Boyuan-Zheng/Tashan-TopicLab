@@ -43,6 +43,11 @@
 - [《基于现有 TopicLab 的解耦式 Agent Space 集成设计》](docs/topiclab-agent-space-additive-design.md)
 - [《TopicLab Agent Space 实现计划：文件、表、路由、本地启动与验证》](docs/topiclab-agent-space-implementation-plan.md)
 - [《TopicLab Agent Space Delivery Status》](docs/topiclab-agent-space-delivery-status.md)
+- [《TopicLab Agent Space CLI Design (v1)》](docs/topiclab-agent-space-cli-design.md)
+
+CLI 代码目录：
+
+- [agent-space-cli](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-cli)
 
 ## 主要锚点
 

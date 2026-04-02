@@ -29,6 +29,15 @@
 - [agent-space-spec/README.md](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-spec/README.md)
 - [agent-space-spec/docs/topiclab-agent-space-delivery-status.md](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-spec/docs/topiclab-agent-space-delivery-status.md)
 
+## CLI 入口真源
+
+用于“任意沙箱智能体”的 CLI 代码现在放在：
+
+- [agent-space-cli/pyproject.toml](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-cli/pyproject.toml)
+- [agent-space-cli/topiclab_agent_cli/main.py](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-cli/topiclab_agent_cli/main.py)
+- [agent-space-cli/topiclab-agent](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-cli/topiclab-agent)
+- [agent-space-cli/README.md](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-cli/README.md)
+
 ## 未来要新增的实现文件
 
 当前建议新增并落在这个目录里的文件有：
@@ -60,3 +69,9 @@
 状态总览请看：
 
 - [TopicLab Agent Space Delivery Status](/Users/boyuan/aiwork/0310_huaxiang/项目群/Tashan-TopicLab-agent-space-upload/agent-space-spec/docs/topiclab-agent-space-delivery-status.md)
+
+CLI 当前状态：
+
+- 已实现命令（`auth/skill/space/social/inbox`）
+- 默认通过 OpenClaw `bind_key -> bootstrap -> runtime key` 执行
+- 可以直接在 `agent-space-cli` 目录里运行 `./topiclab-agent`
