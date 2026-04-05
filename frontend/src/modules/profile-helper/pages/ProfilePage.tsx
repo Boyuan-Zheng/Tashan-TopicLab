@@ -54,6 +54,7 @@ export function ProfilePage() {
   const [error, setError] = useState<string | null>(null)
 
   const sessionId = getStoredSessionId()
+  const canPublish = Boolean(tokenManager.get())
 
   const handleSelectTwin = useCallback(async (agentName: string) => {
     const token = tokenManager.get()
@@ -78,17 +79,29 @@ export function ProfilePage() {
     Promise.all([
       getStructuredProfile(sessionId),
       getProfile(sessionId),
-      // TopicLab 独有：digital twins（失败时静默降级为空列表）
-      (() => {
-        const token = tokenManager.get()
-        if (!token) return Promise.resolve<{ digital_twins: DigitalTwinRecord[] }>({ digital_twins: [] })
-        return authApi.getDigitalTwins(token).catch(() => ({ digital_twins: [] as DigitalTwinRecord[] }))
-      })(),
     ])
-      .then(([sp, raw, twinsData]) => {
+      .then(([sp, raw]) => {
         setStructured(sp)
         setForumProfile(raw.forum_profile)
-        const twins = twinsData.digital_twins || []
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setLoading(false))
+  }, [handleSelectTwin, sessionId])
+
+  useEffect(() => {
+    const token = tokenManager.get()
+    if (!sessionId || !token) {
+      setDigitalTwins([])
+      setPublishName('我的数字分身')
+      return
+    }
+
+    let cancelled = false
+
+    authApi.getDigitalTwins(token)
+      .then((data) => {
+        if (cancelled) return
+        const twins = data.digital_twins || []
         setDigitalTwins(twins)
         const firstName = twins[0]?.display_name
         if (firstName && !isPlaceholderDisplayName(firstName)) {
@@ -98,8 +111,15 @@ export function ProfilePage() {
         }
         if (twins[0]?.agent_name) void handleSelectTwin(twins[0].agent_name)
       })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setLoading(false))
+      .catch(() => {
+        if (cancelled) return
+        setDigitalTwins([])
+        setPublishName('我的数字分身')
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [handleSelectTwin, sessionId])
 
   // ── 守卫条件 ─────────────────────────────────────────────────
@@ -151,6 +171,10 @@ export function ProfilePage() {
 
   const handlePublish = async () => {
     if (!sessionId) return
+    if (!canPublish) {
+      setPublishResult('请先登录后再发布数字分身。')
+      return
+    }
     const displayName = publishName.trim() || '我的数字分身'
     setPublishing(true)
     setPublishResult(null)
@@ -229,6 +253,10 @@ export function ProfilePage() {
             ? `（最近更新：${new Date(digitalTwins[0].updated_at).toLocaleString()}）`
             : ''}
         </div>
+      ) : !canPublish ? (
+        <div className="twin-record-banner twin-record-banner-pending">
+          当前是匿名会话。登录后才能将数字分身写入账号系统和历史记录。
+        </div>
       ) : (
         <div className="twin-record-banner twin-record-banner-pending">
           尚未记录到账号系统数据库，完成发布后会自动写入。
@@ -238,6 +266,9 @@ export function ProfilePage() {
       {/* ── 5. TopicLab 独有：发布入库 ── */}
       <section className="twin-publish-card">
         <h3>发布与入库</h3>
+        {!canPublish && (
+          <p className="twin-publish-result">当前是匿名会话，登录后才能发布到网站并保存历史分身。</p>
+        )}
         <div className="twin-publish-grid">
           <label className="twin-publish-field">
             <span>分身名称</span>
@@ -245,6 +276,7 @@ export function ProfilePage() {
               value={publishName}
               onChange={(e) => setPublishName(e.target.value)}
               placeholder="请输入分身名称"
+              disabled={!canPublish}
             />
           </label>
           <label className="twin-publish-field">
@@ -252,6 +284,7 @@ export function ProfilePage() {
             <select
               value={publishVisibility}
               onChange={(e) => setPublishVisibility(e.target.value as 'private' | 'public')}
+              disabled={!canPublish}
             >
               <option value="private">私有</option>
               <option value="public">公开（可共享）</option>
@@ -262,6 +295,7 @@ export function ProfilePage() {
             <select
               value={publishExposure}
               onChange={(e) => setPublishExposure(e.target.value as 'brief' | 'full')}
+              disabled={!canPublish}
             >
               <option value="brief">简介版</option>
               <option value="full">完整版</option>
@@ -269,7 +303,7 @@ export function ProfilePage() {
           </label>
         </div>
         <div className="twin-publish-actions">
-          <button type="button" className="btn-primary" onClick={handlePublish} disabled={publishing}>
+          <button type="button" className="btn-primary" onClick={handlePublish} disabled={publishing || !canPublish}>
             {publishing ? '发布中...' : '改名并发布到网站'}
           </button>
           {publishResult && <p className="twin-publish-result">{publishResult}</p>}

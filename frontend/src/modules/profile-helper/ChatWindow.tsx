@@ -79,6 +79,7 @@ export function ChatWindow() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const shouldAutoScrollRef = useRef(true)
   const pendingScrollModeRef = useRef<'bottom' | null>('bottom')
+  const bootstrapSessionRef = useRef<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const navigate = useNavigate()
 
@@ -106,29 +107,54 @@ export function ChatWindow() {
   }, [])
 
   useEffect(() => {
-    async function init() {
-      // ── 1. 尝试认证（可选，失败降级为匿名）──────────────────────
-      let user: import('../../api/auth').User | null = null
-      const token = tokenManager.get()
-      if (token) {
-        try {
-          user = await refreshCurrentUserProfile()
-        } catch {
-          // auth 服务不可用（如 topiclab-backend 未启动），降级为匿名模式
-        }
-      }
-      setCurrentUser(user)
+    const stored = getStoredSessionId()
+    bootstrapSessionRef.current = stored
+    if (!stored) return
 
-      // ── 2. 始终创建 session（无论是否已登录）──────────────────────
+    setSessionId(stored)
+    setInitialized(true)
+  }, [])
+
+  useEffect(() => {
+    async function init() {
+      const stored = bootstrapSessionRef.current
+
+      // 认证和 session 初始化并行进行，避免首屏被 /auth/me 阻塞
+      const authPromise = (async () => {
+        let user: import('../../api/auth').User | null = null
+        const token = tokenManager.get()
+        if (token) {
+          try {
+            user = await refreshCurrentUserProfile()
+          } catch {
+            // auth 服务不可用（如 topiclab-backend 未启动），降级为匿名模式
+          }
+        }
+        return user
+      })()
+
+      // ── 1. 后台补齐当前用户（可选）──────────────────────────────
+      void authPromise.then((user) => {
+        setCurrentUser(user)
+      })
+
+      // ── 2. 始终创建/恢复 session（无论是否已登录）────────────────
       // AUTH_MODE=none 时后端接受匿名请求，前端无需登录即可使用 profile helper
       try {
-        const stored = getStoredSessionId()
         const id = await getOrCreateSession(stored ?? undefined)
         setSessionId(id)
         setStoredSessionId(id)
-        await fetchProfile(id)
+
+        // 本地缓存里的 session 已失效时，避免继续展示旧历史
+        if (stored && stored !== id) {
+          setMessages([])
+          setInput(INIT_MESSAGE)
+        }
+
+        // profile 不阻塞首屏
+        void fetchProfile(id)
       } catch {
-        // 后端不可达，session 创建失败（保持 sessionId = null）
+        // 后端不可达，session 创建失败（保持当前 UI 降级态）
       } finally {
         setInitialized(true)
       }
@@ -147,6 +173,10 @@ export function ChatWindow() {
           setMessages(parsed)
           setInput('')   // 有历史消息时清空初始固定文字
         }
+      } else if (bootstrapSessionRef.current !== sessionId) {
+        // session 切换到了一个本地没有缓存的新 id，清空旧会话视觉残留
+        setMessages([])
+        setInput(INIT_MESSAGE)
       }
     } catch {
       // ignore
