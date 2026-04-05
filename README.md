@@ -258,7 +258,7 @@ npm test
 - **Libs**：`POST /libs/invalidate-cache`（热更新库 meta 缓存）
 - **Apps**：`GET /api/v1/apps`，`GET /api/v1/apps/{app_id}`，`POST /api/v1/apps/{app_id}/topic`
 - **Agent Links**：`GET /agent-links`，`GET /agent-links/{slug}`，`POST /agent-links/import/preview`，`POST /agent-links/import`，`POST /agent-links/{slug}/session`，`POST /agent-links/{slug}/chat`（SSE），`POST /agent-links/{slug}/files/upload`
-- **Profile Helper**：`GET /profile-helper/session`，`POST /profile-helper/chat`（SSE），`GET /profile-helper/profile/{session_id}`，`GET /profile-helper/download/{session_id}`，`POST /profile-helper/session/reset/{session_id}`，`POST /profile-helper/scales/submit`，`POST /profile-helper/publish-to-library`
+- **Profile Helper**：`GET /profile-helper/session`，`POST /profile-helper/chat`（SSE），`POST /profile-helper/chat/blocks`（Block SSE），`GET /profile-helper/chat-history/{session_id}`，`GET /profile-helper/profile/{session_id}`，`GET /profile-helper/profile/{session_id}/structured`，`GET /profile-helper/profile/{session_id}/scientists/famous|field`，`GET /profile-helper/download/{session_id}`，`GET /profile-helper/download/{session_id}/forum`，`POST /profile-helper/scales/submit`，`POST /profile-helper/publish-to-library`，`POST /profile-helper/session/reset/{session_id}`
 
 > Profile Helper 认证支持 `AUTH_MODE=none|jwt|proxy`，默认 `none`（开源/MVP 模式）；发布后账号同步由 `ACCOUNT_SYNC_ENABLED` 控制。
 

@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ProfilePanel } from '../ProfilePanel'
-import { getProfile, publishTwin } from '../profileHelperApi'
+import { getProfile, getStructuredProfile, publishTwin } from '../profileHelperApi'
+import type { StructuredProfile } from '../types'
+import { ProfileHeader } from '../components/profile/ProfileHeader'
+import { CapabilitySection } from '../components/profile/CapabilitySection'
+import { NeedsSection } from '../components/profile/NeedsSection'
+import { CognitiveStyleSection } from '../components/profile/CognitiveStyleSection'
+import { MotivationSection } from '../components/profile/MotivationSection'
+import { PersonalitySection } from '../components/profile/PersonalitySection'
+import { InterpretationSection } from '../components/profile/InterpretationSection'
+import { ScientistMatchSection } from '../components/ScientistMatchSection'
 import { authApi, DigitalTwinDetail, DigitalTwinRecord, tokenManager } from '../../../api/auth'
+import ReactMarkdown from 'react-markdown'
+
+// ── 工具函数 ────────────────────────────────────────────────────
 
 const SESSION_KEYS = ['tashan_session_id', 'tashan_profile_session_id'] as const
-
 const PLACEHOLDER_NAMES = /^(unnamed(-\d{4}-\d{2}-\d{2})?|未命名|forum_profile|论坛画像|identity)$/i
 
 function isPlaceholderDisplayName(name: string | null | undefined): boolean {
@@ -18,17 +28,18 @@ function getStoredSessionId(): string | null {
     const value = localStorage.getItem(key)
     if (!value) continue
     const normalized = value.trim().toLowerCase()
-    if (!normalized || normalized === 'undefined' || normalized === 'null' || normalized === 'none') {
-      continue
-    }
+    if (!normalized || normalized === 'undefined' || normalized === 'null' || normalized === 'none') continue
     return value
   }
   return null
 }
 
+// ── 主组件 ───────────────────────────────────────────────────────
+
 export function ProfilePage() {
-  const [profile, setProfile] = useState('')
+  const [structured, setStructured] = useState<StructuredProfile | null>(null)
   const [forumProfile, setForumProfile] = useState('')
+  // TopicLab 独有：发布/历史记录
   const [digitalTwins, setDigitalTwins] = useState<DigitalTwinRecord[]>([])
   const [publishName, setPublishName] = useState('')
   const [publishVisibility, setPublishVisibility] = useState<'private' | 'public'>('private')
@@ -41,7 +52,9 @@ export function ProfilePage() {
   const [detailError, setDetailError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
   const sessionId = getStoredSessionId()
+  const canPublish = Boolean(tokenManager.get())
 
   const handleSelectTwin = useCallback(async (agentName: string) => {
     const token = tokenManager.get()
@@ -61,53 +74,82 @@ export function ProfilePage() {
   }, [])
 
   useEffect(() => {
-    if (!sessionId) {
-      setLoading(false)
-      return
-    }
+    if (!sessionId) { setLoading(false); return }
+
     Promise.all([
+      getStructuredProfile(sessionId),
       getProfile(sessionId),
-      (() => {
-        const token = tokenManager.get()
-        if (!token) return Promise.resolve<{ digital_twins: DigitalTwinRecord[] }>({ digital_twins: [] })
-        return authApi.getDigitalTwins(token)
-      })(),
     ])
-      .then(([profileData, twinsData]) => {
-        setProfile(profileData.profile)
-        setForumProfile(profileData.forum_profile)
-        const twins = twinsData.digital_twins || []
-        setDigitalTwins(twins)
-        const firstTwin = twins[0]
-        const existingName = firstTwin?.display_name
-        if (existingName && !isPlaceholderDisplayName(existingName)) {
-          setPublishName(existingName)
-        } else if (!publishName.trim()) {
-          setPublishName('我的数字分身')
-        }
-        if (firstTwin?.agent_name) {
-          void handleSelectTwin(firstTwin.agent_name)
-        }
+      .then(([sp, raw]) => {
+        setStructured(sp)
+        setForumProfile(raw.forum_profile)
       })
-      .catch((e) => {
-        setError(e instanceof Error ? e.message : String(e))
-      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
   }, [handleSelectTwin, sessionId])
 
+  useEffect(() => {
+    const token = tokenManager.get()
+    if (!sessionId || !token) {
+      setDigitalTwins([])
+      setPublishName('我的数字分身')
+      return
+    }
+
+    let cancelled = false
+
+    authApi.getDigitalTwins(token)
+      .then((data) => {
+        if (cancelled) return
+        const twins = data.digital_twins || []
+        setDigitalTwins(twins)
+        const firstName = twins[0]?.display_name
+        if (firstName && !isPlaceholderDisplayName(firstName)) {
+          setPublishName(firstName)
+        } else {
+          setPublishName('我的数字分身')
+        }
+        if (twins[0]?.agent_name) void handleSelectTwin(twins[0].agent_name)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setDigitalTwins([])
+        setPublishName('我的数字分身')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [handleSelectTwin, sessionId])
+
+  // ── 守卫条件 ─────────────────────────────────────────────────
+
   if (loading) return <div className="page-loading">加载中...</div>
 
-  if (!sessionId || error) {
+  if (!sessionId) {
     return (
       <div className="page-empty">
         <h2>尚未建立分身</h2>
-        <p>{error || '请先在「对话采集」页面完成基础信息采集。'}</p>
-        <Link to="/profile-helper" className="btn-primary">
-          开始创建
-        </Link>
+        <p>请先在「对话采集」页面完成基础信息采集。</p>
+        <Link to="/profile-helper" className="btn-primary">开始创建</Link>
       </div>
     )
   }
+
+  if (error) {
+    return (
+      <div className="page-empty">
+        <h2>加载画像失败</h2>
+        <p style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{error}</p>
+        <p>请尝试刷新页面，或重新进入对话页面。</p>
+        <Link to="/profile-helper" className="btn-primary">返回对话</Link>
+      </div>
+    )
+  }
+
+  if (!structured) return <div className="page-loading">解析中...</div>
+
+  // ── TopicLab 独有：发布/历史 ─────────────────────────────────
 
   const refreshTwinRecords = async () => {
     const token = tokenManager.get()
@@ -120,14 +162,19 @@ export function ProfilePage() {
       setSelectedTwinDetail(null)
       return
     }
-    const targetAgent = selectedTwinAgent && twins.some((item) => item.agent_name === selectedTwinAgent)
-      ? selectedTwinAgent
-      : twins[0].agent_name
+    const targetAgent =
+      selectedTwinAgent && twins.some((item) => item.agent_name === selectedTwinAgent)
+        ? selectedTwinAgent
+        : twins[0].agent_name
     await handleSelectTwin(targetAgent)
   }
 
   const handlePublish = async () => {
     if (!sessionId) return
+    if (!canPublish) {
+      setPublishResult('请先登录后再发布数字分身。')
+      return
+    }
     const displayName = publishName.trim() || '我的数字分身'
     setPublishing(true)
     setPublishResult(null)
@@ -147,21 +194,81 @@ export function ProfilePage() {
     }
   }
 
+  // ── 渲染 ─────────────────────────────────────────────────────
+
   return (
-    <div className="profile-page">
+    <div className="pv-page">
+
+      {/* ── 1. 结构化画像维度（对齐 digital-twin-bootstrap）── */}
+      <ProfileHeader profile={structured} />
+      <CapabilitySection capability={structured.capability} />
+      <NeedsSection needs={structured.needs} />
+      <CognitiveStyleSection data={structured.cognitive_style} />
+      <MotivationSection data={structured.motivation} />
+      <PersonalitySection data={structured.personality} />
+      <InterpretationSection data={structured.interpretation} />
+      <ScientistMatchSection sessionId={sessionId} />
+
+      {/* ── 2. 他山论坛分身（原始 Markdown）── */}
+      {forumProfile && (
+        <section className="pv-section">
+          <h3 className="pv-section-title">他山论坛分身</h3>
+          <div className="pv-forum-body">
+            <ReactMarkdown>{forumProfile}</ReactMarkdown>
+          </div>
+        </section>
+      )}
+
+      {/* ── 3. 底部操作栏 ── */}
+      <div className="pv-bottom-bar no-print">
+        <button type="button" className="btn-secondary" onClick={() => window.print()}>
+          导出 PDF（打印）
+        </button>
+        <a
+          href={`${import.meta.env.BASE_URL}api/profile-helper/download/${sessionId}`}
+          download="profile.md"
+          className="btn-secondary"
+        >
+          下载科研分身
+        </a>
+        {forumProfile && (
+          <a
+            href={`${import.meta.env.BASE_URL}api/profile-helper/download/${sessionId}/forum`}
+            download="forum-profile.md"
+            className="btn-secondary"
+          >
+            下载论坛分身
+          </a>
+        )}
+        <Link to="/profile-helper/scales" className="btn-secondary">
+          量表校对
+        </Link>
+      </div>
+
+      {/* ── 4. TopicLab 独有：账号系统状态横幅 ── */}
       {digitalTwins.length > 0 ? (
         <div className="twin-record-banner">
           已记录到账号系统：{digitalTwins[0].display_name || digitalTwins[0].agent_name}
-          {digitalTwins[0].updated_at ? `（最近更新：${new Date(digitalTwins[0].updated_at).toLocaleString()}）` : ''}
+          {digitalTwins[0].updated_at
+            ? `（最近更新：${new Date(digitalTwins[0].updated_at).toLocaleString()}）`
+            : ''}
+        </div>
+      ) : !canPublish ? (
+        <div className="twin-record-banner twin-record-banner-pending">
+          当前是匿名会话。登录后才能将数字分身写入账号系统和历史记录。
         </div>
       ) : (
         <div className="twin-record-banner twin-record-banner-pending">
           尚未记录到账号系统数据库，完成发布后会自动写入。
         </div>
       )}
-      <ProfilePanel sessionId={sessionId} profile={profile} forumProfile={forumProfile} />
+
+      {/* ── 5. TopicLab 独有：发布入库 ── */}
       <section className="twin-publish-card">
         <h3>发布与入库</h3>
+        {!canPublish && (
+          <p className="twin-publish-result">当前是匿名会话，登录后才能发布到网站并保存历史分身。</p>
+        )}
         <div className="twin-publish-grid">
           <label className="twin-publish-field">
             <span>分身名称</span>
@@ -169,6 +276,7 @@ export function ProfilePage() {
               value={publishName}
               onChange={(e) => setPublishName(e.target.value)}
               placeholder="请输入分身名称"
+              disabled={!canPublish}
             />
           </label>
           <label className="twin-publish-field">
@@ -176,6 +284,7 @@ export function ProfilePage() {
             <select
               value={publishVisibility}
               onChange={(e) => setPublishVisibility(e.target.value as 'private' | 'public')}
+              disabled={!canPublish}
             >
               <option value="private">私有</option>
               <option value="public">公开（可共享）</option>
@@ -186,6 +295,7 @@ export function ProfilePage() {
             <select
               value={publishExposure}
               onChange={(e) => setPublishExposure(e.target.value as 'brief' | 'full')}
+              disabled={!canPublish}
             >
               <option value="brief">简介版</option>
               <option value="full">完整版</option>
@@ -193,12 +303,14 @@ export function ProfilePage() {
           </label>
         </div>
         <div className="twin-publish-actions">
-          <button type="button" className="btn-primary" onClick={handlePublish} disabled={publishing}>
+          <button type="button" className="btn-primary" onClick={handlePublish} disabled={publishing || !canPublish}>
             {publishing ? '发布中...' : '改名并发布到网站'}
           </button>
           {publishResult && <p className="twin-publish-result">{publishResult}</p>}
         </div>
       </section>
+
+      {/* ── 6. TopicLab 独有：历史分身记录 ── */}
       <section className="twin-history-card">
         <div className="twin-history-header">
           <h3>历史分身记录</h3>
@@ -217,16 +329,16 @@ export function ProfilePage() {
                     key={item.agent_name}
                     type="button"
                     className={`twin-history-item ${isActive ? 'active' : ''}`}
-                    onClick={() => {
-                      void handleSelectTwin(item.agent_name)
-                    }}
+                    onClick={() => void handleSelectTwin(item.agent_name)}
                   >
                     <div className="twin-history-item-title">{item.display_name || item.agent_name}</div>
                     <div className="twin-history-item-meta">
                       <span className={`twin-status-badge ${isShared ? 'shared' : 'private'}`}>
                         {isShared ? '共享' : '私有'}
                       </span>
-                      <span>{item.updated_at ? new Date(item.updated_at).toLocaleString() : '无更新时间'}</span>
+                      <span>
+                        {item.updated_at ? new Date(item.updated_at).toLocaleString() : '无更新时间'}
+                      </span>
                     </div>
                   </button>
                 )
@@ -248,7 +360,9 @@ export function ProfilePage() {
                   </div>
                   <div className="twin-history-detail-meta">
                     最后更新时间：
-                    {selectedTwinDetail.updated_at ? new Date(selectedTwinDetail.updated_at).toLocaleString() : '暂无'}
+                    {selectedTwinDetail.updated_at
+                      ? new Date(selectedTwinDetail.updated_at).toLocaleString()
+                      : '暂无'}
                   </div>
                   <pre className="twin-history-detail-content">
                     {selectedTwinDetail.role_content?.trim() || '该记录暂无详情内容。'}
