@@ -3,6 +3,7 @@ import { profileHelperApi } from '../../api/client'
 import type { Block, FamousMatchResult, FieldRecommendation, StructuredProfile } from './types'
 
 const API_BASE = `${import.meta.env.BASE_URL}api`
+const SSE_REGEX = /\r?\n\r?\n/
 
 function getAuthFetchHeaders(contentType: boolean = false): Record<string, string> {
   const token = localStorage.getItem('auth_token')
@@ -38,7 +39,6 @@ export async function sendMessage(
   if (!reader) throw new Error('无法读取响应流')
   const decoder = new TextDecoder()
   let buffer = ''
-  const SSE_REGEX = /\r?\n\r?\n/
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
@@ -85,7 +85,7 @@ export async function sendMessageBlocks(
     const { done, value } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n\n')
+    const lines = buffer.split(SSE_REGEX)
     buffer = lines.pop() ?? ''
     for (const line of lines) {
       if (line.startsWith('data: ')) {
@@ -176,7 +176,7 @@ export async function getFieldRecommendations(sessionId: string): Promise<FieldR
   )
   if (!res.ok) throw new Error(`获取推荐失败: ${res.status}`)
   const data = await res.json()
-  return data.recommendations
+  return Array.isArray(data.recommendations) ? data.recommendations : []
 }
 
 // ── 发布分身 ────────────────────────────────────────────────────
@@ -194,6 +194,9 @@ export interface PublishTwinResult {
   display_name: string
   visibility: string
   exposure: string
+  sync_status?: string
+  twin_id?: string | null
+  twin_version?: number | null
 }
 
 export interface ChatHistoryMessage {
