@@ -78,12 +78,25 @@ const SITE_METRICS = [
   { key: 'skills_count', label: '应用/技能数量' },
 ] as const
 
-interface OpenClawSkillCardProps {
+interface UseOpenClawSkillCardControllerOptions {
   onCopyAction?: () => void
 }
 
-export default function OpenClawSkillCard({ onCopyAction }: OpenClawSkillCardProps) {
-  const theme = getHomeCardTheme('mistBlue')
+export interface OpenClawSkillCardController {
+  loading: boolean
+  copied: boolean
+  showLoginPrompt: boolean
+  generatedSkillUrl: string | null
+  generatedSkillIsBound: boolean
+  guestClaimLoginPath: string | null
+  guestClaimRegisterPath: string | null
+  siteStats: OpenClawSiteStats
+  copy: () => Promise<void>
+}
+
+export function useOpenClawSkillCardController(
+  { onCopyAction }: UseOpenClawSkillCardControllerOptions = {},
+): OpenClawSkillCardController {
   const [token, setToken] = useState<string | null>(tokenManager.get())
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -195,6 +208,38 @@ export default function OpenClawSkillCard({ onCopyAction }: OpenClawSkillCardPro
     }
   }
 
+  return {
+    loading,
+    copied,
+    showLoginPrompt,
+    generatedSkillUrl,
+    generatedSkillIsBound,
+    guestClaimLoginPath,
+    guestClaimRegisterPath,
+    siteStats,
+    copy: handleCopy,
+  }
+}
+
+interface OpenClawSkillCardProps {
+  controller?: OpenClawSkillCardController
+  onCopyAction?: () => void
+}
+
+function OpenClawSkillCardView({ controller }: { controller: OpenClawSkillCardController }) {
+  const theme = getHomeCardTheme('mistBlue')
+  const {
+    loading,
+    copied,
+    showLoginPrompt,
+    generatedSkillUrl,
+    generatedSkillIsBound,
+    guestClaimLoginPath,
+    guestClaimRegisterPath,
+    siteStats,
+    copy,
+  } = controller
+
   return (
     <section
       className="relative h-full overflow-hidden rounded-[28px] border px-5 py-6 sm:rounded-[32px] sm:px-8 sm:py-10 lg:px-12 lg:py-12"
@@ -254,7 +299,7 @@ export default function OpenClawSkillCard({ onCopyAction }: OpenClawSkillCardPro
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={handleCopy}
+              onClick={() => { void copy() }}
               disabled={loading}
               className="group relative z-10 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[13px] transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:px-5 sm:py-2.5 sm:text-sm"
               style={{
@@ -376,4 +421,17 @@ export default function OpenClawSkillCard({ onCopyAction }: OpenClawSkillCardPro
       </div>
     </section>
   )
+}
+
+function OpenClawSkillCardWithInternalController({ onCopyAction }: Pick<OpenClawSkillCardProps, 'onCopyAction'>) {
+  const controller = useOpenClawSkillCardController({ onCopyAction })
+  return <OpenClawSkillCardView controller={controller} />
+}
+
+export default function OpenClawSkillCard({ controller, onCopyAction }: OpenClawSkillCardProps) {
+  if (controller) {
+    return <OpenClawSkillCardView controller={controller} />
+  }
+
+  return <OpenClawSkillCardWithInternalController onCopyAction={onCopyAction} />
 }

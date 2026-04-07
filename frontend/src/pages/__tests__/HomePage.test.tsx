@@ -16,11 +16,53 @@ vi.mock('../../components/ResearchSkillZoneCard', () => ({
   default: () => <section><h2>科研技能专区</h2></section>,
 }))
 
+function createMockOpenClawController(onCopyAction?: () => void) {
+  return {
+    loading: false,
+    copied: false,
+    showLoginPrompt: false,
+    generatedSkillUrl: null,
+    generatedSkillIsBound: false,
+    guestClaimLoginPath: null,
+    guestClaimRegisterPath: null,
+    siteStats: {
+      topics_count: 0,
+      openclaw_count: 0,
+      replies_count: 0,
+      likes_count: 0,
+      favorites_count: 0,
+      skills_count: 0,
+    },
+    copy: async () => {
+      onCopyAction?.()
+    },
+  }
+}
+
 vi.mock('../../components/OpenClawSkillCard', () => ({
-  default: ({ onCopyAction }: { onCopyAction?: () => void }) => (
+  useOpenClawSkillCardController: ({ onCopyAction }: { onCopyAction?: () => void } = {}) =>
+    createMockOpenClawController(onCopyAction),
+  default: ({
+    controller,
+    onCopyAction,
+  }: {
+    controller?: { copy?: () => Promise<void> }
+    onCopyAction?: () => void
+  }) => (
     <section>
       <h2>OpenClaw 注册</h2>
-      <button type="button" onClick={onCopyAction}>触发复制暂停</button>
+      <button
+        type="button"
+        onClick={() => {
+          if (controller?.copy) {
+            void controller.copy()
+            return
+          }
+          onCopyAction?.()
+        }}
+      >
+        触发复制暂停
+      </button>
     </section>
   ),
 }))
@@ -43,10 +85,17 @@ vi.mock('../../components/VerticalCardCarousel', () => ({
 describe('HomePage', () => {
   const getEntryButton = (label: string) => screen.getByRole('button', { name: label })
   const getStage = () => screen.getByLabelText('首页卡片轮播舞台')
+  let scrollIntoViewMock: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     vi.useFakeTimers()
     vi.spyOn(Math, 'random').mockReturnValue(0)
+    scrollIntoViewMock = vi.spyOn(HTMLElement.prototype, 'scrollIntoView')
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      writable: true,
+      value: 1280,
+    })
   })
 
   afterEach(() => {
@@ -63,7 +112,7 @@ describe('HomePage', () => {
     )
 
     expect(screen.getByRole('heading', { name: /保持专注/i })).toBeInTheDocument()
-    expect(screen.getByText('科普科教')).toBeInTheDocument()
+    expect(screen.getByText('科教生态')).toBeInTheDocument()
     expect(screen.getByText('信息专栏')).toBeInTheDocument()
     expect(screen.getByText('OpenClaw 专属')).toBeInTheDocument()
     expect(getEntryButton('OpenClaw 接入')).toBeInTheDocument()
@@ -83,6 +132,44 @@ describe('HomePage', () => {
     fireEvent.click(getEntryButton('竞技场')!)
 
     expect(getEntryButton('竞技场')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('scrolls to the card stage after choosing another entry on mobile', () => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      writable: true,
+      value: 390,
+    })
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(getEntryButton('竞技场'))
+
+    act(() => {
+      vi.advanceTimersByTime(16)
+    })
+
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+  })
+
+  it('does not scroll to the card stage after choosing another entry on desktop', () => {
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(getEntryButton('竞技场'))
+
+    act(() => {
+      vi.advanceTimersByTime(16)
+    })
+
+    expect(scrollIntoViewMock).not.toHaveBeenCalled()
   })
 
   it('autoplays from a random starting card', () => {
@@ -124,6 +211,75 @@ describe('HomePage', () => {
     })
 
     expect(within(getStage()).getByText('OpenClaw 接入')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(5200)
+    })
+
+    expect(getEntryButton('科研 Skills 专区')).toHaveAttribute('aria-pressed', 'true')
+    expect(within(getStage()).getByText('科研 Skills 专区')).toBeInTheDocument()
+  })
+
+  it('triggers the same copy pause when clicking the hero OpenClaw entry button', () => {
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(getEntryButton('竞技场'))
+    expect(within(getStage()).getByText('竞技场')).toBeInTheDocument()
+
+    fireEvent.click(getEntryButton('OpenClaw 接入'))
+    expect(within(getStage()).getByText('OpenClaw 接入')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(5200)
+    })
+
+    expect(within(getStage()).getByText('OpenClaw 接入')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(30000)
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(5200)
+    })
+
+    expect(getEntryButton('科研 Skills 专区')).toHaveAttribute('aria-pressed', 'true')
+    expect(within(getStage()).getByText('科研 Skills 专区')).toBeInTheDocument()
+  })
+
+  it('triggers the same copy pause from the hero OpenClaw entry button on mobile', () => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      writable: true,
+      value: 390,
+    })
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(getEntryButton('竞技场'))
+    expect(within(getStage()).getByText('竞技场')).toBeInTheDocument()
+
+    fireEvent.click(getEntryButton('OpenClaw 接入'))
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+    expect(within(getStage()).getByText('OpenClaw 接入')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(5200)
+    })
+
+    expect(within(getStage()).getByText('OpenClaw 接入')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(30000)
+    })
 
     act(() => {
       vi.advanceTimersByTime(5200)

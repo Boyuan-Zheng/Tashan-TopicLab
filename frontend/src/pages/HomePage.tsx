@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppsPageCard from '../components/AppsPageCard'
 import ArcadeArenaCard from '../components/ArcadeArenaCard'
 import DigitalTwinCard from '../components/DigitalTwinCard'
 import { getHomeCardTheme } from '../components/homeCardTheme'
-import OpenClawSkillCard from '../components/OpenClawSkillCard'
+import OpenClawSkillCard, { useOpenClawSkillCardController } from '../components/OpenClawSkillCard'
 import ResearchSkillZoneCard from '../components/ResearchSkillZoneCard'
 import VerticalCardCarousel from '../components/VerticalCardCarousel'
 
@@ -35,13 +35,17 @@ type HomeEntryGroup = {
 export default function HomePage() {
   const [autoplayPausedUntil, setAutoplayPausedUntil] = useState<number | null>(null)
   const [autoplayCycleKey, setAutoplayCycleKey] = useState(0)
+  const cardStageRef = useRef<HTMLDivElement | null>(null)
+  const openClawSkillCardController = useOpenClawSkillCardController({
+    onCopyAction: () => setAutoplayPausedUntil(Date.now() + OPENCLAW_PAUSE_MS),
+  })
   const homeEntryItems: HomeEntryItem[] = [
     {
       id: 'openclaw-skill',
       label: 'OpenClaw 接入',
       audience: '只需一次复制，你的龙虾助理就能接入他山世界，帮你筛选、分析和跟进信息',
       themeName: 'mistBlue' as const,
-      content: <OpenClawSkillCard onCopyAction={() => setAutoplayPausedUntil(Date.now() + OPENCLAW_PAUSE_MS)} />,
+      content: <OpenClawSkillCard controller={openClawSkillCardController} />,
     },
     {
       id: 'research-skill-zone',
@@ -75,7 +79,7 @@ export default function HomePage() {
   const homeEntryGroups: HomeEntryGroup[] = [
     {
       id: 'popular-science',
-      label: '科普科教',
+      label: '科教生态',
       controls: [
         { id: 'research-skill-zone', label: '科研 Skills 专区', entryId: 'research-skill-zone' },
       ],
@@ -100,9 +104,26 @@ export default function HomePage() {
   const [activeIndex, setActiveIndex] = useState(() => Math.floor(Math.random() * homeEntryItems.length))
   const activeTheme = getHomeCardTheme(homeEntryItems[activeIndex]?.themeName ?? 'mistBlue')
 
-  const handleManualCardChange = (index: number) => {
+  const scrollCardStageIntoView = () => {
+    if (typeof window === 'undefined' || window.innerWidth >= 1024) {
+      return
+    }
+
+    cardStageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  const handleManualCardChange = (index: number, options?: { scrollToCard?: boolean }) => {
     setActiveIndex(index)
     setAutoplayCycleKey((prev) => prev + 1)
+
+    if (options?.scrollToCard) {
+      scrollCardStageIntoView()
+    }
+  }
+
+  const handleOpenClawHeroAction = () => {
+    void openClawSkillCardController.copy()
+    handleManualCardChange(0, { scrollToCard: true })
   }
 
   useEffect(() => {
@@ -174,7 +195,7 @@ export default function HomePage() {
               <div className="mt-10 flex flex-wrap items-center gap-4">
                 <button
                   type="button"
-                  onClick={() => handleManualCardChange(0)}
+                  onClick={handleOpenClawHeroAction}
                   className="inline-flex min-h-[3.5rem] items-center justify-center rounded-[1rem] px-6 text-base font-medium text-white transition-transform duration-300 hover:scale-[0.98] motion-reduce:transition-none"
                   style={{
                     background: 'linear-gradient(135deg, #314158 0%, #3d5574 100%)',
@@ -211,7 +232,7 @@ export default function HomePage() {
                             <button
                               key={control.id}
                               type="button"
-                              onClick={isDisabled ? undefined : () => handleManualCardChange(targetIndex)}
+                              onClick={isDisabled ? undefined : () => handleManualCardChange(targetIndex, { scrollToCard: true })}
                               className="rounded-full border px-4 py-2 text-sm transition-all duration-300 motion-reduce:transition-none disabled:cursor-not-allowed disabled:hover:scale-100"
                               style={{
                                 borderColor: isActive ? activeTheme.activeEdge : 'rgba(203, 213, 225, 0.95)',
@@ -236,7 +257,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="flex items-center lg:justify-end">
+          <div ref={cardStageRef} className="flex items-center lg:justify-end">
             <VerticalCardCarousel
               items={homeEntryItems}
               activeIndex={activeIndex}
