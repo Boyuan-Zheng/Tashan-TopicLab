@@ -12,7 +12,7 @@ export default function ForgotPassword() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
+  const [, setCodeSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
