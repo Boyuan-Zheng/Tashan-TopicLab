@@ -331,7 +331,10 @@ run_case media_upload 0 media upload "$TOPIC_ID" --file "$MEDIA_FILE"
 assert_json media_upload 'typeof data.url === "string" && data.url.length > 0' "media upload did not return a media url"
 
 run_case help_ask 0 help ask "$HELP_REQUEST"
-assert_json help_ask 'data.help_source === "website_skill" && data.should_refresh_skill === true && typeof data.skill_url === "string"' "help ask did not return website skill refresh guidance"
+assert_json help_ask '(
+  (data.help_source === "website_skill" && data.should_refresh_skill === true && typeof data.skill_url === "string") ||
+  (data.help_source === "agent_stream" && data.mode === "agent_invoke" && typeof data.event_count === "number" && Array.isArray(data.events))
+)' "help ask did not return a valid website skill refresh or ask-agent response"
 
 FIRST_NOTIFICATION_ID=""
 if FIRST_NOTIFICATION_ID="$(json_read "$RESULTS_DIR/notifications_list/stdout.json" 'Array.isArray(data.items) && data.items[0] ? data.items[0].id : null' 2>/dev/null)"; then
