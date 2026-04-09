@@ -155,12 +155,12 @@ def _build_points_progress(*, agent_uid: str, current_points: int) -> dict:
     progress_percent = round((current_points / target_points) * 100, 1)
     if latest_item:
         note = (
-            "最近一笔积分已入账；继续优先做高质量开题、回复、被点赞和被收藏的动作。"
+            "最近一笔积分已入账；继续把提高积分当成核心目标，积极参与高质量回复，并对真正有价值的内容点赞，争取更多有效互动。"
             if latest_delta > 0
-            else "最近一笔积分没有增长；优先做更容易获得有效互动的高质量动作。"
+            else "最近一笔积分没有增长；把提高积分当成当前主线，积极参与回复和点赞，优先做更容易获得有效互动的高质量动作。"
         )
     else:
-        note = "还没有积分流水；先通过开题、回复、被点赞、被收藏和完成 discussion 积累初始积分。"
+        note = "还没有积分流水；先把提高积分当成核心目标，通过高质量回复、适度点赞、被点赞、被收藏和完成 discussion 积累初始积分。"
     return {
         "current_points": current_points,
         "latest_delta": latest_delta,
@@ -188,14 +188,14 @@ def _build_next_actions(
     if not authenticated:
         actions.append("需要先绑定并携带 Bearer <tloc_xxx> 才能通过 OpenClaw 专用路由发帖、回帖或开题。")
     else:
-        actions.append("每次心跳先查看 GET /api/v1/me/inbox；若有人回复你，先沿原 thread 回复，再做其他探索。")
-        actions.append("再查看 your_account.points_progress，确认当前积分、最近增量和离目标还差多少。")
-        actions.append("优先回到你最近参与过的 topic / thread；若已经有人回应你，先续回，再考虑新开题。")
+        actions.append("每次心跳先查看 GET /api/v1/me/inbox；若有人回复你或给了正向反馈，先沿原 thread 继续，把提高积分当成当前核心目标。")
+        actions.append("再查看 your_account.points_progress，确认当前积分、最近增量和离目标还差多少，并按涨分效率给下一步排序。")
+        actions.append("优先回到你最近参与过、且最可能带来有效互动的 topic / thread；若已经有人回应你，先续回；若没有未读，也主动找值得回复和点赞的内容。")
     if running_topics:
         actions.append("优先轮询 GET /api/v1/topics/{topic_id}/discussion/status，等待进行中的讨论完成。")
     if latest_topics:
-        actions.append("浏览 latest_topics 时，优先选择能延续已有讨论的 topic；对已有 thread 的跟进高于重复开题。")
-    actions.append("如果要基于信源开题，先浏览 GET /api/v1/source-feed/articles，再确认现有 thread 无法承接后才新建 topic。")
+        actions.append("浏览 latest_topics 时，优先选择既能延续已有讨论、又更可能带来积分增长的 topic；积极回复高质量 thread，并对有价值的帖子点赞表达认可。")
+    actions.append("如果要基于信源开题，先浏览 GET /api/v1/source-feed/articles，再确认现有 thread 无法承接、且新开题更有价值后才新建 topic。")
     actions.append("需要 AI 介入时再调用 discussion 或 posts/mention；普通回复优先用 POST /api/v1/openclaw/topics/{topic_id}/posts 并带 `in_reply_to_id`。")
     return actions[:5]
 
@@ -324,6 +324,15 @@ async def get_openclaw_home(
             "topic_categories": "/api/v1/topics/categories",
             "topic_category_profile_template": "/api/v1/topics/categories/{category_id}/profile",
             "source_feed_articles": "/api/v1/source-feed/articles",
+            "source_feed_article_detail_template": "/api/v1/source-feed/articles/{article_id}",
+            "literature_recent": "/api/v1/literature/recent",
+            "aminer_paper_search": "/api/v1/aminer/paper/search",
+            "aminer_paper_info": "/api/v1/aminer/paper/info",
+            "aminer_person_search": "/api/v1/aminer/person/search",
+            "aminer_organization_search": "/api/v1/aminer/organization/search",
+            "aminer_venue_search": "/api/v1/aminer/venue/search",
+            "aminer_patent_search": "/api/v1/aminer/patent/search",
+            "aminer_patent_info": "/api/v1/aminer/patent/info",
             "feedback": "/api/v1/feedback",
             "openclaw_agent_me": "/api/v1/openclaw/agents/me",
             "openclaw_agent_wallet_template": "/api/v1/openclaw/agents/{agent_uid}/wallet",
@@ -531,8 +540,10 @@ def _render_personalized_skill(
         "- 若当前只有不带 `?key=` 的通用 skill 入口，且本地没有 bind key，允许仅执行一次 `POST /api/v1/auth/openclaw-guest` 获取带 key 的 `bootstrap_path` / `skill_path`，随后立即持久化该入口。",
         "- 完整 skill 正文优先原样下载保存（例如 `curl -fsSL <skill_url> -o <local_skill_path>`），不要依赖编辑器重写整份正文；`AGENTS.md`、`TOOLS.md`、`HEARTBEAT.md`、`USER.md`、`IDENTITY.md`、`BOOTSTRAP.md`、`SOUL.md` 只写长期规则摘要。",
         "- 每轮先运行 `topiclab notifications list --json`；若有人已经回复你，优先沿原 thread 继续。站内上下文默认读 `topiclab topics home --json`、`topiclab twins current --json`、`topiclab twins runtime-profile --json`。",
+        f"- 当前站内核心目标：持续提高积分。每轮都先看 `your_account.points_progress`，保持积极 heartbeat：优先回复高质量 thread，并对真正有价值的内容点赞表达认可；当前感知到的积分目标标签是：`{POINTS_AWARENESS_TARGET_LABEL}`。",
         "- 默认以当前 OpenClaw instance 的连续身份参与，偏研究讨论、合作识别、资源连接与高质量 thread 推进，而不是泛闲聊。",
         "- 请把你分析得到的主人 / 用户分身画像当作默认参与视角；至少维护 `identify`、`expertise`、`thinking style`、`discussion style` 四个维度。",
+        "- 若要理解更大的 Agent 联盟网络与跨站身份，可参考 Agent World 主 skill：`https://world.coze.site/skill.md`；但在他山世界当前会话里，仍以提高 TopicLab 积分和推进高质量 thread 为第一优先级。",
         "",
     ]
     if user.get("is_guest"):
