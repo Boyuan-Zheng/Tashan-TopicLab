@@ -16,11 +16,11 @@ from app.portrait.services.portrait_scientist_service import portrait_scientist_
 
 _BROWSER_CANDIDATES = [
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-    "/usr/bin/chromium-browser",
-    "/usr/bin/chromium",
-    "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
     "/usr/bin/microsoft-edge",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
 ]
 
 
@@ -131,21 +131,32 @@ class PortraitExportService:
             html_path = Path(temp_dir) / "portrait.html"
             html_path.write_text(html_content, encoding="utf-8")
             output_path = Path(temp_dir) / ("portrait.pdf" if mode == "pdf" else "portrait.png")
+            last_error: str | None = None
 
-            command = [
-                browser,
-                "--headless=new",
-                "--disable-gpu",
-                "--no-sandbox",
-                f"file://{html_path}",
-            ]
-            if mode == "pdf":
-                command.append(f"--print-to-pdf={output_path}")
-            else:
-                command.extend([f"--screenshot={output_path}", "--window-size=1440,2600"])
+            for headless_flag in ("--headless=new", "--headless"):
+                command = [
+                    browser,
+                    headless_flag,
+                    "--disable-gpu",
+                    "--no-sandbox",
+                    f"file://{html_path}",
+                ]
+                if mode == "pdf":
+                    command.append(f"--print-to-pdf={output_path}")
+                else:
+                    command.extend([f"--screenshot={output_path}", "--window-size=1440,2600"])
 
-            subprocess.run(command, check=True, capture_output=True, text=True)
-            return output_path.read_bytes()
+                try:
+                    subprocess.run(command, check=True, capture_output=True, text=True)
+                except subprocess.CalledProcessError as exc:
+                    last_error = (exc.stderr or exc.stdout or str(exc)).strip() or str(exc)
+                    continue
+
+                if output_path.exists():
+                    return output_path.read_bytes()
+                last_error = f"browser command succeeded but no output file was produced: {output_path}"
+
+            raise RuntimeError(f"Browser render failed for {mode} export: {last_error or 'unknown error'}")
 
     def export_structured(self, *, user_id: int, display_name: str | None = None, source_session_id: str | None = None) -> dict[str, Any]:
         projection = portrait_projection_service.build_projection(user_id, display_name=display_name)
@@ -205,30 +216,50 @@ class PortraitExportService:
     async def export_profile_pdf(self, *, user_id: int, display_name: str | None = None, source_session_id: str | None = None) -> dict[str, Any]:
         html_export = await self.export_profile_html(user_id=user_id, display_name=display_name, source_session_id=source_session_id)
         pdf_bytes = self._render_binary(html_content=html_export["profile_html"], mode="pdf")
-        artifact = portrait_artifact_service.record_artifact(
+        display_label = html_export["projection"]["structured_profile"]["display_name"]
+        artifact = portrait_artifact_service.record_binary_artifact(
             user_id=user_id,
             portrait_state_id=html_export["projection"]["portrait_state_id"],
             source_session_id=source_session_id,
             artifact_kind="export_profile_pdf",
-            format="binary",
-            title=f"{html_export['projection']['structured_profile']['display_name']} profile pdf",
+            format="pdf",
+            title=f"{display_label} profile pdf",
+            file_name=f"{display_label}-profile.pdf",
+            content_type="application/pdf",
+            payload=pdf_bytes,
             metadata_json={"source_html_artifact_id": html_export["artifact"]["artifact_id"], "byte_length": len(pdf_bytes)},
         )
-        return {"projection": html_export["projection"], "artifact": artifact, "media_bytes": pdf_bytes, "media_type": "application/pdf", "filename": "profile.pdf"}
+        return {
+            "projection": html_export["projection"],
+            "artifact": artifact,
+            "media_bytes": pdf_bytes,
+            "media_type": "application/pdf",
+            "filename": artifact["artifact_filename"] or "profile.pdf",
+        }
 
     async def export_profile_image(self, *, user_id: int, display_name: str | None = None, source_session_id: str | None = None) -> dict[str, Any]:
         html_export = await self.export_profile_html(user_id=user_id, display_name=display_name, source_session_id=source_session_id)
         image_bytes = self._render_binary(html_content=html_export["profile_html"], mode="image")
-        artifact = portrait_artifact_service.record_artifact(
+        display_label = html_export["projection"]["structured_profile"]["display_name"]
+        artifact = portrait_artifact_service.record_binary_artifact(
             user_id=user_id,
             portrait_state_id=html_export["projection"]["portrait_state_id"],
             source_session_id=source_session_id,
             artifact_kind="export_profile_image",
-            format="binary",
-            title=f"{html_export['projection']['structured_profile']['display_name']} profile image",
+            format="png",
+            title=f"{display_label} profile image",
+            file_name=f"{display_label}-profile.png",
+            content_type="image/png",
+            payload=image_bytes,
             metadata_json={"source_html_artifact_id": html_export["artifact"]["artifact_id"], "byte_length": len(image_bytes)},
         )
-        return {"projection": html_export["projection"], "artifact": artifact, "media_bytes": image_bytes, "media_type": "image/png", "filename": "profile.png"}
+        return {
+            "projection": html_export["projection"],
+            "artifact": artifact,
+            "media_bytes": image_bytes,
+            "media_type": "image/png",
+            "filename": artifact["artifact_filename"] or "profile.png",
+        }
 
 
 portrait_export_service = PortraitExportService()

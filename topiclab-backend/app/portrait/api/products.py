@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 
 from app.api.auth import get_current_user
 from app.portrait.schemas.forum import PortraitForumGenerateRequest
@@ -29,6 +29,17 @@ async def list_portrait_artifacts(
 @router.get("/artifacts/{artifact_id}")
 async def get_portrait_artifact(artifact_id: str, user: dict = Depends(get_current_user)):
     return portrait_artifact_service.get_artifact(artifact_id, int(user["sub"]))
+
+
+@router.get("/artifacts/{artifact_id}/download")
+async def download_portrait_artifact(artifact_id: str, user: dict = Depends(get_current_user)):
+    asset = portrait_artifact_service.get_artifact_download(artifact_id, int(user["sub"]))
+    return FileResponse(
+        asset["path"],
+        media_type=asset["content_type"],
+        filename=asset["filename"],
+        headers={"X-Portrait-Artifact-Id": asset["artifact"]["artifact_id"]},
+    )
 
 
 @router.post("/forum/generate")

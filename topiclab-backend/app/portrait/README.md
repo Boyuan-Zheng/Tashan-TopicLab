@@ -201,8 +201,27 @@ That first batch means the new backend now owns:
 - scientist matching and recommendations
 - structured / markdown / HTML export
 - PDF / image export endpoints with runtime-dependent rendering
+- persisted binary artifact storage plus later re-download
 - publish into twin runtime and legacy-compatible twin storage
 - durable artifact traceability
+
+Current cloud-validated binary export facts:
+
+- the backend can now render and persist:
+  - `profile-pdf`
+  - `profile-image`
+- durable binary files are stored under:
+  - `topiclab-backend/storage/portrait_artifacts/`
+- artifact metadata persists:
+  - filename
+  - content type
+  - size
+  - server-side storage path
+  - re-download route
+- the staging runtime requires:
+  - a Python interpreter that can import `uvicorn`
+  - a real headless-capable browser binary such as
+    `google-chrome-stable`
 
 Related implementation note:
 

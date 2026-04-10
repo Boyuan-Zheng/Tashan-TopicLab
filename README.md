@@ -213,6 +213,28 @@ npm test
 
 详见 [docs/getting-started/config.md](docs/getting-started/config.md) 与 [topiclab-backend/README.md](topiclab-backend/README.md)。专家、讨论方式、技能、MCP 等库从 `backend/libs/` 加载。
 
+### 5. 智能体测试 Skill
+
+如果你是为了让其他智能体测试新的 portrait CLI 闭环，**不需要 clone 整个主仓库**。唯一权威入口在 `TopicLab-CLI` 仓库里：
+
+- GitHub:
+  - `https://github.com/Boyuan-Zheng/TopicLab-CLI/blob/preview/portrait/skills/topiclab-portrait-cli-test-agent/SKILL.md`
+
+如果你已经 clone 了这个主仓库，并且初始化了 `topiclab-cli` 子模块，那么本地路径是：
+
+- [topiclab-cli/skills/topiclab-portrait-cli-test-agent/SKILL.md](topiclab-cli/skills/topiclab-portrait-cli-test-agent/SKILL.md)
+
+这份 skill 已经包含：
+
+- 如何找到并初始化 `topiclab-cli`
+- 如何本地 bootstrap
+- 如何用自己的 staging 账号登录
+- 如何连续执行 `topiclab portrait start/respond/status/result`
+- 如何验证 `resume/history/reset/export`
+- 如何验证云端返回的 `PDF`、图片和 artifact 二次下载
+
+对测试智能体来说，优先读这份 skill，不要先在文档目录里四处搜索。
+
 ---
 
 ## 文档
@@ -231,6 +253,7 @@ npm test
 | [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md) | 快速启动指南 |
 | [docs/features/share-flow-sequence.md](docs/features/share-flow-sequence.md) | 共享流程时序图（角色库 / 讨论方式库） |
 | [docs/getting-started/deploy.md](docs/getting-started/deploy.md) | 部署指南（GitHub Actions、DEPLOY_ENV） |
+| [topiclab-cli/skills/topiclab-portrait-cli-test-agent/SKILL.md](topiclab-cli/skills/topiclab-portrait-cli-test-agent/SKILL.md) | 单一权威的 portrait CLI 测试 skill，实际真源位于 TopicLab-CLI 仓库 |
 | [topiclab-backend/README.md](topiclab-backend/README.md) | TopicLab 主业务后端说明 |
 | [topiclab-cli/README.md](topiclab-cli/README.md) | TopicLab CLI 本地执行层说明 |
 | [backend/docs/](backend/docs/) | [Resonnet](https://github.com/TashanGKD/Resonnet) 后端文档 |

@@ -8,7 +8,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 STAGING_ROOT="${TOPICLAB_STAGING_ROOT:-$(cd "${REPO_ROOT}/.." && pwd)}"
 
 ENV_FILE="${TOPICLAB_ENV_FILE:-${REPO_ROOT}/.env}"
-PYTHON_BIN="${TOPICLAB_PYTHON_BIN:-python3}"
+PYTHON_BIN="${TOPICLAB_PYTHON_BIN:-}"
 APP_MODULE="${TOPICLAB_APP_MODULE:-main:app}"
 HOST="${TOPICLAB_STAGING_HOST:-127.0.0.1}"
 PORT="${TOPICLAB_STAGING_PORT:-6006}"
@@ -21,6 +21,44 @@ START_WAIT_SECONDS="${TOPICLAB_START_WAIT_SECONDS:-3}"
 STOP_WAIT_SECONDS="${TOPICLAB_STOP_WAIT_SECONDS:-10}"
 
 mkdir -p "${LOG_DIR}" "${RUN_DIR}"
+
+resolve_python_bin() {
+  local explicit="${TOPICLAB_PYTHON_BIN:-}"
+  local -a candidates=()
+  local candidate=""
+
+  if [[ -n "${explicit}" ]]; then
+    candidates+=("${explicit}")
+  fi
+  if [[ -n "${CONDA_PREFIX:-}" ]]; then
+    candidates+=("${CONDA_PREFIX}/bin/python")
+  fi
+  candidates+=("/root/miniconda3/bin/python" "python3" "python")
+
+  for candidate in "${candidates[@]}"; do
+    [[ -n "${candidate}" ]] || continue
+    if [[ "${candidate}" == */* ]]; then
+      [[ -x "${candidate}" ]] || continue
+    else
+      candidate="$(command -v "${candidate}" 2>/dev/null || true)"
+      [[ -n "${candidate}" ]] || continue
+    fi
+
+    if "${candidate}" -c 'import uvicorn' >/dev/null 2>&1; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  if [[ -n "${explicit}" ]]; then
+    echo "unable to use TOPICLAB_PYTHON_BIN=${explicit}: missing interpreter or uvicorn" >&2
+  else
+    echo "unable to locate a Python runtime with uvicorn; set TOPICLAB_PYTHON_BIN explicitly" >&2
+  fi
+  return 1
+}
+
+PYTHON_BIN="$(resolve_python_bin)"
 
 load_env() {
   if [[ ! -f "${ENV_FILE}" ]]; then

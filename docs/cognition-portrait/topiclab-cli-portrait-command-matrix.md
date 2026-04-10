@@ -148,8 +148,9 @@ That indirect path is useful, but it is not the final CLI shape.
 
 | Final command | Backend API | Primary `app/portrait` owner | Current status | Notes |
 |---|---|---|---|---|
-| `topiclab portrait artifacts list` | `GET /api/v1/portrait/artifacts` | `api/products.py`, `services/portrait_artifact_service.py` | 缺失 | backend already exists |
-| `topiclab portrait artifacts get <artifact_id>` | `GET /api/v1/portrait/artifacts/{artifact_id}` | `api/products.py`, `services/portrait_artifact_service.py` | 缺失 | backend already exists |
+| `topiclab portrait artifacts list` | `GET /api/v1/portrait/artifacts` | `api/products.py`, `services/portrait_artifact_service.py` | 已有 | direct CLI now exists |
+| `topiclab portrait artifacts get <artifact_id>` | `GET /api/v1/portrait/artifacts/{artifact_id}` | `api/products.py`, `services/portrait_artifact_service.py` | 已有 | direct CLI now exists |
+| `topiclab portrait artifacts download <artifact_id>` | `GET /api/v1/portrait/artifacts/{artifact_id}/download` | `api/products.py`, `services/portrait_artifact_service.py` | 已有 | direct CLI now downloads persisted binary artifact files |
 
 ### E. Expert Runtime: Dialogue
 
@@ -218,8 +219,8 @@ The recommended implementation order is:
 2. `topiclab portrait forum / scientist / publish`
    - these are already real backend capabilities
    - direct commands should replace reliance on `respond --choice ...`
-3. `topiclab portrait artifacts list/get`
-   - needed once forum/export/publish produce durable artifacts
+3. `topiclab portrait artifacts list/get/download`
+   - needed once forum/export/publish produce durable artifacts, especially binary PDF/image exports
 4. `topiclab portrait prompt ...` and `topiclab portrait import ...`
    - important for old-kernel AI-memory parity and expert testing
 5. `topiclab portrait dialogue ...` and `topiclab portrait state ...`

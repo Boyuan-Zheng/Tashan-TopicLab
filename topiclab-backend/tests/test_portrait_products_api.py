@@ -172,15 +172,23 @@ def test_portrait_products_closed_loop(tmp_path, monkeypatch):
     database_path = tmp_path / "portrait_products.sqlite3"
     monkeypatch.setenv("TOPICLAB_TESTING", "1")
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+    monkeypatch.setenv("PORTRAIT_ARTIFACT_STORAGE_DIR", str(tmp_path / "portrait_artifacts"))
     _install_test_shims(monkeypatch)
 
     import app.storage.database.postgres_client as postgres_client
     import app.api.auth as auth_router
     import app.api.portrait_state as portrait_state_router
     import app.api.portrait_products as portrait_products_router
+    from app.portrait.services.portrait_export_service import portrait_export_service
 
     postgres_client.reset_db_state()
     postgres_client.init_auth_tables()
+
+    def fake_render_binary(*, html_content: str, mode: str) -> bytes:
+        marker = "pdf" if mode == "pdf" else "png"
+        return f"rendered-{marker}-{len(html_content)}".encode("utf-8")
+
+    monkeypatch.setattr(portrait_export_service, "_render_binary", fake_render_binary)
 
     app = FastAPI()
     app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
@@ -234,6 +242,20 @@ def test_portrait_products_closed_loop(tmp_path, monkeypatch):
         assert "<html" in html_payload["profile_html"].lower()
         assert html_payload["artifact"]["artifact_kind"] == "export_profile_html"
 
+        pdf_export = client.get("/api/v1/portrait/export/profile-pdf", headers=headers)
+        assert pdf_export.status_code == 200, pdf_export.text
+        assert pdf_export.headers["content-type"] == "application/pdf"
+        pdf_artifact_id = pdf_export.headers["x-portrait-artifact-id"]
+        assert pdf_artifact_id.startswith("par_")
+        assert pdf_export.content.startswith(b"rendered-pdf-")
+
+        image_export = client.get("/api/v1/portrait/export/profile-image", headers=headers)
+        assert image_export.status_code == 200, image_export.text
+        assert image_export.headers["content-type"] == "image/png"
+        image_artifact_id = image_export.headers["x-portrait-artifact-id"]
+        assert image_artifact_id.startswith("par_")
+        assert image_export.content.startswith(b"rendered-png-")
+
         publish = client.post(
             "/api/v1/portrait/publish",
             headers=headers,
@@ -248,8 +270,26 @@ def test_portrait_products_closed_loop(tmp_path, monkeypatch):
         artifacts = client.get("/api/v1/portrait/artifacts?limit=20", headers=headers)
         assert artifacts.status_code == 200, artifacts.text
         artifact_payload = artifacts.json()
-        assert len(artifact_payload["artifacts"]) >= 6
+        assert len(artifact_payload["artifacts"]) >= 8
         artifact_id = forum_payload["artifact"]["artifact_id"]
         detail = client.get(f"/api/v1/portrait/artifacts/{artifact_id}", headers=headers)
         assert detail.status_code == 200, detail.text
         assert detail.json()["artifact"]["artifact_id"] == artifact_id
+
+        pdf_detail = client.get(f"/api/v1/portrait/artifacts/{pdf_artifact_id}", headers=headers)
+        assert pdf_detail.status_code == 200, pdf_detail.text
+        pdf_detail_payload = pdf_detail.json()["artifact"]
+        assert pdf_detail_payload["binary_available"] is True
+        assert pdf_detail_payload["artifact_content_type"] == "application/pdf"
+        assert pdf_detail_payload["artifact_size"] > 0
+        assert pdf_detail_payload["download_url"].endswith(f"/api/v1/portrait/artifacts/{pdf_artifact_id}/download")
+
+        pdf_download = client.get(f"/api/v1/portrait/artifacts/{pdf_artifact_id}/download", headers=headers)
+        assert pdf_download.status_code == 200, pdf_download.text
+        assert pdf_download.headers["content-type"] == "application/pdf"
+        assert pdf_download.content == pdf_export.content
+
+        image_download = client.get(f"/api/v1/portrait/artifacts/{image_artifact_id}/download", headers=headers)
+        assert image_download.status_code == 200, image_download.text
+        assert image_download.headers["content-type"] == "image/png"
+        assert image_download.content == image_export.content

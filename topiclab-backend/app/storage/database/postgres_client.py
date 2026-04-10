@@ -1405,6 +1405,10 @@ def _apply_portrait_artifact_ddl(session) -> None:
                 title VARCHAR(255),
                 content_text TEXT,
                 content_json TEXT,
+                artifact_filename TEXT,
+                artifact_path TEXT,
+                artifact_content_type TEXT,
+                artifact_size INTEGER NOT NULL DEFAULT 0,
                 metadata_json TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -1425,6 +1429,10 @@ def _apply_portrait_artifact_ddl(session) -> None:
                 title VARCHAR(255),
                 content_text TEXT,
                 content_json JSONB,
+                artifact_filename TEXT,
+                artifact_path TEXT,
+                artifact_content_type TEXT,
+                artifact_size INTEGER NOT NULL DEFAULT 0,
                 metadata_json JSONB,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -1432,6 +1440,17 @@ def _apply_portrait_artifact_ddl(session) -> None:
             """
         )
     )
+    inspector = _get_session_inspector(session)
+    artifact_columns = {column["name"] for column in inspector.get_columns("portrait_artifacts")}
+    missing_column_statements = {
+        "artifact_filename": "ALTER TABLE portrait_artifacts ADD COLUMN artifact_filename TEXT",
+        "artifact_path": "ALTER TABLE portrait_artifacts ADD COLUMN artifact_path TEXT",
+        "artifact_content_type": "ALTER TABLE portrait_artifacts ADD COLUMN artifact_content_type TEXT",
+        "artifact_size": "ALTER TABLE portrait_artifacts ADD COLUMN artifact_size INTEGER NOT NULL DEFAULT 0",
+    }
+    for column_name, statement in missing_column_statements.items():
+        if column_name not in artifact_columns:
+            session.execute(text(statement))
     session.execute(text("""
         CREATE INDEX IF NOT EXISTS idx_portrait_artifacts_user_created
         ON portrait_artifacts(user_id, created_at DESC)

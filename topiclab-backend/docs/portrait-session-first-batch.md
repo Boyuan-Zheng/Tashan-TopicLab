@@ -500,6 +500,64 @@ Observed facts after takeover:
 - health payload:
   - `{"status":"ok","service":"topiclab-backend"}`
 
+### AutoDL staging restart path was hardened again on April 11
+
+The next real staging validation exposed two additional operational pitfalls:
+
+- the script defaulted to system `python3`, but the actually provisioned
+  runtime with `uvicorn`, `fastapi`, and `sqlalchemy` lived at:
+  - `/root/miniconda3/bin/python`
+- the host had `/usr/bin/chromium-browser`, but on this AutoDL image it was a
+  snap wrapper rather than a usable headless browser binary
+
+What changed in repo-owned runtime code:
+
+- `topiclab-backend/scripts/portrait_staging_service.sh`
+  - now auto-detects a Python interpreter that can actually import `uvicorn`
+  - currently resolves to `/root/miniconda3/bin/python` on the validated
+    AutoDL host without needing a manual env override
+- `app/portrait/services/portrait_export_service.py`
+  - now prefers real Chrome binaries before `chromium-browser`, so the staging
+    host selects `/usr/bin/google-chrome-stable` once installed
+
+What was installed on the AutoDL host during validation:
+
+- `google-chrome-stable`
+
+Concrete verified path after those fixes:
+
+```bash
+cd /root/topiclab-portrait-staging/topiclab-backend
+bash scripts/portrait_staging_service.sh restart
+bash scripts/portrait_staging_service.sh health
+```
+
+Observed facts after the April 11 validation:
+
+- managed listener pid after restart:
+  - `31691`
+- health payload:
+  - `{"status":"ok","service":"topiclab-backend"}`
+- real cloud requests returned `200 OK` for:
+  - `GET /api/v1/portrait/export/profile-pdf`
+  - `GET /api/v1/portrait/export/profile-image`
+  - `GET /api/v1/portrait/artifacts`
+  - `GET /api/v1/portrait/artifacts/{artifact_id}/download`
+- persisted binary artifacts were written to:
+  - `/root/topiclab-portrait-staging/topiclab-backend/storage/portrait_artifacts/user-7/`
+- matching sqlite rows existed in:
+  - `/root/topiclab-portrait-staging/topiclab-backend/topiclab_staging.sqlite3`
+  - table: `portrait_artifacts`
+
+Validated artifact examples:
+
+- PDF:
+  - `par_ce0b7f58fcbb46f2`
+  - size: `46623`
+- image:
+  - `par_76710431128e413c`
+  - size: `77298`
+
 ## Practical Interpretation
 
 This work means the unified portrait session orchestrator has now moved from:
