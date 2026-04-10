@@ -7,13 +7,13 @@ As of 2026-04-11, the current preview release state is:
 - super repo preview branch:
   - `https://github.com/Boyuan-Zheng/Tashan-TopicLab/tree/preview/portrait`
 - super repo preview tag:
-  - `tashan-topiclab-portrait-preview-2026.04.11.2`
+  - `tashan-topiclab-portrait-preview-2026.04.11.3`
 - CLI preview branch:
   - `https://github.com/Boyuan-Zheng/TopicLab-CLI/tree/preview/portrait`
 - CLI preview tag:
-  - `topiclab-cli-v0.4.0-portrait.1`
+  - `topiclab-cli-v0.4.0-portrait.2`
 - intended npm package version:
-  - `topiclab-cli@0.4.0-portrait.1`
+  - `topiclab-cli@0.4.0-portrait.2`
 - intended npm dist-tag:
   - `portrait`
 
@@ -198,7 +198,7 @@ npm view topiclab-cli versions --json
 Expected result:
 
 - `latest` still points to the stable line
-- `portrait` points to `0.4.0-portrait.1`
+- `portrait` points to `0.4.0-portrait.2`
 
 ### Phase D. Publish tester instructions
 
