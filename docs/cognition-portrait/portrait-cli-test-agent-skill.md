@@ -29,6 +29,8 @@ That file is the canonical operator manual.
 If the local file path is unavailable, use the GitHub preview copy:
 
 - `https://github.com/Boyuan-Zheng/Tashan-TopicLab/blob/preview/portrait/docs/cognition-portrait/portrait-cli-agent-manual.md`
+- exact preview tag:
+  - `tashan-topiclab-portrait-preview-2026.04.11.1`
 
 If you only read one rule from this skill, read this:
 
@@ -95,6 +97,10 @@ npm run portrait:preview:bootstrap
 source ./.topiclab-cli-home/portrait-preview.env
 ```
 
+Exact preview source tag, if a pinned ref is required:
+
+- `topiclab-cli-v0.4.0-portrait.1`
+
 After the npm prerelease is actually published, an alternative install path is:
 
 ```bash
@@ -128,6 +134,11 @@ Use a staging/test account, not a production account.
 
 If the account is not already registered on staging, the CLI may auto-register
 it when the backend allows that path.
+
+Operational shortcut:
+
+- treat `portrait auth ensure` as the register-or-login command
+- if it succeeds, continue immediately with `start` and `respond`
 
 Canonical login command:
 

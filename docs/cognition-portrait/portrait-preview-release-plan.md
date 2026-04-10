@@ -1,5 +1,30 @@
 # Portrait Preview Release Plan
 
+## Current Snapshot
+
+As of 2026-04-11, the current preview release state is:
+
+- super repo preview branch:
+  - `https://github.com/Boyuan-Zheng/Tashan-TopicLab/tree/preview/portrait`
+- super repo preview tag:
+  - `tashan-topiclab-portrait-preview-2026.04.11.1`
+- CLI preview branch:
+  - `https://github.com/Boyuan-Zheng/TopicLab-CLI/tree/preview/portrait`
+- CLI preview tag:
+  - `topiclab-cli-v0.4.0-portrait.1`
+- intended npm package version:
+  - `topiclab-cli@0.4.0-portrait.1`
+- intended npm dist-tag:
+  - `portrait`
+
+Important current status:
+
+- GitHub preview branch and tag are already available for testers
+- npm prerelease publication is still blocked on maintainer npm login on the
+  publishing machine
+- until npm auth is completed, testers should install from the GitHub preview
+  branch instead of waiting for the npm package
+
 ## Purpose
 
 This document defines the recommended public-preview release path for the new

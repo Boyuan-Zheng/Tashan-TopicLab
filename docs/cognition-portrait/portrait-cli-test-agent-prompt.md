@@ -14,6 +14,10 @@ task to another agent.
 如果本地路径不可用，就读 GitHub preview 版本：
 https://github.com/Boyuan-Zheng/Tashan-TopicLab/blob/preview/portrait/docs/cognition-portrait/portrait-cli-agent-manual.md
 
+如需固定源码版本，可优先使用这些 preview 标识：
+- Tashan-TopicLab: `tashan-topiclab-portrait-preview-2026.04.11.1`
+- TopicLab-CLI: `topiclab-cli-v0.4.0-portrait.1`
+
 然后优先从 GitHub preview 分支下载或进入已有的 TopicLab-CLI 仓库，执行：
 npm install
 npm run portrait:preview:bootstrap
@@ -74,6 +78,8 @@ npm run portrait:preview:bootstrap
 
 4. 然后 source bootstrap 生成的 env 文件，并使用你自己的 staging 账号登录：
    topiclab portrait auth ensure
+
+   这里把 `auth ensure` 视为“注册或登录”的统一入口，不要自己猜该先注册还是先登录。
 
 5. 你必须把 CLI 当成连续可交互的入口来使用，而不是只跑一条命令。
    也就是说，在同一个本地环境里连续执行多次：

@@ -20,8 +20,34 @@ GitHub preview references:
 
 - docs repo preview branch:
   - `https://github.com/Boyuan-Zheng/Tashan-TopicLab/tree/preview/portrait`
+- docs repo preview tag:
+  - `tashan-topiclab-portrait-preview-2026.04.11.1`
 - CLI repo preview branch:
   - `https://github.com/Boyuan-Zheng/TopicLab-CLI/tree/preview/portrait`
+- CLI repo preview tag:
+  - `topiclab-cli-v0.4.0-portrait.1`
+
+## Fastest Working Path Right Now
+
+If you want the shortest path that works today, do exactly this:
+
+```bash
+git clone --branch preview/portrait https://github.com/Boyuan-Zheng/TopicLab-CLI.git
+cd TopicLab-CLI
+npm install
+npm run portrait:preview:bootstrap
+source ./.topiclab-cli-home/portrait-preview.env
+node dist/cli.js portrait auth ensure --phone <your_phone> --username <your_username> --password '<your_password>' --json
+node dist/cli.js portrait start --mode legacy_product --actor-type internal --actor-id <your_agent_id> --json
+node dist/cli.js portrait respond --choice direct --json
+node dist/cli.js portrait respond --text "我是测试智能体 Alpha。" --json
+node dist/cli.js portrait status --json
+node dist/cli.js portrait respond --text "我目前主要做 AI agent 与科研工具开发。" --json
+node dist/cli.js portrait result --json
+```
+
+Use this exact GitHub source-install path until the npm prerelease is actually
+published.
 
 ## Current Validated Entry
 
@@ -260,6 +286,12 @@ If you did not source the bootstrap env file, add:
 ```
 
 This stores portrait auth in local CLI state and does not require SSH.
+
+Practical rule:
+
+- treat `portrait auth ensure` as the single register-or-login entry on staging
+- do not separately guess whether you should call a register command first
+- if `auth ensure` succeeds, continue directly into the portrait loop
 
 ## Main User Flow
 
