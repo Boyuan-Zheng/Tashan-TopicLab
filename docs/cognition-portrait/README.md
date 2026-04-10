@@ -27,9 +27,7 @@ The current direction is not a single portrait product. It is a layered stack:
 | [portrait-preview-release-plan.md](portrait-preview-release-plan.md) | Recommended public-preview rollout for the new portrait product across GitHub preview branch/tagging, npm prerelease, and tester installation paths |
 | [deceased-scientist-candidate-pool-v1.md](deceased-scientist-candidate-pool-v1.md) | First 120-person candidate pool of deceased scientists for future type anchors, naming work, and share-card references |
 | [full-portrait-scale-and-skill-audit.md](full-portrait-scale-and-skill-audit.md) | Audit of the full portrait stack: three scales, dimensions, scoring, skill architecture, evidence strength, and current integration gaps |
-| [portrait-cli-agent-manual.md](portrait-cli-agent-manual.md) | Operator manual for agents using the new portrait product through `TopicLab-CLI`, including local setup, own-account auth, unified session commands, and session control flows |
-| [portrait-cli-test-agent-skill.md](portrait-cli-test-agent-skill.md) | Shareable skill text for any external testing agent that needs to use the new portrait product through local `TopicLab-CLI` |
-| [portrait-cli-test-agent-prompt.md](portrait-cli-test-agent-prompt.md) | Ready-to-paste prompt for handing the portrait CLI staging test task to another agent |
+| [portrait-cli-test-agent-skill.md](portrait-cli-test-agent-skill.md) | Single canonical onboarding document for any external testing agent, including install, bootstrap, login, continuous CLI use, reporting, and a ready-to-forward prompt |
 | [light-quiz-design-skeleton.md](light-quiz-design-skeleton.md) | Design skeleton for turning playful research-life questions into stable dimension sampling and recognizable portrait archetypes |
 | [light-quiz-dimension-and-type-system.md](light-quiz-dimension-and-type-system.md) | Defines the lightweight quiz dimensions, question principles, and original type-system design |
 | [light-quiz-question-bank-v1.md](light-quiz-question-bank-v1.md) | First 20-question draft with research-life scenarios, playful answer voice, and hidden dimension tags |

@@ -1,5 +1,9 @@
 # Portrait CLI Test Agent Skill
 
+This is now the **single canonical document** for external agents.
+
+If you are onboarding another agent, send **only this file**.
+
 ## Purpose
 
 This is the **shareable skill text** for any agent that needs to test the new
@@ -18,17 +22,16 @@ Use this skill when the task is:
 - use a personal staging account instead of the web UI
 - run portrait CLI smoke / operator testing without SSH tunnels
 
-## Read First
+## Single Source Rule
 
-Before starting work, read:
+This file is self-contained.
 
-- [portrait-cli-agent-manual.md](/Users/boyuan/aiwork/0310_huaxiang/项目群/github_refs/Tashan-TopicLab/docs/cognition-portrait/portrait-cli-agent-manual.md)
+Do not require the testing agent to read extra portrait CLI docs first.
 
-That file is the canonical operator manual.
+If the local file path is unavailable, use the GitHub preview copy of this same
+file:
 
-If the local file path is unavailable, use the GitHub preview copy:
-
-- `https://github.com/Boyuan-Zheng/Tashan-TopicLab/blob/preview/portrait/docs/cognition-portrait/portrait-cli-agent-manual.md`
+- `https://github.com/Boyuan-Zheng/Tashan-TopicLab/blob/preview/portrait/docs/cognition-portrait/portrait-cli-test-agent-skill.md`
 - exact preview tag:
   - `tashan-topiclab-portrait-preview-2026.04.11.2`
 
@@ -40,6 +43,28 @@ If you only read one rule from this skill, read this:
 - after `start`, continue with more `respond`, `status`, `result`, `resume`,
   `history`, and `reset` calls as needed
 - do not assume the test ends after one command
+
+## Fastest Working Path Right Now
+
+If you want the shortest path that works today, do exactly this:
+
+```bash
+git clone --branch preview/portrait https://github.com/Boyuan-Zheng/TopicLab-CLI.git
+cd TopicLab-CLI
+npm install
+npm run portrait:preview:bootstrap
+source ./.topiclab-cli-home/portrait-preview.env
+node dist/cli.js portrait auth ensure --phone <your_phone> --username <your_username> --password '<your_password>' --json
+node dist/cli.js portrait start --mode legacy_product --actor-type internal --actor-id <your_agent_id> --json
+node dist/cli.js portrait respond --choice direct --json
+node dist/cli.js portrait respond --text "我是测试智能体 Alpha。" --json
+node dist/cli.js portrait status --json
+node dist/cli.js portrait respond --text "我目前主要做 AI agent 与科研工具开发。" --json
+node dist/cli.js portrait result --json
+```
+
+Use this GitHub source-install path until the npm prerelease is actually
+published.
 
 ## Core Rule
 
@@ -224,3 +249,30 @@ Report back with:
 4. whether continuous CLI interaction worked across multiple commands
 5. whether the cloud staging runtime returned valid results
 6. exact failures, if any
+
+## Ready-To-Forward Prompt
+
+If you want to hand this task to another agent, you can send only the text
+below together with the path or URL of this file:
+
+```text
+请作为 TopicLab Portrait CLI 测试智能体，阅读这份唯一 skill 文档并严格按它执行：
+
+/Users/boyuan/aiwork/0310_huaxiang/项目群/github_refs/Tashan-TopicLab/docs/cognition-portrait/portrait-cli-test-agent-skill.md
+
+如果本地路径不可用，就读：
+https://github.com/Boyuan-Zheng/Tashan-TopicLab/blob/preview/portrait/docs/cognition-portrait/portrait-cli-test-agent-skill.md
+
+你的目标是：
+1. 通过网络下载或进入已有的 TopicLab-CLI preview/portrait 分支
+2. 在本地安装并 bootstrap CLI
+3. 用你自己的 staging/test 账号执行 portrait auth ensure
+4. 连续执行 topiclab portrait start / respond / status / result
+5. 必要时继续执行 resume / history / export / reset
+6. 汇报是否证明了“本地 CLI -> 云端 staging”闭环可用
+
+注意：
+- 不要默认使用生产账号
+- 不要把 CLI 当成一次性命令
+- 除非主入口失败，不要优先使用底层调试命令
+```

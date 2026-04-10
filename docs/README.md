@@ -100,9 +100,7 @@ docs/
 | [README.md](cognition-portrait/README.md) | Scope and doc map for cognition, portrait, and share-card work |
 | [../scales-runtime/README.md](../scales-runtime/README.md) | Dedicated runtime domain for reusable scales, scoring, schemas, fixtures, and CLI-facing protocol work |
 | [portrait-preview-release-plan.md](cognition-portrait/portrait-preview-release-plan.md) | Recommended GitHub preview branch/tag, npm prerelease, and tester-install rollout for the new portrait product |
-| [portrait-cli-agent-manual.md](cognition-portrait/portrait-cli-agent-manual.md) | Agent/operator manual for using the new portrait product through `TopicLab-CLI`, including local build, own-account auth, unified session commands, and no-SSH staging usage |
-| [portrait-cli-test-agent-skill.md](cognition-portrait/portrait-cli-test-agent-skill.md) | Shareable skill text for giving other agents the new portrait CLI staging test workflow |
-| [portrait-cli-test-agent-prompt.md](cognition-portrait/portrait-cli-test-agent-prompt.md) | Ready-to-paste prompt for asking any agent to test the new portrait CLI main entry |
+| [portrait-cli-test-agent-skill.md](cognition-portrait/portrait-cli-test-agent-skill.md) | Single canonical onboarding document for other agents to download, install, bootstrap, login, and continuously use the new portrait CLI against staging |
 | [deceased-scientist-candidate-pool-v1.md](cognition-portrait/deceased-scientist-candidate-pool-v1.md) | First 120-person candidate pool of deceased scientists for anchor research and type-mapping work |
 | [fun-quiz-and-portrait-stack.md](cognition-portrait/fun-quiz-and-portrait-stack.md) | Product stack for light quiz, full portrait, and rich de-identified card |
 | [full-portrait-scale-and-skill-audit.md](cognition-portrait/full-portrait-scale-and-skill-audit.md) | Audit of the full portrait stack: scales, dimensions, scoring, skill architecture, evidence strength, and integration gaps |
@@ -138,9 +136,7 @@ docs/
 - **Digital twin**: [digital-twin-lifecycle.md](features/digital-twin-lifecycle.md)
 - **Cognition & portrait stack**: [fun-quiz-and-portrait-stack.md](cognition-portrait/fun-quiz-and-portrait-stack.md)
 - **Portrait preview release plan**: [portrait-preview-release-plan.md](cognition-portrait/portrait-preview-release-plan.md)
-- **Portrait CLI agent manual**: [portrait-cli-agent-manual.md](cognition-portrait/portrait-cli-agent-manual.md)
 - **Portrait CLI test-agent skill**: [portrait-cli-test-agent-skill.md](cognition-portrait/portrait-cli-test-agent-skill.md)
-- **Portrait CLI test-agent prompt**: [portrait-cli-test-agent-prompt.md](cognition-portrait/portrait-cli-test-agent-prompt.md)
 - **Deceased scientist candidate pool V1**: [deceased-scientist-candidate-pool-v1.md](cognition-portrait/deceased-scientist-candidate-pool-v1.md)
 - **Full portrait scale / skill audit**: [full-portrait-scale-and-skill-audit.md](cognition-portrait/full-portrait-scale-and-skill-audit.md)
 - **Light quiz design skeleton**: [light-quiz-design-skeleton.md](cognition-portrait/light-quiz-design-skeleton.md)
