@@ -21,7 +21,7 @@ GitHub preview references:
 - docs repo preview branch:
   - `https://github.com/Boyuan-Zheng/Tashan-TopicLab/tree/preview/portrait`
 - docs repo preview tag:
-  - `tashan-topiclab-portrait-preview-2026.04.11.1`
+  - `tashan-topiclab-portrait-preview-2026.04.11.2`
 - CLI repo preview branch:
   - `https://github.com/Boyuan-Zheng/TopicLab-CLI/tree/preview/portrait`
 - CLI repo preview tag:

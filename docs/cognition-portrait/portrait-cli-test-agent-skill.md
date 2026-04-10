@@ -30,7 +30,7 @@ If the local file path is unavailable, use the GitHub preview copy:
 
 - `https://github.com/Boyuan-Zheng/Tashan-TopicLab/blob/preview/portrait/docs/cognition-portrait/portrait-cli-agent-manual.md`
 - exact preview tag:
-  - `tashan-topiclab-portrait-preview-2026.04.11.1`
+  - `tashan-topiclab-portrait-preview-2026.04.11.2`
 
 If you only read one rule from this skill, read this:
 

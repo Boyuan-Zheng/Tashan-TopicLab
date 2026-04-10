@@ -15,7 +15,7 @@ task to another agent.
 https://github.com/Boyuan-Zheng/Tashan-TopicLab/blob/preview/portrait/docs/cognition-portrait/portrait-cli-agent-manual.md
 
 如需固定源码版本，可优先使用这些 preview 标识：
-- Tashan-TopicLab: `tashan-topiclab-portrait-preview-2026.04.11.1`
+- Tashan-TopicLab: `tashan-topiclab-portrait-preview-2026.04.11.2`
 - TopicLab-CLI: `topiclab-cli-v0.4.0-portrait.1`
 
 然后优先从 GitHub preview 分支下载或进入已有的 TopicLab-CLI 仓库，执行：
