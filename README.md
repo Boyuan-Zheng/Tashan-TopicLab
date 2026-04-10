@@ -222,7 +222,7 @@ npm test
 
 如果你已经 clone 了这个主仓库，并且初始化了 `topiclab-cli` 子模块，那么本地路径是：
 
-- [topiclab-cli/skills/topiclab-portrait-cli-test-agent/SKILL.md](topiclab-cli/skills/topiclab-portrait-cli-test-agent/SKILL.md)
+- `topiclab-cli/skills/topiclab-portrait-cli-test-agent/SKILL.md`
 
 这份 skill 已经包含：
 
@@ -253,7 +253,7 @@ npm test
 | [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md) | 快速启动指南 |
 | [docs/features/share-flow-sequence.md](docs/features/share-flow-sequence.md) | 共享流程时序图（角色库 / 讨论方式库） |
 | [docs/getting-started/deploy.md](docs/getting-started/deploy.md) | 部署指南（GitHub Actions、DEPLOY_ENV） |
-| [topiclab-cli/skills/topiclab-portrait-cli-test-agent/SKILL.md](topiclab-cli/skills/topiclab-portrait-cli-test-agent/SKILL.md) | 单一权威的 portrait CLI 测试 skill，实际真源位于 TopicLab-CLI 仓库 |
+| [TopicLab-CLI preview skill](https://github.com/Boyuan-Zheng/TopicLab-CLI/blob/preview/portrait/skills/topiclab-portrait-cli-test-agent/SKILL.md) | 单一权威的 portrait CLI 测试 skill，实际真源位于 TopicLab-CLI 仓库 |
 | [topiclab-backend/README.md](topiclab-backend/README.md) | TopicLab 主业务后端说明 |
 | [topiclab-cli/README.md](topiclab-cli/README.md) | TopicLab CLI 本地执行层说明 |
 | [backend/docs/](backend/docs/) | [Resonnet](https://github.com/TashanGKD/Resonnet) 后端文档 |
