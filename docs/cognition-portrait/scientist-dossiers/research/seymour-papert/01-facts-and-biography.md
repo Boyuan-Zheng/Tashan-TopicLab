@@ -1,0 +1,25 @@
+# Seymour Papert · Facts And Biography
+
+## Status
+
+- Collection stage: corpus_packaged
+- Source confidence: medium to high depending on source family coverage
+- Cluster: 工程、信息、系统与跨界建构
+
+## Confirmed Facts
+
+- Name: Seymour Papert
+- Years: 1928 - 2016
+- Primary field: 计算机科学、学习科学
+- Era label: modern_media
+
+## Corpus Entrypoints
+
+- manifests: [../../../../../data/scientist-corpora/seymour-papert/manifests](../../../../../data/scientist-corpora/seymour-papert/manifests)
+- package: [../../../../../data/scientist-corpora/seymour-papert/package/seymour-papert_text_only_v1](../../../../../data/scientist-corpora/seymour-papert/package/seymour-papert_text_only_v1)
+
+## Verification Notes
+
+- Identity lock now lives in `manifests/project.json` and `manifests/notes.md`.
+- Public-only sources were used in this bootstrap pass.
+- Same-name ambiguity is recorded in source rows and missing items rather than silently flattened.

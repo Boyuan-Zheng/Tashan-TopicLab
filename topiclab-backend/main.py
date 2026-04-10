@@ -32,12 +32,19 @@ from app.api import aminer as aminer_router
 from app.api import apps as apps_router
 from app.api import admin as admin_router
 from app.api import auth as auth_router
+from app.api import dialogue as dialogue_router
 from app.api import feedback as feedback_router
+from app.api import import_results as import_results_router
 from app.api import literature as literature_router
 from app.api import openclaw as openclaw_router
 from app.api import openclaw_plugin as openclaw_plugin_router
 from app.api import openclaw_routes as openclaw_dedicated_router
 from app.api import openclaw_twin_runtime as openclaw_twin_runtime_router
+from app.api import portrait_products as portrait_products_router
+from app.api import portrait_state as portrait_state_router
+from app.api import portrait_session as portrait_session_router
+from app.api import prompt_handoff as prompt_handoff_router
+from app.api import scales as scales_router
 from app.api import skill_hub as skill_hub_router
 from app.api import skills as skills_router
 from app.api import source_feed as source_feed_router
@@ -84,6 +91,13 @@ app.include_router(literature_router.router, prefix="/literature", tags=["litera
 app.include_router(literature_router.router, prefix="/api/v1/literature", tags=["literature-v1"])
 app.include_router(aminer_router.router, prefix="/aminer", tags=["aminer"])
 app.include_router(aminer_router.router, prefix="/api/v1/aminer", tags=["aminer-v1"])
+app.include_router(scales_router.router, prefix="/api/v1", tags=["scales-v1"])
+app.include_router(dialogue_router.router, prefix="/api/v1", tags=["portrait-dialogue-v1"])
+app.include_router(portrait_session_router.router, prefix="/api/v1", tags=["portrait-session-v1"])
+app.include_router(portrait_state_router.router, prefix="/api/v1", tags=["portrait-state-v1"])
+app.include_router(prompt_handoff_router.router, prefix="/api/v1", tags=["portrait-prompt-handoffs-v1"])
+app.include_router(import_results_router.router, prefix="/api/v1", tags=["portrait-import-results-v1"])
+app.include_router(portrait_products_router.router, prefix="/api/v1", tags=["portrait-products-v1"])
 app.include_router(topics_router.router, tags=["topics"])
 app.include_router(topics_router.router, prefix="/api/v1", tags=["topics-v1"])
 app.include_router(skills_router.router, tags=["skills"])

@@ -703,6 +703,745 @@ def _create_openclaw_api_keys_v2(session) -> None:
     )
 
 
+def _apply_scale_runtime_ddl(session) -> None:
+    """Create scale runtime tables and indexes (idempotent)."""
+    is_sqlite = _is_sqlite_session(session)
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS scale_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                scale_id VARCHAR(64) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'initialized',
+                actor_type VARCHAR(32) NOT NULL DEFAULT 'human',
+                actor_id VARCHAR(255),
+                definition_version VARCHAR(64) NOT NULL,
+                scoring_version VARCHAR(64) NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TEXT,
+                abandoned_at TEXT
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS scale_sessions (
+                id SERIAL PRIMARY KEY,
+                session_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                scale_id VARCHAR(64) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'initialized',
+                actor_type VARCHAR(32) NOT NULL DEFAULT 'human',
+                actor_id VARCHAR(255),
+                definition_version VARCHAR(64) NOT NULL,
+                scoring_version VARCHAR(64) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMPTZ,
+                abandoned_at TIMESTAMPTZ
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_scale_sessions_user_id
+        ON scale_sessions(user_id)
+    """))
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_scale_sessions_user_scale
+        ON scale_sessions(user_id, scale_id)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS scale_session_answers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id VARCHAR(100) NOT NULL REFERENCES scale_sessions(session_id) ON DELETE CASCADE,
+                question_id VARCHAR(64) NOT NULL,
+                value REAL NOT NULL,
+                answered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                source VARCHAR(32),
+                source_detail TEXT,
+                UNIQUE(session_id, question_id)
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS scale_session_answers (
+                id SERIAL PRIMARY KEY,
+                session_id VARCHAR(100) NOT NULL REFERENCES scale_sessions(session_id) ON DELETE CASCADE,
+                question_id VARCHAR(64) NOT NULL,
+                value DOUBLE PRECISION NOT NULL,
+                answered_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                source VARCHAR(32),
+                source_detail TEXT,
+                UNIQUE(session_id, question_id)
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_scale_session_answers_session_id
+        ON scale_session_answers(session_id)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS scale_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id VARCHAR(100) NOT NULL UNIQUE REFERENCES scale_sessions(session_id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                scale_id VARCHAR(64) NOT NULL,
+                definition_version VARCHAR(64) NOT NULL,
+                scoring_version VARCHAR(64) NOT NULL,
+                answers_json TEXT NOT NULL,
+                dimension_scores_json TEXT NOT NULL,
+                derived_scores_json TEXT NOT NULL,
+                result_summary_json TEXT NOT NULL,
+                completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS scale_results (
+                id SERIAL PRIMARY KEY,
+                session_id VARCHAR(100) NOT NULL UNIQUE REFERENCES scale_sessions(session_id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                scale_id VARCHAR(64) NOT NULL,
+                definition_version VARCHAR(64) NOT NULL,
+                scoring_version VARCHAR(64) NOT NULL,
+                answers_json JSONB NOT NULL,
+                dimension_scores_json JSONB NOT NULL,
+                derived_scores_json JSONB NOT NULL,
+                result_summary_json JSONB NOT NULL,
+                completed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_scale_results_user_id
+        ON scale_results(user_id)
+    """))
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_scale_results_user_scale
+        ON scale_results(user_id, scale_id)
+    """))
+
+
+def _apply_portrait_dialogue_ddl(session) -> None:
+    """Create portrait dialogue runtime tables and indexes (idempotent)."""
+    is_sqlite = _is_sqlite_session(session)
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_dialogue_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                actor_type VARCHAR(32) NOT NULL DEFAULT 'human',
+                actor_id VARCHAR(255),
+                status VARCHAR(32) NOT NULL DEFAULT 'initialized',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                closed_at TEXT
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_dialogue_sessions (
+                id SERIAL PRIMARY KEY,
+                session_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                actor_type VARCHAR(32) NOT NULL DEFAULT 'human',
+                actor_id VARCHAR(255),
+                status VARCHAR(32) NOT NULL DEFAULT 'initialized',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                closed_at TIMESTAMPTZ
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_dialogue_sessions_user_id
+        ON portrait_dialogue_sessions(user_id)
+    """))
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_dialogue_sessions_user_status
+        ON portrait_dialogue_sessions(user_id, status)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_dialogue_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message_id VARCHAR(100) NOT NULL UNIQUE,
+                session_id VARCHAR(100) NOT NULL REFERENCES portrait_dialogue_sessions(session_id) ON DELETE CASCADE,
+                role VARCHAR(32) NOT NULL,
+                content_text TEXT,
+                content_json TEXT,
+                source VARCHAR(64) NOT NULL DEFAULT 'cli',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_dialogue_messages (
+                id SERIAL PRIMARY KEY,
+                message_id VARCHAR(100) NOT NULL UNIQUE,
+                session_id VARCHAR(100) NOT NULL REFERENCES portrait_dialogue_sessions(session_id) ON DELETE CASCADE,
+                role VARCHAR(32) NOT NULL,
+                content_text TEXT,
+                content_json JSONB,
+                source VARCHAR(64) NOT NULL DEFAULT 'cli',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_dialogue_messages_session_id
+        ON portrait_dialogue_messages(session_id)
+    """))
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_dialogue_messages_session_created
+        ON portrait_dialogue_messages(session_id, created_at)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_dialogue_states (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id VARCHAR(100) NOT NULL UNIQUE REFERENCES portrait_dialogue_sessions(session_id) ON DELETE CASCADE,
+                last_message_id VARCHAR(100),
+                derived_state_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_dialogue_states (
+                id SERIAL PRIMARY KEY,
+                session_id VARCHAR(100) NOT NULL UNIQUE REFERENCES portrait_dialogue_sessions(session_id) ON DELETE CASCADE,
+                last_message_id VARCHAR(100),
+                derived_state_json JSONB NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_dialogue_states_session_id
+        ON portrait_dialogue_states(session_id)
+    """))
+
+
+def _apply_portrait_state_ddl(session) -> None:
+    """Create canonical portrait state runtime tables and indexes (idempotent)."""
+    is_sqlite = _is_sqlite_session(session)
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_current_states (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                portrait_state_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                state_json TEXT NOT NULL DEFAULT '{}',
+                source_summary_json TEXT NOT NULL DEFAULT '{}',
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_current_states (
+                id SERIAL PRIMARY KEY,
+                portrait_state_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                state_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+                source_summary_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_current_states_user_id
+        ON portrait_current_states(user_id)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_update_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                update_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                source_type VARCHAR(64) NOT NULL,
+                source_id VARCHAR(100),
+                change_summary_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_update_events (
+                id SERIAL PRIMARY KEY,
+                update_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                source_type VARCHAR(64) NOT NULL,
+                source_id VARCHAR(100),
+                change_summary_json JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_update_events_user_created
+        ON portrait_update_events(user_id, created_at DESC)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_version_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                version_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                portrait_state_id VARCHAR(100) NOT NULL,
+                snapshot_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_version_snapshots (
+                id SERIAL PRIMARY KEY,
+                version_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                portrait_state_id VARCHAR(100) NOT NULL,
+                snapshot_json JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_version_snapshots_user_created
+        ON portrait_version_snapshots(user_id, created_at DESC)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_observations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                observation_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                source_type VARCHAR(64) NOT NULL,
+                source_id VARCHAR(100),
+                observation_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_observations (
+                id SERIAL PRIMARY KEY,
+                observation_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                source_type VARCHAR(64) NOT NULL,
+                source_id VARCHAR(100),
+                observation_json JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_observations_user_created
+        ON portrait_observations(user_id, created_at DESC)
+    """))
+
+
+def _apply_portrait_prompt_import_ddl(session) -> None:
+    """Create prompt-handoff and import-result runtime tables and indexes (idempotent)."""
+    is_sqlite = _is_sqlite_session(session)
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_prompt_handoffs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                handoff_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                dialogue_session_id VARCHAR(100),
+                portrait_state_id VARCHAR(100),
+                prompt_kind VARCHAR(64) NOT NULL DEFAULT 'integrated_portrait',
+                note_text TEXT,
+                status VARCHAR(32) NOT NULL DEFAULT 'ready',
+                requested_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TEXT,
+                cancelled_at TEXT
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_prompt_handoffs (
+                id SERIAL PRIMARY KEY,
+                handoff_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                dialogue_session_id VARCHAR(100),
+                portrait_state_id VARCHAR(100),
+                prompt_kind VARCHAR(64) NOT NULL DEFAULT 'integrated_portrait',
+                note_text TEXT,
+                status VARCHAR(32) NOT NULL DEFAULT 'ready',
+                requested_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMPTZ,
+                cancelled_at TIMESTAMPTZ
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_prompt_handoffs_user_requested
+        ON portrait_prompt_handoffs(user_id, requested_at DESC)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_prompt_artifacts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                artifact_id VARCHAR(100) NOT NULL UNIQUE,
+                handoff_id VARCHAR(100) NOT NULL REFERENCES portrait_prompt_handoffs(handoff_id) ON DELETE CASCADE,
+                artifact_type VARCHAR(64) NOT NULL,
+                content_text TEXT,
+                content_json TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_prompt_artifacts (
+                id SERIAL PRIMARY KEY,
+                artifact_id VARCHAR(100) NOT NULL UNIQUE,
+                handoff_id VARCHAR(100) NOT NULL REFERENCES portrait_prompt_handoffs(handoff_id) ON DELETE CASCADE,
+                artifact_type VARCHAR(64) NOT NULL,
+                content_text TEXT,
+                content_json JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_prompt_artifacts_handoff_created
+        ON portrait_prompt_artifacts(handoff_id, created_at ASC)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_import_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                import_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                handoff_id VARCHAR(100),
+                source_type VARCHAR(64) NOT NULL DEFAULT 'external_ai_text',
+                payload_text TEXT,
+                payload_json TEXT,
+                status VARCHAR(32) NOT NULL DEFAULT 'uploaded',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_import_results (
+                id SERIAL PRIMARY KEY,
+                import_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                handoff_id VARCHAR(100),
+                source_type VARCHAR(64) NOT NULL DEFAULT 'external_ai_text',
+                payload_text TEXT,
+                payload_json JSONB,
+                status VARCHAR(32) NOT NULL DEFAULT 'uploaded',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_import_results_user_created
+        ON portrait_import_results(user_id, created_at DESC)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_import_parse_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                parse_run_id VARCHAR(100) NOT NULL UNIQUE,
+                import_id VARCHAR(100) NOT NULL REFERENCES portrait_import_results(import_id) ON DELETE CASCADE,
+                parser_version VARCHAR(64) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'parsed',
+                parsed_output_json TEXT,
+                error_text TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_import_parse_runs (
+                id SERIAL PRIMARY KEY,
+                parse_run_id VARCHAR(100) NOT NULL UNIQUE,
+                import_id VARCHAR(100) NOT NULL REFERENCES portrait_import_results(import_id) ON DELETE CASCADE,
+                parser_version VARCHAR(64) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'parsed',
+                parsed_output_json JSONB,
+                error_text TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_import_parse_runs_import_created
+        ON portrait_import_parse_runs(import_id, created_at DESC)
+    """))
+
+
+def _apply_portrait_session_ddl(session) -> None:
+    """Create unified portrait session orchestration tables and indexes (idempotent)."""
+    is_sqlite = _is_sqlite_session(session)
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                actor_type VARCHAR(32) NOT NULL,
+                actor_id VARCHAR(255),
+                mode VARCHAR(32) NOT NULL DEFAULT 'default',
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                current_stage VARCHAR(64) NOT NULL,
+                current_input_kind VARCHAR(32) NOT NULL,
+                current_message TEXT NOT NULL,
+                current_payload_json TEXT,
+                current_next_hint TEXT,
+                result_preview_json TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                closed_at TEXT
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_sessions (
+                id SERIAL PRIMARY KEY,
+                session_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                actor_type VARCHAR(32) NOT NULL,
+                actor_id VARCHAR(255),
+                mode VARCHAR(32) NOT NULL DEFAULT 'default',
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                current_stage VARCHAR(64) NOT NULL,
+                current_input_kind VARCHAR(32) NOT NULL,
+                current_message TEXT NOT NULL,
+                current_payload_json JSONB,
+                current_next_hint TEXT,
+                result_preview_json JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                closed_at TIMESTAMPTZ
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_sessions_user_updated
+        ON portrait_sessions(user_id, updated_at DESC)
+    """))
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_sessions_user_status
+        ON portrait_sessions(user_id, status)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_session_runtime_refs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id VARCHAR(100) NOT NULL REFERENCES portrait_sessions(session_id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                ref_kind VARCHAR(64) NOT NULL,
+                ref_value VARCHAR(100) NOT NULL,
+                metadata_json TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(session_id, ref_kind)
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_session_runtime_refs (
+                id SERIAL PRIMARY KEY,
+                session_id VARCHAR(100) NOT NULL REFERENCES portrait_sessions(session_id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                ref_kind VARCHAR(64) NOT NULL,
+                ref_value VARCHAR(100) NOT NULL,
+                metadata_json JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(session_id, ref_kind)
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_session_runtime_refs_session
+        ON portrait_session_runtime_refs(session_id, ref_kind)
+    """))
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_session_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id VARCHAR(100) NOT NULL UNIQUE,
+                session_id VARCHAR(100) NOT NULL REFERENCES portrait_sessions(session_id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                event_type VARCHAR(64) NOT NULL,
+                event_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_session_events (
+                id SERIAL PRIMARY KEY,
+                event_id VARCHAR(100) NOT NULL UNIQUE,
+                session_id VARCHAR(100) NOT NULL REFERENCES portrait_sessions(session_id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                event_type VARCHAR(64) NOT NULL,
+                event_json JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_session_events_session_created
+        ON portrait_session_events(session_id, created_at DESC)
+    """))
+
+
+def _apply_portrait_legacy_kernel_ddl(session) -> None:
+    """Create durable storage for migrated old-kernel session snapshots."""
+    is_sqlite = _is_sqlite_session(session)
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_legacy_kernel_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                portrait_session_id VARCHAR(100) NOT NULL UNIQUE REFERENCES portrait_sessions(session_id) ON DELETE CASCADE,
+                legacy_session_id VARCHAR(100) NOT NULL,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                snapshot_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_legacy_kernel_sessions (
+                id SERIAL PRIMARY KEY,
+                portrait_session_id VARCHAR(100) NOT NULL UNIQUE REFERENCES portrait_sessions(session_id) ON DELETE CASCADE,
+                legacy_session_id VARCHAR(100) NOT NULL,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                snapshot_json JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_legacy_kernel_sessions_user_updated
+        ON portrait_legacy_kernel_sessions(user_id, updated_at DESC)
+    """))
+
+
+def _apply_portrait_artifact_ddl(session) -> None:
+    """Create durable portrait-derived artifact tables and indexes (idempotent)."""
+    is_sqlite = _is_sqlite_session(session)
+    session.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS portrait_artifacts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                artifact_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                portrait_state_id VARCHAR(100),
+                source_session_id VARCHAR(100),
+                artifact_kind VARCHAR(64) NOT NULL,
+                format VARCHAR(32) NOT NULL DEFAULT 'json',
+                status VARCHAR(32) NOT NULL DEFAULT 'ready',
+                title VARCHAR(255),
+                content_text TEXT,
+                content_json TEXT,
+                metadata_json TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            if is_sqlite
+            else
+            """
+            CREATE TABLE IF NOT EXISTS portrait_artifacts (
+                id SERIAL PRIMARY KEY,
+                artifact_id VARCHAR(100) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                portrait_state_id VARCHAR(100),
+                source_session_id VARCHAR(100),
+                artifact_kind VARCHAR(64) NOT NULL,
+                format VARCHAR(32) NOT NULL DEFAULT 'json',
+                status VARCHAR(32) NOT NULL DEFAULT 'ready',
+                title VARCHAR(255),
+                content_text TEXT,
+                content_json JSONB,
+                metadata_json JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_artifacts_user_created
+        ON portrait_artifacts(user_id, created_at DESC)
+    """))
+    session.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_portrait_artifacts_user_kind_created
+        ON portrait_artifacts(user_id, artifact_kind, created_at DESC)
+    """))
+
+
 def _apply_openclaw_identity_ddl(session) -> None:
     is_sqlite = _is_sqlite_session(session)
     session.execute(
@@ -1604,6 +2343,13 @@ def _init_auth_tables_once() -> None:
             ON digital_twins(user_id)
         """))
         _apply_twin_runtime_ddl(session)
+        _apply_scale_runtime_ddl(session)
+        _apply_portrait_dialogue_ddl(session)
+        _apply_portrait_state_ddl(session)
+        _apply_portrait_prompt_import_ddl(session)
+        _apply_portrait_session_ddl(session)
+        _apply_portrait_legacy_kernel_ddl(session)
+        _apply_portrait_artifact_ddl(session)
         _apply_openclaw_identity_ddl(session)
         _apply_skill_hub_ddl(session)
         _apply_site_feedback_ddl(session)

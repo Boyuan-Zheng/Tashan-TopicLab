@@ -1,0 +1,26 @@
+{
+  "fixture_version": "2026-04-10.v1",
+  "scale_id": "rcss",
+  "answers": {
+    "A1": 7,
+    "A2": 7,
+    "A3": 7,
+    "A4": 7,
+    "B1": 1,
+    "B2": 1,
+    "B3": 1,
+    "B4": 1
+  },
+  "expected": {
+    "dimension_scores": {
+      "integration": 28.0,
+      "depth": 4.0
+    },
+    "derived_scores": {
+      "I": 28.0,
+      "D": 4.0,
+      "CSI": 24.0,
+      "type": "强整合型"
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "fixture_version": "2026-04-10.v1",
+  "scale_id": "ams",
+  "answers": {
+    "1": 1,
+    "2": 7,
+    "3": 6,
+    "4": 7,
+    "5": 1,
+    "6": 7,
+    "7": 2,
+    "8": 1,
+    "9": 7,
+    "10": 6,
+    "11": 7,
+    "12": 1,
+    "13": 7,
+    "14": 2,
+    "15": 1,
+    "16": 7,
+    "17": 6,
+    "18": 7,
+    "19": 1,
+    "20": 7,
+    "21": 2,
+    "22": 1,
+    "23": 7,
+    "24": 6,
+    "25": 7,
+    "26": 1,
+    "27": 7,
+    "28": 2
+  },
+  "expected": {
+    "dimension_scores": {
+      "know": 7.0,
+      "accomplishment": 7.0,
+      "stimulation": 7.0,
+      "identified": 6.0,
+      "introjected": 2.0,
+      "external": 1.0,
+      "amotivation": 1.0
+    },
+    "derived_scores": {
+      "intrinsicTotal": 21.0,
+      "extrinsicTotal": 9.0,
+      "RAI": 68.0
+    }
+  }
+}

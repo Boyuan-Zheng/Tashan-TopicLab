@@ -1,0 +1,34 @@
+{
+  "definition_version": "2026-04-10.v1",
+  "scale_id": "rcss",
+  "name": "科研认知风格量表 (RCSS)",
+  "description": "评估你在科研中的思维习惯：偏向「跨领域整合」还是「专业深耕」。共 8 题，约 3 分钟。",
+  "instructions": "请根据你在科研中的真实倾向，对以下陈述评分。",
+  "min_val": 1,
+  "max_val": 7,
+  "min_label": "完全不同意",
+  "max_label": "完全同意",
+  "scoring_mode": "sum",
+  "questions": [
+    { "id": "A1", "text": "我习惯于在非本专业的领域中寻找可以跨界使用的灵感或方法。", "dimension": "integration", "reverse": false, "required": true },
+    { "id": "A2", "text": "在处理科研障碍时，我倾向于跳出当前具体问题，试图构建一个更宏大、更通用的理论框架或模型。", "dimension": "integration", "reverse": false, "required": true },
+    { "id": "A3", "text": "我认为跨学科的\"连接\"能力比单一学科的\"深度\"在现代科学研究中更为稀缺和重要。", "dimension": "integration", "reverse": false, "required": true },
+    { "id": "A4", "text": "我倾向于将不同的算法、模型和理论\"组装\"在一起，形成一套完整的系统或解决方案。", "dimension": "integration", "reverse": false, "required": true },
+    { "id": "B1", "text": "我更喜欢深耕一个垂直细分领域，成为那个领域里掌握技术细节最精准、最全面的专家。", "dimension": "depth", "reverse": false, "required": true },
+    { "id": "B2", "text": "我更喜欢针对某个具体的模型、数据集或物理现象进行极致的参数调优、数学建模或实验验证。", "dimension": "depth", "reverse": false, "required": true },
+    { "id": "B3", "text": "我更喜欢一个人安静地钻研极其复杂的数学推导、代码细节或实验操作，而不喜欢频繁讨论宏观架构。", "dimension": "depth", "reverse": false, "required": true },
+    { "id": "B4", "text": "我认为把一件技术小事做到极致的\"工匠精神\"是科研工作者的最高准则。", "dimension": "depth", "reverse": false, "required": true }
+  ],
+  "dimensions": [
+    { "id": "integration", "name": "横向整合", "question_ids": ["A1", "A2", "A3", "A4"] },
+    { "id": "depth", "name": "垂直深度", "question_ids": ["B1", "B2", "B3", "B4"] }
+  ],
+  "derived_metrics": [
+    {
+      "id": "csi",
+      "name": "科研认知风格指数",
+      "formula": "integration - depth",
+      "output_fields": ["I", "D", "CSI", "type"]
+    }
+  ]
+}

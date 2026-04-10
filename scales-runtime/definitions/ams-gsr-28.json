@@ -1,0 +1,59 @@
+{
+  "definition_version": "2026-04-10.v1",
+  "scale_id": "ams",
+  "name": "学术动机量表 (AMS-GSR 28)",
+  "description": "评估你从事科研的动机结构：内在动机、外在动机和无动机。共 28 题，约 8 分钟。",
+  "instructions": "请根据\"你为什么攻读研究生学位并从事科研工作？\"来回答。",
+  "min_val": 1,
+  "max_val": 7,
+  "min_label": "完全不符合",
+  "max_label": "非常符合",
+  "scoring_mode": "average",
+  "questions": [
+    { "id": "1", "text": "因为仅有本科学历，我以后找不到高薪工作。", "dimension": "external", "reverse": false, "required": true },
+    { "id": "2", "text": "因为在自己的领域学习新事物时我能体验到快乐和满足。", "dimension": "know", "reverse": false, "required": true },
+    { "id": "3", "text": "因为我认为研究生教育能帮助我更好地为选择的职业做准备。", "dimension": "identified", "reverse": false, "required": true },
+    { "id": "4", "text": "因为当与他人交流自己的研究想法时我体验到强烈的感受。", "dimension": "stimulation", "reverse": false, "required": true },
+    { "id": "5", "text": "说实话，我不知道；我真的觉得读研究生是浪费时间。", "dimension": "amotivation", "reverse": false, "required": true },
+    { "id": "6", "text": "因为在研究中超越自我时我能体验到愉悦。", "dimension": "accomplishment", "reverse": false, "required": true },
+    { "id": "7", "text": "为了向自己证明我有能力完成研究生学位。", "dimension": "introjected", "reverse": false, "required": true },
+    { "id": "8", "text": "为了日后能在学术界或产业界获得更有声望的职位。", "dimension": "external", "reverse": false, "required": true },
+    { "id": "9", "text": "因为发现前所未见的新现象或新观点时我能体验到愉悦。", "dimension": "know", "reverse": false, "required": true },
+    { "id": "10", "text": "因为这最终能使我进入我喜欢的领域就业。", "dimension": "identified", "reverse": false, "required": true },
+    { "id": "11", "text": "因为阅读有趣的学术论文或著作时我能体验到愉悦。", "dimension": "stimulation", "reverse": false, "required": true },
+    { "id": "12", "text": "我曾经有充分的理由读研究生；然而，现在我怀疑是否应该继续。", "dimension": "amotivation", "reverse": false, "required": true },
+    { "id": "13", "text": "因为在研究成就中超越自我时我能体验到快乐。", "dimension": "accomplishment", "reverse": false, "required": true },
+    { "id": "14", "text": "因为当我在研究中取得成功时，我会感到自己很重要。", "dimension": "introjected", "reverse": false, "required": true },
+    { "id": "15", "text": "因为我想日后拥有\"美好生活\"。", "dimension": "external", "reverse": false, "required": true },
+    { "id": "16", "text": "因为拓宽我感兴趣研究主题的知识时我能体验到愉悦。", "dimension": "know", "reverse": false, "required": true },
+    { "id": "17", "text": "因为这能帮助我就研究方向和职业定位做出更好的选择。", "dimension": "identified", "reverse": false, "required": true },
+    { "id": "18", "text": "因为全神贯注于某些学者的著作时我能体验到愉悦。", "dimension": "stimulation", "reverse": false, "required": true },
+    { "id": "19", "text": "我不明白为什么做科研，坦率地说，我根本不在乎。", "dimension": "amotivation", "reverse": false, "required": true },
+    { "id": "20", "text": "因为完成困难的研究任务过程中我能感到满足。", "dimension": "accomplishment", "reverse": false, "required": true },
+    { "id": "21", "text": "为了向自己展示我是一个聪明且有能力的研究者。", "dimension": "introjected", "reverse": false, "required": true },
+    { "id": "22", "text": "为了日后能有更好的职业前景和薪水。", "dimension": "external", "reverse": false, "required": true },
+    { "id": "23", "text": "因为我的研究生学习使我能继续了解许多我感兴趣的事物。", "dimension": "know", "reverse": false, "required": true },
+    { "id": "24", "text": "因为我相信额外几年的研究生教育会提高我作为研究者的能力。", "dimension": "identified", "reverse": false, "required": true },
+    { "id": "25", "text": "因为探索各种有趣的研究主题时我能体验到\"兴奋\"的感觉。", "dimension": "stimulation", "reverse": false, "required": true },
+    { "id": "26", "text": "我不知道；我无法理解我在研究中做什么。", "dimension": "amotivation", "reverse": false, "required": true },
+    { "id": "27", "text": "因为研究生学习使我在追求研究卓越的过程中体验到个人满足感。", "dimension": "accomplishment", "reverse": false, "required": true },
+    { "id": "28", "text": "因为我想向自己展示我能在研究生学习和研究中取得成功。", "dimension": "introjected", "reverse": false, "required": true }
+  ],
+  "dimensions": [
+    { "id": "know", "name": "求知内在动机", "question_ids": ["2", "9", "16", "23"] },
+    { "id": "accomplishment", "name": "成就内在动机", "question_ids": ["6", "13", "20", "27"] },
+    { "id": "stimulation", "name": "体验刺激内在动机", "question_ids": ["4", "11", "18", "25"] },
+    { "id": "identified", "name": "认同调节", "question_ids": ["3", "10", "17", "24"] },
+    { "id": "introjected", "name": "内摄调节", "question_ids": ["7", "14", "21", "28"] },
+    { "id": "external", "name": "外部调节", "question_ids": ["1", "8", "15", "22"] },
+    { "id": "amotivation", "name": "无动机", "question_ids": ["5", "12", "19", "26"] }
+  ],
+  "derived_metrics": [
+    {
+      "id": "rai",
+      "name": "相对自主性指数",
+      "formula": "3*know + 3*accomplishment + 3*stimulation + 2*identified - introjected - 2*external - 3*amotivation",
+      "output_fields": ["intrinsicTotal", "extrinsicTotal", "RAI"]
+    }
+  ]
+}

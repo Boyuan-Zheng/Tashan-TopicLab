@@ -1,0 +1,38 @@
+{
+  "registry_version": "2026-04-10.v1",
+  "scales": [
+    {
+      "scale_id": "rcss",
+      "name": "科研认知风格量表 (RCSS)",
+      "definition_version": "2026-04-10.v1",
+      "file": "rcss.json",
+      "question_count": 8,
+      "dimension_count": 2,
+      "min_val": 1,
+      "max_val": 7,
+      "scoring_mode": "sum"
+    },
+    {
+      "scale_id": "mini-ipip",
+      "name": "大五人格量表 (Mini-IPIP)",
+      "definition_version": "2026-04-10.v1",
+      "file": "mini-ipip.json",
+      "question_count": 20,
+      "dimension_count": 5,
+      "min_val": 1,
+      "max_val": 5,
+      "scoring_mode": "average"
+    },
+    {
+      "scale_id": "ams",
+      "name": "学术动机量表 (AMS-GSR 28)",
+      "definition_version": "2026-04-10.v1",
+      "file": "ams-gsr-28.json",
+      "question_count": 28,
+      "dimension_count": 7,
+      "min_val": 1,
+      "max_val": 7,
+      "scoring_mode": "average"
+    }
+  ]
+}

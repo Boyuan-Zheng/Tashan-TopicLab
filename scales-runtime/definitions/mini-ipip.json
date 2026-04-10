@@ -1,0 +1,42 @@
+{
+  "definition_version": "2026-04-10.v1",
+  "scale_id": "mini-ipip",
+  "name": "大五人格量表 (Mini-IPIP)",
+  "description": "评估你的五大人格特质：外向性、宜人性、尽责性、神经质、开放性。共 20 题，约 5 分钟。",
+  "instructions": "请描述你「通常的状态」，而非理想状态。",
+  "min_val": 1,
+  "max_val": 5,
+  "min_label": "非常不符合",
+  "max_label": "非常符合",
+  "scoring_mode": "average",
+  "questions": [
+    { "id": "1", "text": "我是聚会中的焦点人物。", "dimension": "E", "reverse": false, "required": true },
+    { "id": "2", "text": "我同情他人的感受。", "dimension": "A", "reverse": false, "required": true },
+    { "id": "3", "text": "我会立即完成杂务。", "dimension": "C", "reverse": false, "required": true },
+    { "id": "4", "text": "我情绪波动频繁。", "dimension": "N", "reverse": false, "required": true },
+    { "id": "5", "text": "我有生动的想象力。", "dimension": "I", "reverse": false, "required": true },
+    { "id": "6", "text": "我不常说话。", "dimension": "E", "reverse": true, "required": true },
+    { "id": "7", "text": "我对别人的问题不感兴趣。", "dimension": "A", "reverse": true, "required": true },
+    { "id": "8", "text": "我经常忘记把东西放回原处。", "dimension": "C", "reverse": true, "required": true },
+    { "id": "9", "text": "我大部分时间都很放松。", "dimension": "N", "reverse": true, "required": true },
+    { "id": "10", "text": "我对抽象概念不感兴趣。", "dimension": "I", "reverse": true, "required": true },
+    { "id": "11", "text": "在聚会上我会与许多不同的人交谈。", "dimension": "E", "reverse": false, "required": true },
+    { "id": "12", "text": "我能感受到他人的情绪。", "dimension": "A", "reverse": false, "required": true },
+    { "id": "13", "text": "我喜欢有条理。", "dimension": "C", "reverse": false, "required": true },
+    { "id": "14", "text": "我很容易心烦意乱。", "dimension": "N", "reverse": false, "required": true },
+    { "id": "15", "text": "我理解抽象概念有困难。", "dimension": "I", "reverse": true, "required": true },
+    { "id": "16", "text": "我保持在背景中（不引人注目）。", "dimension": "E", "reverse": true, "required": true },
+    { "id": "17", "text": "我对他人不太感兴趣。", "dimension": "A", "reverse": true, "required": true },
+    { "id": "18", "text": "我把事情搞得一团糟。", "dimension": "C", "reverse": true, "required": true },
+    { "id": "19", "text": "我很少感到忧郁。", "dimension": "N", "reverse": true, "required": true },
+    { "id": "20", "text": "我没有很好的想象力。", "dimension": "I", "reverse": true, "required": true }
+  ],
+  "dimensions": [
+    { "id": "E", "name": "外向性", "question_ids": ["1", "6", "11", "16"] },
+    { "id": "A", "name": "宜人性", "question_ids": ["2", "7", "12", "17"] },
+    { "id": "C", "name": "尽责性", "question_ids": ["3", "8", "13", "18"] },
+    { "id": "N", "name": "神经质", "question_ids": ["4", "9", "14", "19"] },
+    { "id": "I", "name": "开放性/智力", "question_ids": ["5", "10", "15", "20"] }
+  ],
+  "derived_metrics": []
+}
