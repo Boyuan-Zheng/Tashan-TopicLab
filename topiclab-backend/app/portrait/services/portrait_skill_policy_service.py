@@ -133,7 +133,7 @@ class PortraitSkillPolicyService:
             "不会向第三方泄露，也不会用于模型训练。你可以自行决定数字分身是否公开。"
         )
         question = (
-            "在开始逐项填写之前，想先问一下：你平时有没有使用过带记忆功能的 AI 工具？"
+            "我们先直接开始建立科研数字分身。如果后续发现信息仍然不足，我再为你生成一份画像补充提纲。请先确认继续开始。"
         )
         blocks = [
             text_block(privacy_notice),
@@ -142,14 +142,9 @@ class PortraitSkillPolicyService:
                 question=question,
                 options=[
                     {
-                        "id": "ai_memory",
-                        "label": "A. 有，先从 AI 记忆中提取信息",
-                        "description": "先生成一段提示词，发给你平时使用的 AI，再把回复粘贴回来。",
-                    },
-                    {
                         "id": "direct",
-                        "label": "B. 没有，或者不需要，直接开始填写",
-                        "description": "直接通过对话逐项采集基础信息。",
+                        "label": "继续直接开始",
+                        "description": "直接通过对话逐项采集基础信息；只有在信息明显不足时再补充提纲。",
                     },
                 ],
             ),
@@ -160,7 +155,7 @@ class PortraitSkillPolicyService:
             input_kind="choice",
             message=question,
             blocks=blocks,
-            next_hint="请选择从 AI 记忆开始，或直接开始填写。",
+            next_hint="选择 direct 继续开始；补充提纲只在后续信息不足时再使用。",
         )
 
     def build_ai_memory_import_step(
@@ -171,12 +166,15 @@ class PortraitSkillPolicyService:
         current_state: dict[str, Any] | None,
     ) -> dict[str, Any]:
         blocks = [
-            text_block("好的。请把下面这段提示词发给你常用的 AI，然后把它的完整回复粘贴回来。"),
-            copyable_block(title="AI 记忆提取提示词", content=prompt_text),
+            text_block(
+                "下面是一份画像补充提纲。请优先把它当作你继续访谈当前智能体的内部提纲，"
+                "整理出一份完整补充结果后粘贴回来；只有在确实需要时，才把它发给外部 AI。"
+            ),
+            copyable_block(title="画像补充提纲", content=prompt_text),
             text_input_block(
                 block_id="ai_memory_reply",
-                question="请将外部 AI 的完整回复粘贴到这里。",
-                placeholder="粘贴外部 AI 的完整回答，系统会自动解析并写入当前画像。",
+                question="请将整理后的补充结果粘贴到这里。",
+                placeholder="粘贴整理后的完整补充结果，系统会自动解析并写入当前画像。",
                 multiline=True,
             ),
         ]
@@ -184,9 +182,9 @@ class PortraitSkillPolicyService:
             step_id="ai_memory_reply",
             skill_id="generate-ai-memory-prompt",
             input_kind="text",
-            message="系统已生成 AI 记忆提取提示词，请在拿到回复后直接粘贴回来。",
+            message="系统已生成画像补充提纲，请在整理出补充结果后直接粘贴回来。",
             blocks=blocks,
-            next_hint="把外部 AI 的完整回复粘贴回来即可。",
+            next_hint="把整理后的补充结果粘贴回来即可；只有确实需要时再调用外部 AI。",
             payload_extra={
                 "handoff": handoff,
                 "prompt_text": prompt_text,

@@ -219,9 +219,11 @@ def _install_fake_legacy_kernel_llm(monkeypatch) -> None:
             if last_user == "帮我开始建立科研数字分身。":
                 if last_message.get("role") == "user":
                     return _legacy_kernel_response(tool_calls=[("read_skill", {"skill_name": "collect-basic-info"})])
-                return _legacy_kernel_response(content="我们先开始建立科研数字分身。你可以回复 A 使用 AI 记忆导入，或回复 B 直接逐步填写。")
+                return _legacy_kernel_response(
+                    content="我们先直接开始建立科研数字分身。请回复 direct 继续逐步填写；如果后续信息不足，我再帮你生成补充提纲。"
+                )
 
-            if last_user == "B":
+            if last_user == "我想直接通过对话逐步构建画像。":
                 if last_message.get("role") == "user":
                     return _legacy_kernel_response(tool_calls=[("write_profile", {"content": _legacy_profile_markdown(stage="basic_info_done")})])
                 return _legacy_kernel_response(content="已记录你的基础身份信息。你可以继续补充，或让我生成论坛画像。")
@@ -236,7 +238,7 @@ def _install_fake_legacy_kernel_llm(monkeypatch) -> None:
                     return _legacy_kernel_response(tool_calls=[("write_profile", {"content": _legacy_profile_markdown(stage="review_done")})])
                 return _legacy_kernel_response(content="画像已确认并完成。")
 
-            if "提示词" in last_user:
+            if "提示词" in last_user or "补充提纲" in last_user:
                 if last_message.get("role") == "user":
                     return _legacy_kernel_response(tool_calls=[("read_skill", {"skill_name": "generate-ai-memory-prompt"})])
                 return _legacy_kernel_response(
@@ -428,6 +430,10 @@ def test_portrait_session_runtime_closed_loop(tmp_path, monkeypatch):
         assert respond_payload["current_state"]["portrait_state_id"].startswith("pst_")
         assert respond_payload["current_state"]["state_json"]["dialogue"]["latest_session"]["session_id"] == respond_payload["runtime_refs"]["dialogue_session"]["ref_value"]
         assert respond_payload["result_preview"]["portrait_state_id"] == respond_payload["runtime_refs"]["portrait_state"]["ref_value"]
+        assert all(
+            str(item.get("choice")) != "prompt_handoff"
+            for item in (respond_payload.get("payload", {}).get("next_options") or [])
+        )
 
         forum = client.post(
             f"/api/v1/portrait/sessions/{session_id}/respond",
@@ -612,6 +618,10 @@ def test_portrait_session_runtime_routes_prompt_import_flow(tmp_path, monkeypatc
         seed_payload = seed.json()
         assert "dialogue_session" in seed_payload["runtime_refs"]
         assert "portrait_state" in seed_payload["runtime_refs"]
+        assert all(
+            str(item.get("choice")) != "prompt_handoff"
+            for item in (seed_payload.get("payload", {}).get("next_options") or [])
+        )
 
         handoff = client.post(
             f"/api/v1/portrait/sessions/{session_id}/respond",
@@ -722,7 +732,8 @@ def test_portrait_session_legacy_product_runs_migrated_legacy_kernel_loop(tmp_pa
         assert start_payload["interactive_block"]["type"] == "text_input"
         assert "legacy_kernel_session" in start_payload["runtime_refs"]
         assert "portrait_state" in start_payload["runtime_refs"]
-        assert "A 使用 AI 记忆导入" in start_payload["message"]
+        assert "回复 direct" in start_payload["message"]
+        assert "A 使用 AI 记忆导入" not in start_payload["message"]
 
         direct = client.post(
             f"/api/v1/portrait/sessions/{session_id}/respond",

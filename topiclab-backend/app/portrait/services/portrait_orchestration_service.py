@@ -27,13 +27,6 @@ class PortraitOrchestrationService:
                     "description": f"进入 {item['scale_id']} 的统一会话答题路径。",
                 }
             )
-        options.append(
-            {
-                "choice": "prompt_handoff",
-                "label": "生成外部提示词",
-                "description": "生成一份可粘贴到外部 AI 的提示词，并等待外部结果回贴。",
-            }
-        )
         options.extend(
             [
                 {
@@ -145,7 +138,7 @@ class PortraitOrchestrationService:
                         multiline=True,
                     ),
                     actions_block(
-                        message="如果你不想继续纯文本补充，也可以选择量表或外部提示词路径。",
+                        message="如果当前信息已经足够，你也可以先去做量表或执行后续画像动作。",
                         buttons=[
                             {"id": item["choice"], "label": item["label"], "style": "secondary"}
                             for item in self._action_options()
@@ -153,7 +146,7 @@ class PortraitOrchestrationService:
                     ),
                 ],
             },
-            "next_hint": "继续输入文字，或用 choice 选择量表/外部提示词等下一步动作。",
+            "next_hint": "继续输入文字即可；如需切到其他动作，可用 choice 选择量表或后续画像动作。",
         }
 
     def build_scale_question_step(self, *, scale_state: dict[str, Any]) -> dict[str, Any]:
@@ -201,7 +194,7 @@ class PortraitOrchestrationService:
         return {
             "stage": "dialogue",
             "input_kind": "text_or_choice",
-            "message": "量表结果已写入当前画像状态。你可以继续补充文字，或选择下一步动作。",
+            "message": "量表结果已写入当前画像状态。优先继续补充文字；如果当前信息已经足够，也可以选择下一步动作。",
             "payload": {
                 "scale_result": scale_result,
                 "result_preview": preview,
@@ -215,7 +208,7 @@ class PortraitOrchestrationService:
                     ),
                 ],
             },
-            "next_hint": "你可以继续输入文字，继续做别的量表，或生成外部提示词。",
+            "next_hint": "你可以继续输入文字，或继续做别的量表和后续画像动作。",
         }
 
     def build_import_request_step(
@@ -239,24 +232,27 @@ class PortraitOrchestrationService:
         return {
             "stage": "import_result",
             "input_kind": "external_text_or_json",
-            "message": "系统已经生成外部提示词。请把外部 AI 返回的结果直接粘贴回来。",
+            "message": "系统已生成画像补充提纲。请优先把它当作继续访谈当前智能体的内部提纲；整理出补充结果后直接粘贴回来。",
             "payload": {
                 "handoff": handoff,
                 "artifacts": artifacts,
                 "prompt_text": prompt_text,
                 "result_preview": preview,
                 "blocks": [
-                    text_block("系统已经生成外部提示词。请复制后发送给外部 AI，再把回复贴回来。"),
-                    copyable_block(title="外部提示词", content=prompt_text or ""),
+                    text_block(
+                        "系统已生成画像补充提纲。默认请先把它当作你自己的访谈提纲，继续向当前智能体追问并整理补充结果；"
+                        "只有在确实需要时，才把它发给外部 AI。"
+                    ),
+                    copyable_block(title="画像补充提纲", content=prompt_text or ""),
                     text_input_block(
                         block_id="import_result",
-                        question="请把外部 AI 返回的结果直接粘贴回来。",
-                        placeholder="可直接粘贴 markdown、自然语言，或之后改用 external_json。",
+                        question="请把整理后的补充结果直接粘贴回来。",
+                        placeholder="可直接粘贴 markdown、自然语言，或改用 external_json 提交结构化结果。",
                         multiline=True,
                     ),
                 ],
             },
-            "next_hint": "使用 external_text 或 external_json 提交外部 AI 的输出。",
+            "next_hint": "使用 external_text 或 external_json 提交补充结果；只有确实需要时再把提纲发给外部 AI。",
         }
 
     def build_import_followup_step(
@@ -275,7 +271,7 @@ class PortraitOrchestrationService:
         return {
             "stage": "dialogue",
             "input_kind": "text_or_choice",
-            "message": "外部结果已导入并更新当前画像。你可以继续补充文字，或选择下一步动作。",
+            "message": "补充结果已导入并更新当前画像。请优先继续直接补充文字，或再选择下一步动作。",
             "payload": {
                 "import_result": import_result,
                 "parse_run": parse_run,
@@ -290,7 +286,7 @@ class PortraitOrchestrationService:
                     ),
                 ],
             },
-            "next_hint": "你可以继续输入文字、继续做量表，或再次生成新的外部提示词。",
+            "next_hint": "你可以继续输入文字，或继续做量表和后续画像动作。",
         }
 
     def build_completed_step(self, *, current_state: dict[str, Any] | None) -> dict[str, Any]:

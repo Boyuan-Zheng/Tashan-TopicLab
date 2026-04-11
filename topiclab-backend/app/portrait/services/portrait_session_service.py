@@ -186,10 +186,10 @@ class PortraitSessionService:
     def _legacy_choice_to_text(self, choice_value: Any) -> str:
         normalized = str(choice_value).strip()
         mapping = {
-            "ai_memory": "A",
-            "direct": "B",
-            "continue_dialogue": "继续",
-            "prompt_handoff": "请生成一份给外部 AI 使用的画像提取提示词。",
+            "ai_memory": "我想先从已有 AI 记忆中补充画像信息。",
+            "direct": "我想直接通过对话逐步构建画像。",
+            "continue_dialogue": "请继续根据当前对话追问并更新画像。",
+            "prompt_handoff": "当前直接对话得到的信息还不够，请生成一份画像补充提纲。",
             "forum:generate": "请基于当前科研数字分身生成论坛画像。",
             "confirm_review": "我确认当前画像，没有更多修改，请完成最终画像。",
             "back_to_review": "回到画像审阅。",

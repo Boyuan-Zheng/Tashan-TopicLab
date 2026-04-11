@@ -66,10 +66,16 @@ Implemented portrait-domain slices:
     - `text -> dialogue -> portrait_state`
     - `choice(scale:<id>) -> scales -> portrait_state`
     - `choice(prompt_handoff) -> prompt_handoff`
+      - still supported as an explicit fallback path
+      - no longer advertised as the default next action in the main dialogue loop
     - `external_text|external_json -> import_result -> portrait_state`
     - `confirm -> completed`
   - current executable `legacy_product` path now routes through the migrated
     old kernel bridge instead of the handwritten policy welcome flow
+  - current collection-default principle:
+    - start with direct dialogue collection
+    - only fall back to prompt/import when direct turns still leave key
+      portrait dimensions too sparse
   - current verified closure:
     - `start(mode=legacy_product)` boots the migrated old-kernel agent loop
     - `respond(...)` normalizes CLI/API inputs into natural-language turns for

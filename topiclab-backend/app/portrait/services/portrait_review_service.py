@@ -182,7 +182,6 @@ class PortraitReviewService:
             {"id": "scale:rcss", "label": "重新做 RCSS", "description": "用实测量表校准认知风格。"},
             {"id": "scale:ams", "label": "重新做 AMS", "description": "用实测量表校准学术动机。"},
             {"id": "scale:mini-ipip", "label": "重新做 Mini-IPIP", "description": "用实测量表校准人格特征。"},
-            {"id": "prompt_handoff", "label": "生成外部提示词", "description": "交给外部 AI 继续补充画像。"},
             {"id": "forum:generate", "label": "生成论坛画像", "description": "生成一份论坛展示版公开画像草稿。"},
             {"id": "scientist:famous", "label": "匹配著名科学家", "description": "查看与你画像最接近的著名科学家。"},
             {"id": "scientist:field", "label": "推荐领域科学家", "description": "根据当前方向推荐值得关注的科学家。"},
